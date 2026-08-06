@@ -28,7 +28,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # pnpm 11.20+ 要求 Node.js v22.13+（使用 node:sqlite 内置模块）
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
