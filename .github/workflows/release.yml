@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.0.0)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        # --no-frozen-lockfile: 允许 lockfile 与 package.json 差异时自动解析
+        # （首个版本新增 electron-builder devDep，CI 端重新解析）
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build & Package (electron-vite + electron-builder)
+        run: pnpm build:win
+        env:
+          # electron-builder 用 GH_TOKEN 上传产物到 release（若配置 publish）
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GitHub Actions runner 在国外，直连 npm/electron 较快，无需镜像
+          # 仍保留 ELECTRON_MIRROR 兜底，避免偶发下载失败
+          ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
+
+      - name: Verify artifacts
+        shell: pwsh
+        run: |
+          Write-Host "=== release artifacts ==="
+          if (Test-Path release) {
+            Get-ChildItem release -Recurse | Select-Object Name, Length, FullName | Format-Table -AutoSize
+          } else {
+            Write-Host "ERROR: release directory not found"
+            exit 1
+          }
+
+      - name: Upload artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.exe
+            release/latest.yml
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
