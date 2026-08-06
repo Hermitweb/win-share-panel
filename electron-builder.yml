@@ -1,0 +1,27 @@
+appId: com.winshare.panel
+productName: WinShare Panel
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**/*
+asar: true
+extraResources:
+  - from: resources
+    to: resources
+    filter: ['**/*']
+win:
+  target:
+    - nsis
+    - portable
+  icon: resources/icon.ico
+  requestedExecutionLevel: requireAdministrator
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+portable:
+  artifactName: ${productName}-${version}-portable.exe
