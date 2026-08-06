@@ -20,7 +20,8 @@ function resolveResource(name: string): string {
   if (app.isPackaged) {
     return join(process.resourcesPath, 'resources', name)
   }
-  return join(__dirname, '..', 'resources', name)
+  // dev 模式：__dirname 是 out/main，需回退两层到项目根目录的 resources/
+  return join(__dirname, '..', '..', 'resources', name)
 }
 
 function createWindow(): void {
@@ -51,6 +52,7 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => mainWindow?.show())
   mainWindow.on('maximize', () => mainWindow?.webContents.send('window:maximizeChange', true))
   mainWindow.on('unmaximize', () => mainWindow?.webContents.send('window:maximizeChange', false))
+  mainWindow.on('focus', () => mainWindow?.flashFrame(false))
   mainWindow.on('close', (e) => {
     if (!isQuitting) {
       e.preventDefault()
@@ -93,6 +95,18 @@ function registerWindowIpc(): void {
   })
   ipcMain.handle('window:close', () => mainWindow?.hide())
   ipcMain.handle('window:isMaximized', () => !!mainWindow?.isMaximized())
+  ipcMain.handle('window:balloon', (_e, title: string, body: string) => {
+    if (tray) {
+      try {
+        tray.displayBalloon({ title, content: body, iconType: 'info' })
+      } catch {
+        // displayBalloon 不可用时降级为窗口闪烁
+        mainWindow?.flashFrame(true)
+      }
+    } else {
+      mainWindow?.flashFrame(true)
+    }
+  })
 }
 
 app.whenReady().then(() => {

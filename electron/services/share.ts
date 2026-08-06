@@ -24,6 +24,7 @@ function mapShare(r: RawShare): Share {
     name: r.Name,
     path: r.Path,
     description: r.Description || '',
+    protocol: 'smb',
     type: r.Special ? 'Special' : SHARE_TYPE_MAP[r.ShareType] || 'Disk',
     hidden: !!r.Hidden,
     concurrentUsers: r.ConcurrentUsers || 0,
@@ -150,18 +151,29 @@ export async function exportConfig(): Promise<string> {
   return JSON.stringify({ exportedAt: new Date().toISOString(), shares: configs }, null, 2)
 }
 
-export async function importConfig(json: string): Promise<void> {
+export async function importConfig(json: string): Promise<{ imported: number; skipped: number; errors: string[] }> {
   const data = JSON.parse(json)
   if (!data.shares || !Array.isArray(data.shares)) throw Errors.invalidParam('导入文件格式错误')
+  let imported = 0
+  let skipped = 0
+  const errors: string[] = []
   for (const s of data.shares) {
-    if (!validatePath(s.path)) continue
+    // 安全校验：name 与 path 均需合法，防止导入恶意配置注入非法共享名/路径
+    if (!validateName(s.name) || !validatePath(s.path)) {
+      skipped++
+      errors.push(`跳过非法条目：${s.name || '(空名)'}`)
+      continue
+    }
     try {
       const full = (s.permissions || []).filter((p: SharePermission) => p.access === 'Full' && !p.deny).map((p: SharePermission) => p.account)
       const change = (s.permissions || []).filter((p: SharePermission) => p.access === 'Change' && !p.deny).map((p: SharePermission) => p.account)
       const read = (s.permissions || []).filter((p: SharePermission) => p.access === 'Read' && !p.deny).map((p: SharePermission) => p.account)
       await createShare({ name: s.name, path: s.path, description: s.description, fullAccess: full, changeAccess: change, readAccess: read, encrypted: s.encrypted })
-    } catch {
-      // 单个失败跳过
+      imported++
+    } catch (e) {
+      skipped++
+      errors.push(`${s.name}: ${(e as Error).message}`)
     }
   }
+  return { imported, skipped, errors }
 }

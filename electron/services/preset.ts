@@ -2,8 +2,12 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import { Errors } from '../lib/errors'
-import { validateName, psQuote, runPowerShell } from '../lib/powershell'
-import type { PermissionPreset } from '../types'
+import { validateName } from '../lib/powershell'
+import { setSharePermissions, getSharePermissions } from './user'
+import type { PermissionPreset, SharePermission } from '../types'
+
+// access 白名单：防止恶意 preset 注入 PowerShell 命令
+const ALLOWED_ACCESS = new Set(['Full', 'Change', 'Read'])
 
 function dataDir(): string {
   return join(process.env.APPDATA || homedir(), 'WinSharePanel')
@@ -102,16 +106,50 @@ export async function applyPreset(
   const all = await listPresets()
   const preset = all.find((p) => p.id === presetId)
   if (!preset) throw Errors.presetNotFound(presetId)
-  if (mode === 'overwrite') {
-    await runPowerShell(
-      `Get-SmbShareAccess -Name ${psQuote(shareName)} | ForEach-Object { Revoke-SmbShareAccess -Name ${psQuote(shareName)} -AccountName $_.AccountName -Force }`
-    )
-  }
+
+  // 安全校验：access 必须在白名单内，防止恶意 preset 注入 PowerShell 命令
   for (const e of preset.entries) {
-    const acct = resolveAccount(e.account)
-    if (!acct) continue
-    await runPowerShell(
-      `Grant-SmbShareAccess -Name ${psQuote(shareName)} -AccountName ${psQuote(acct)} -AccessRight ${e.access} -Force`
-    )
+    if (!ALLOWED_ACCESS.has(e.access)) {
+      throw Errors.invalidParam(`预设条目 access 非法：${e.access}`)
+    }
   }
+
+  // 构造 SharePermission[]：merge 模式需先读取现有权限再合并
+  let targetPerms: SharePermission[]
+  if (mode === 'merge') {
+    // merge：保留现有权限，仅追加 preset 中的条目（同账号后者覆盖前者）
+    const existing = await getSharePermissions(shareName).catch(() => [] as SharePermission[])
+    const map = new Map<string, SharePermission>()
+    for (const p of existing) map.set(p.account, p)
+    for (const e of preset.entries) {
+      const acct = resolveAccount(e.account)
+      if (!acct) continue
+      map.set(acct, {
+        shareName,
+        account: acct,
+        accountType: e.accountType,
+        access: e.access,
+        deny: false
+      })
+    }
+    targetPerms = Array.from(map.values())
+  } else {
+    // overwrite：仅应用 preset 条目
+    targetPerms = preset.entries
+      .map((e) => {
+        const acct = resolveAccount(e.account)
+        if (!acct) return null
+        return {
+          shareName,
+          account: acct,
+          accountType: e.accountType,
+          access: e.access,
+          deny: false
+        } as SharePermission
+      })
+      .filter((p): p is SharePermission => p !== null)
+  }
+
+  // 复用 user.setSharePermissions 的事务补偿逻辑（含备份+回滚）
+  await setSharePermissions(shareName, targetPerms)
 }

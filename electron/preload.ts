@@ -13,7 +13,14 @@ import type {
   ServiceStatus,
   PermissionPreset,
   UserInfo,
-  DashboardStats
+  DashboardStats,
+  SmbSnapshotMeta,
+  Protocol,
+  ProtocolSession,
+  ProtocolDetectionResult,
+  ProtocolCapabilities,
+  CreateShareInput,
+  UpdateShareInput
 } from './types'
 
 const api = {
@@ -25,7 +32,8 @@ const api = {
     toggle: (name: string, enabled: boolean): Promise<void> => ipcRenderer.invoke('share:toggle', name, enabled),
     permissions: (name: string): Promise<SharePermission[]> => ipcRenderer.invoke('share:permissions', name),
     exportConfig: (): Promise<string> => ipcRenderer.invoke('share:export'),
-    importConfig: (json: string): Promise<void> => ipcRenderer.invoke('share:import', json)
+    importConfig: (json: string): Promise<{ imported: number; skipped: number; errors: string[] }> =>
+      ipcRenderer.invoke('share:import', json)
   },
   user: {
     list: (): Promise<LocalUser[]> => ipcRenderer.invoke('user:list'),
@@ -45,7 +53,9 @@ const api = {
     getConfig: (): Promise<SmbServerConfig> => ipcRenderer.invoke('smb:getConfig'),
     setConfig: (config: Partial<SmbServerConfig>): Promise<void> => ipcRenderer.invoke('smb:setConfig', config),
     serviceStatus: (): Promise<ServiceStatus> => ipcRenderer.invoke('smb:serviceStatus'),
-    restart: (): Promise<void> => ipcRenderer.invoke('smb:restart')
+    restart: (): Promise<void> => ipcRenderer.invoke('smb:restart'),
+    listSnapshots: (): Promise<SmbSnapshotMeta[]> => ipcRenderer.invoke('smb:listSnapshots'),
+    rollback: (id: string): Promise<void> => ipcRenderer.invoke('smb:rollback', id)
   },
   preset: {
     list: (): Promise<PermissionPreset[]> => ipcRenderer.invoke('preset:list'),
@@ -68,7 +78,48 @@ const api = {
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
     onMaximizeChange: (cb: (maximized: boolean) => void): void => {
       ipcRenderer.on('window:maximizeChange', (_e, maximized: boolean) => cb(maximized))
-    }
+    },
+    showBalloon: (title: string, body: string): Promise<void> => ipcRenderer.invoke('window:balloon', title, body)
+  },
+  // === 多协议扩展：统一协议路由 ===
+  adapter: {
+    list: (protocol?: Protocol): Promise<Share[]> => ipcRenderer.invoke('adapter:list', protocol),
+    create: (input: CreateShareInput): Promise<Share> => ipcRenderer.invoke('adapter:create', input),
+    update: (name: string, input: UpdateShareInput): Promise<Share> => ipcRenderer.invoke('adapter:update', name, input),
+    delete: (protocol: Protocol, name: string): Promise<void> => ipcRenderer.invoke('adapter:delete', protocol, name),
+    toggle: (protocol: Protocol, name: string, enabled: boolean): Promise<void> =>
+      ipcRenderer.invoke('adapter:toggle', protocol, name, enabled),
+    permissions: (protocol: Protocol, name: string): Promise<SharePermission[]> =>
+      ipcRenderer.invoke('adapter:permissions', protocol, name),
+    setPermissions: (protocol: Protocol, name: string, perms: SharePermission[]): Promise<void> =>
+      ipcRenderer.invoke('adapter:setPermissions', protocol, name, perms),
+    sessions: (protocol: Protocol): Promise<ProtocolSession[]> => ipcRenderer.invoke('adapter:sessions', protocol),
+    closeSession: (protocol: Protocol, sessionId: string): Promise<void> =>
+      ipcRenderer.invoke('adapter:closeSession', protocol, sessionId),
+    capabilities: (): Promise<Record<Protocol, ProtocolCapabilities | null>> =>
+      ipcRenderer.invoke('adapter:capabilities')
+  },
+  // === NFS 服务器配置/服务控制 ===
+  nfs: {
+    getConfig: (): Promise<unknown> => ipcRenderer.invoke('nfs:getConfig'),
+    setConfig: (config: unknown): Promise<void> => ipcRenderer.invoke('nfs:setConfig', config),
+    serviceStatus: (): Promise<ServiceStatus> => ipcRenderer.invoke('nfs:serviceStatus'),
+    restart: (): Promise<void> => ipcRenderer.invoke('nfs:restart')
+  },
+  // === FTP 服务控制（站点级配置经 adapter 路由） ===
+  ftp: {
+    serviceStatus: (): Promise<ServiceStatus> => ipcRenderer.invoke('ftp:serviceStatus'),
+    restart: (): Promise<void> => ipcRenderer.invoke('ftp:restart')
+  },
+  // === WebDAV 服务控制（站点级配置经 adapter 路由） ===
+  webdav: {
+    serviceStatus: (): Promise<ServiceStatus> => ipcRenderer.invoke('webdav:serviceStatus'),
+    restart: (): Promise<void> => ipcRenderer.invoke('webdav:restart')
+  },
+  // === 协议能力探测 + 引导安装 ===
+  protocol: {
+    detect: (): Promise<ProtocolDetectionResult> => ipcRenderer.invoke('protocol:detect'),
+    install: (protocol: Protocol): Promise<void> => ipcRenderer.invoke('protocol:install', protocol)
   }
 }
 

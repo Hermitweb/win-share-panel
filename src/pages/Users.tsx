@@ -3,12 +3,17 @@ import { Table, Tabs, Tag, App, Button } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import { api, call } from '../api'
 import type { LocalUser, LocalGroup } from '../types'
+import PermissionMatrix from '../components/PermissionMatrix'
+import { useUiStore } from '../stores/uiStore'
+import { useTickEffect } from '../hooks/useTickEffect'
 
 export default function Users() {
   const { message } = App.useApp()
   const [users, setUsers] = useState<LocalUser[]>([])
   const [groups, setGroups] = useState<LocalGroup[]>([])
   const [loading, setLoading] = useState(false)
+
+  const refreshTick = useUiStore((s) => s.refreshTick)
 
   const load = async () => {
     setLoading(true)
@@ -25,6 +30,11 @@ export default function Users() {
   useEffect(() => {
     load()
   }, [])
+
+  // hotkey F5 刷新
+  useTickEffect(refreshTick, () => {
+    load()
+  })
 
   return (
     <div>
@@ -89,6 +99,11 @@ export default function Users() {
                 />
               </div>
             )
+          },
+          {
+            key: 'matrix',
+            label: '权限矩阵',
+            children: <PermissionMatrix />
           }
         ]}
       />

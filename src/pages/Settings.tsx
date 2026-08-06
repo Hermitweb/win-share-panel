@@ -14,33 +14,43 @@ import {
   Descriptions,
   App
 } from 'antd'
-import { ReloadOutlined, PoweroffOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons'
+import { ReloadOutlined, PoweroffOutlined, PlusOutlined, DeleteOutlined, HistoryOutlined } from '@ant-design/icons'
+import dayjs from 'dayjs'
 import { api, call } from '../api'
-import type { SmbServerConfig, ServiceStatus, PermissionPreset } from '../types'
+import type { SmbServerConfig, ServiceStatus, PermissionPreset, SmbSnapshotMeta } from '../types'
+import { useUiStore } from '../stores/uiStore'
+import { useTickEffect } from '../hooks/useTickEffect'
+import NfsSettingsPanel from '../components/NfsSettingsPanel'
+import IisServicePanel from '../components/IisServicePanel'
 
 export default function Settings() {
   const { message } = App.useApp()
   const [config, setConfig] = useState<Partial<SmbServerConfig>>({})
   const [svc, setSvc] = useState<ServiceStatus | null>(null)
   const [presets, setPresets] = useState<PermissionPreset[]>([])
+  const [snapshots, setSnapshots] = useState<SmbSnapshotMeta[]>([])
   const [audit, setAudit] = useState('')
   const [saving, setSaving] = useState(false)
   const [form] = Form.useForm()
   const [presetModal, setPresetModal] = useState(false)
   const [presetForm] = Form.useForm()
 
+  const refreshTick = useUiStore((s) => s.refreshTick)
+
   const load = async () => {
     try {
-      const [c, s, p, a] = await Promise.all([
+      const [c, s, p, a, snaps] = await Promise.all([
         call(api.smb.getConfig),
         call(api.smb.serviceStatus),
         call(api.preset.list),
-        call(api.system.auditLog)
+        call(api.system.auditLog),
+        call(api.smb.listSnapshots).catch(() => [] as SmbSnapshotMeta[])
       ])
       setConfig(c)
       setSvc(s)
       setPresets(p)
       setAudit(a)
+      setSnapshots(snaps)
       form.setFieldsValue(c)
     } catch (e) {
       message.error((e as Error).message)
@@ -49,6 +59,11 @@ export default function Settings() {
   useEffect(() => {
     load()
   }, [])
+
+  // hotkey F5 刷新
+  useTickEffect(refreshTick, () => {
+    load()
+  })
 
   const save = async () => {
     const v = await form.validateFields()
@@ -72,6 +87,23 @@ export default function Settings() {
     } catch (e) {
       message.error((e as Error).message)
     }
+  }
+
+  const rollback = async (id: string) => {
+    try {
+      await call(() => api.smb.rollback(id))
+      message.success('已回滚到所选快照')
+      load()
+    } catch (e) {
+      message.error((e as Error).message)
+    }
+  }
+
+  // 快照 id 形如 2026-08-06T12-34-56-789Z，解析为可读时间
+  const fmtSnapshotTs = (id: string): string => {
+    const m = id.match(/^(\d{4}-\d{2}-\d{2})-(\d{2})-(\d{2})-(\d{2})/)
+    if (!m) return id
+    return dayjs(`${m[1]} ${m[2]}:${m[3]}:${m[4]}`).format('YYYY-MM-DD HH:mm:ss')
   }
 
   const exportAudit = () => {
@@ -119,13 +151,19 @@ export default function Settings() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">SMB 配置</h1>
+        <h1 className="text-xl font-semibold">服务器配置</h1>
         <Button icon={<ReloadOutlined />} onClick={load}>
           刷新
         </Button>
       </div>
       <Tabs
         items={[
+          {
+            key: 'smb',
+            label: 'SMB',
+            children: (
+              <Tabs
+                items={[
           {
             key: 'config',
             label: '服务器配置',
@@ -246,6 +284,66 @@ export default function Settings() {
                 </pre>
               </div>
             )
+          },
+          {
+            key: 'snapshots',
+            label: (
+              <span>
+                <HistoryOutlined /> 快照历史
+              </span>
+            ),
+            children: (
+              <div className="glass-card p-3">
+                <p className="text-xs text-fog mb-3">
+                  每次 SMB 配置写入前自动保存当前完整配置为快照（最多 20 份）。回滚会覆盖当前配置，且不产生新快照。
+                </p>
+                <Table
+                  dataSource={snapshots}
+                  rowKey="id"
+                  size="middle"
+                  pagination={{ pageSize: 10 }}
+                  locale={{ emptyText: '暂无快照' }}
+                  columns={[
+                    { title: '时间', dataIndex: 'id', render: (v: string) => fmtSnapshotTs(v) },
+                    {
+                      title: '操作',
+                      width: 100,
+                      render: (_: unknown, r: SmbSnapshotMeta) => (
+                        <Popconfirm
+                          title="回滚到该快照？"
+                          description="当前配置将被覆盖"
+                          okText="回滚"
+                          okType="danger"
+                          cancelText="取消"
+                          onConfirm={() => rollback(r.id)}
+                        >
+                          <Button size="small">回滚</Button>
+                        </Popconfirm>
+                      )
+                    }
+                  ]}
+                />
+              </div>
+            )
+          }
+                ]}
+              />
+            )
+          },
+          {
+            key: 'nfs',
+            label: 'NFS',
+            children: <NfsSettingsPanel />
+          },
+          {
+            key: 'ftp',
+            label: 'FTP',
+            children: <IisServicePanel protocol="ftp" />
+          },
+          {
+            key: 'webdav',
+            label: 'WebDAV',
+            children: <IisServicePanel protocol="webdav" />
           }
         ]}
       />

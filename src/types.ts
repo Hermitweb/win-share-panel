@@ -6,13 +6,23 @@ import type {
   LocalUser,
   LocalGroup,
   NtfsAcl,
+  NtfsAclEntry,
   SmbSession,
   SmbOpenFile,
   SmbServerConfig,
+  NfsServerConfig,
   ServiceStatus,
   PermissionPreset,
   UserInfo,
-  DashboardStats
+  DashboardStats,
+  SmbSnapshot,
+  SmbSnapshotMeta,
+  Protocol,
+  ProtocolSession,
+  ProtocolDetectionResult,
+  ProtocolCapabilities,
+  CreateShareInput,
+  UpdateShareInput
 } from '../electron/types'
 
 export type {
@@ -23,13 +33,23 @@ export type {
   LocalUser,
   LocalGroup,
   NtfsAcl,
+  NtfsAclEntry,
   SmbSession,
   SmbOpenFile,
   SmbServerConfig,
+  NfsServerConfig,
   ServiceStatus,
   PermissionPreset,
   UserInfo,
-  DashboardStats
+  DashboardStats,
+  SmbSnapshot,
+  SmbSnapshotMeta,
+  Protocol,
+  ProtocolSession,
+  ProtocolDetectionResult,
+  ProtocolCapabilities,
+  CreateShareInput,
+  UpdateShareInput
 }
 
 export interface WinShareApi {
@@ -41,7 +61,7 @@ export interface WinShareApi {
     toggle: (name: string, enabled: boolean) => Promise<void>
     permissions: (name: string) => Promise<SharePermission[]>
     exportConfig: () => Promise<string>
-    importConfig: (json: string) => Promise<void>
+    importConfig: (json: string) => Promise<{ imported: number; skipped: number; errors: string[] }>
   }
   user: {
     list: () => Promise<LocalUser[]>
@@ -61,6 +81,8 @@ export interface WinShareApi {
     setConfig: (config: Partial<SmbServerConfig>) => Promise<void>
     serviceStatus: () => Promise<ServiceStatus>
     restart: () => Promise<void>
+    listSnapshots: () => Promise<SmbSnapshotMeta[]>
+    rollback: (id: string) => Promise<void>
   }
   preset: {
     list: () => Promise<PermissionPreset[]>
@@ -81,5 +103,37 @@ export interface WinShareApi {
     close: () => Promise<void>
     isMaximized: () => Promise<boolean>
     onMaximizeChange: (cb: (maximized: boolean) => void) => void
+    showBalloon: (title: string, body: string) => Promise<void>
+  }
+  // 多协议扩展
+  adapter: {
+    list: (protocol?: Protocol) => Promise<Share[]>
+    create: (input: CreateShareInput) => Promise<Share>
+    update: (name: string, input: UpdateShareInput) => Promise<Share>
+    delete: (protocol: Protocol, name: string) => Promise<void>
+    toggle: (protocol: Protocol, name: string, enabled: boolean) => Promise<void>
+    permissions: (protocol: Protocol, name: string) => Promise<SharePermission[]>
+    setPermissions: (protocol: Protocol, name: string, perms: SharePermission[]) => Promise<void>
+    sessions: (protocol: Protocol) => Promise<ProtocolSession[]>
+    closeSession: (protocol: Protocol, sessionId: string) => Promise<void>
+    capabilities: () => Promise<Record<Protocol, ProtocolCapabilities | null>>
+  }
+  nfs: {
+    getConfig: () => Promise<NfsServerConfig>
+    setConfig: (config: Partial<NfsServerConfig>) => Promise<void>
+    serviceStatus: () => Promise<ServiceStatus>
+    restart: () => Promise<void>
+  }
+  ftp: {
+    serviceStatus: () => Promise<ServiceStatus>
+    restart: () => Promise<void>
+  }
+  webdav: {
+    serviceStatus: () => Promise<ServiceStatus>
+    restart: () => Promise<void>
+  }
+  protocol: {
+    detect: () => Promise<ProtocolDetectionResult>
+    install: (protocol: Protocol) => Promise<void>
   }
 }

@@ -6,6 +6,11 @@ const execFileAsync = promisify(execFile)
 const DEFAULT_TIMEOUT = 15000
 const DEFAULT_RETRIES = 2
 
+// 强制 PowerShell 以 UTF-8 输出，避免 Node 按 UTF-8 解码 GBK 字节导致中文乱码
+// （中文 Windows 默认控制台代码页 936/GBK，ConvertTo-Json 输出的中文按 GBK 编码）
+const UTF8_PREFIX =
+  '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $OutputEncoding=[System.Text.Encoding]::UTF8; '
+
 export interface PsOptions {
   timeout?: number
   retries?: number
@@ -21,7 +26,7 @@ export async function runPowerShell<T>(command: string, opts: PsOptions = {}): P
     try {
       const { stdout } = await execFileAsync(
         'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', `${command} | ConvertTo-Json -Depth 5 -Compress`],
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', `${UTF8_PREFIX}${command} | ConvertTo-Json -Depth 5 -Compress`],
         { timeout, maxBuffer: 10 * 1024 * 1024, windowsHide: true }
       )
       return parseJson<T>(stdout)
@@ -43,7 +48,7 @@ export async function runPowerShellVoid(command: string, opts: PsOptions = {}): 
     try {
       await execFileAsync(
         'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command],
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', `${UTF8_PREFIX}${command}`],
         { timeout, maxBuffer: 10 * 1024 * 1024, windowsHide: true }
       )
       return

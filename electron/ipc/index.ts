@@ -6,6 +6,23 @@ import * as session from '../services/session'
 import * as smb from '../services/smb'
 import * as preset from '../services/preset'
 import * as system from '../services/system'
+import * as nfs from '../services/nfs'
+import * as ftp from '../services/ftp'
+import * as webdav from '../services/webdav'
+import {
+  adapterList,
+  adapterCreate,
+  adapterUpdate,
+  adapterDelete,
+  adapterToggle,
+  adapterGetPermissions,
+  adapterSetPermissions,
+  adapterSessions,
+  adapterCloseSession,
+  getCapabilitiesMap
+} from '../services/protocol/registry'
+import { detectProtocols, installProtocol } from '../services/protocol/detect'
+import type { Protocol, CreateShareInput, UpdateShareInput, SharePermission } from '../types'
 
 // 统一包装：审计 + 错误透传
 function wrap<T>(fn: () => Promise<T>, action: string, target: string): Promise<T> {
@@ -49,6 +66,8 @@ export function registerIpc(): void {
   ipcMain.handle('smb:setConfig', (_e, config) => wrap(() => smb.setConfig(config), 'setConfig', 'smb'))
   ipcMain.handle('smb:serviceStatus', () => wrap(smb.getServiceStatus, 'serviceStatus', 'LanmanServer'))
   ipcMain.handle('smb:restart', () => wrap(smb.restartService, 'restart', 'LanmanServer'))
+  ipcMain.handle('smb:listSnapshots', () => smb.listSnapshots())
+  ipcMain.handle('smb:rollback', (_e, id: string) => wrap(() => smb.rollbackSnapshot(id), 'rollback', id))
 
   // === preset ===
   ipcMain.handle('preset:list', () => preset.listPresets())
@@ -64,4 +83,44 @@ export function registerIpc(): void {
   ipcMain.handle('system:dashboard', () => system.getDashboardStats())
   ipcMain.handle('system:auditLog', () => system.getAuditLog())
   ipcMain.handle('system:health', () => system.healthCheck())
+
+  // === adapter: 多协议统一路由（共享 CRUD + 权限 + 会话） ===
+  ipcMain.handle('adapter:list', (_e, protocol?: Protocol) =>
+    wrap(() => adapterList(protocol), 'list', `shares:${protocol || 'all'}`))
+  ipcMain.handle('adapter:create', (_e, input: CreateShareInput) =>
+    wrap(() => adapterCreate(input), 'create', `${input.protocol}:${input.name}`))
+  ipcMain.handle('adapter:update', (_e, name: string, input: UpdateShareInput) =>
+    wrap(() => adapterUpdate(name, input), 'update', `${input.protocol}:${name}`))
+  ipcMain.handle('adapter:delete', (_e, protocol: Protocol, name: string) =>
+    wrap(() => adapterDelete(protocol, name), 'delete', `${protocol}:${name}`))
+  ipcMain.handle('adapter:toggle', (_e, protocol: Protocol, name: string, enabled: boolean) =>
+    wrap(() => adapterToggle(protocol, name, enabled), 'toggle', `${protocol}:${name}`))
+  ipcMain.handle('adapter:permissions', (_e, protocol: Protocol, name: string) =>
+    wrap(() => adapterGetPermissions(protocol, name), 'getPermissions', `${protocol}:${name}`))
+  ipcMain.handle('adapter:setPermissions', (_e, protocol: Protocol, name: string, perms: SharePermission[]) =>
+    wrap(() => adapterSetPermissions(protocol, name, perms), 'setPermissions', `${protocol}:${name}`))
+  ipcMain.handle('adapter:sessions', (_e, protocol: Protocol) =>
+    wrap(() => adapterSessions(protocol), 'list', `${protocol}:sessions`))
+  ipcMain.handle('adapter:closeSession', (_e, protocol: Protocol, sessionId: string) =>
+    wrap(() => adapterCloseSession(protocol, sessionId), 'closeSession', `${protocol}:${sessionId}`))
+  ipcMain.handle('adapter:capabilities', () => getCapabilitiesMap())
+
+  // === nfs: NFS 服务器配置/服务控制 ===
+  ipcMain.handle('nfs:getConfig', () => wrap(nfs.getConfig, 'getConfig', 'nfs'))
+  ipcMain.handle('nfs:setConfig', (_e, config) => wrap(() => nfs.setConfig(config), 'setConfig', 'nfs'))
+  ipcMain.handle('nfs:serviceStatus', () => wrap(nfs.getServiceStatus, 'serviceStatus', 'NfsService'))
+  ipcMain.handle('nfs:restart', () => wrap(nfs.restartService, 'restart', 'NfsService'))
+
+  // === ftp: FTP 服务控制（站点级配置经 adapter 路由） ===
+  ipcMain.handle('ftp:serviceStatus', () => wrap(ftp.getServiceStatus, 'serviceStatus', 'ftpsvc'))
+  ipcMain.handle('ftp:restart', () => wrap(ftp.restartService, 'restart', 'ftpsvc'))
+
+  // === webdav: WebDAV 服务控制（站点级配置经 adapter 路由） ===
+  ipcMain.handle('webdav:serviceStatus', () => wrap(webdav.getServiceStatus, 'serviceStatus', 'W3SVC'))
+  ipcMain.handle('webdav:restart', () => wrap(webdav.restartService, 'restart', 'W3SVC'))
+
+  // === protocol: 能力探测 + 引导安装 ===
+  ipcMain.handle('protocol:detect', () => wrap(detectProtocols, 'detect', 'protocols'))
+  ipcMain.handle('protocol:install', (_e, protocol: Protocol) =>
+    wrap(() => installProtocol(protocol), 'install', protocol))
 }

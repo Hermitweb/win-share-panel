@@ -11,8 +11,7 @@
     "resolveJsonModule": true,
     "types": ["node"],
     "noEmit": true,
-    "baseUrl": ".",
-    "paths": { "@main/*": ["electron/*"] }
+    "paths": { "@main/*": ["./electron/*"] }
   },
   "include": ["electron", "electron.vite.config.ts"]
 }

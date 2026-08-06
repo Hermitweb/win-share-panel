@@ -30,9 +30,11 @@ export default function TitleBar() {
       style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.5)' }}
     >
       <div className="flex items-center gap-2">
-        <div
-          className="w-5 h-5 rounded-md"
-          style={{ background: 'linear-gradient(135deg,#7EC8F0 0%,#C8B6E2 50%,#F5C6C6 100%)' }}
+        <img
+          src="/logo.png"
+          alt="WinShare Panel"
+          className="w-5 h-5 rounded-md object-cover"
+          draggable={false}
         />
         <span className="text-sm font-medium gradient-text">WinShare Panel</span>
       </div>

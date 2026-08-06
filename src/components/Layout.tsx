@@ -9,6 +9,7 @@ import {
   ThunderboltOutlined
 } from '@ant-design/icons'
 import TitleBar from './TitleBar'
+import HealthBar from './HealthBar'
 
 interface MenuItem {
   path: string
@@ -28,6 +29,7 @@ export default function Layout({ children, onCommand }: { children: ReactNode; o
   return (
     <div className="flex flex-col h-screen">
       <TitleBar />
+      <HealthBar />
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-56 p-3 flex flex-col gap-1 shrink-0">
           {menus.map((m) => (
