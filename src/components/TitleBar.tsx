@@ -31,7 +31,7 @@ export default function TitleBar() {
     >
       <div className="flex items-center gap-2">
         <img
-          src="/logo.png"
+          src="./logo.png"
           alt="WinShare Panel"
           className="w-5 h-5 rounded-md object-cover"
           draggable={false}
