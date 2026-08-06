@@ -109,18 +109,37 @@ function registerWindowIpc(): void {
   })
 }
 
-app.whenReady().then(() => {
-  registerIpc()
-  registerWindowIpc()
-  createWindow()
-  createTray()
-})
+// 单实例锁：防止多开。用户关闭窗口时程序最小化到托盘，
+// 若再次双击桌面图标/启动器，应激活已有实例而非启动新进程。
+const gotTheLock = app.requestSingleInstanceLock()
 
-app.on('before-quit', () => {
-  isQuitting = true
-  tray?.destroy()
-})
+if (!gotTheLock) {
+  // 已有实例运行：当前进程退出，由首个实例的 second-instance 处理激活
+  app.quit()
+} else {
+  // 首个实例收到第二实例启动请求：激活并聚焦已有窗口
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      if (!mainWindow.isVisible()) mainWindow.show()
+      mainWindow.focus()
+    }
+  })
 
-app.on('window-all-closed', (e: Event) => {
-  e.preventDefault()
-})
+  app.whenReady().then(() => {
+    registerIpc()
+    registerWindowIpc()
+    createWindow()
+    createTray()
+  })
+
+  app.on('before-quit', () => {
+    isQuitting = true
+    tray?.destroy()
+  })
+
+  app.on('window-all-closed', (e: Event) => {
+    // 托盘常驻：关闭所有窗口时不退出应用
+    e.preventDefault()
+  })
+}
