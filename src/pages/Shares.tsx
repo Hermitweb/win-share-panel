@@ -16,7 +16,11 @@ import {
   Upload,
   Tabs,
   Checkbox,
-  Radio
+  Radio,
+  Empty,
+  Badge,
+  Alert,
+  Collapse
 } from 'antd'
 import {
   PlusOutlined,
@@ -28,15 +32,17 @@ import {
   PlayCircleOutlined,
   EditOutlined,
   SearchOutlined,
-  SafetyOutlined
+  SafetyOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
-import type { Share, PermissionPreset, Protocol, ProtocolCapabilities } from '../types'
+import type { Share, PermissionPreset, Protocol, ProtocolCapabilities, LocalUser, LocalGroup } from '../types'
 import { api, call } from '../api'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import PermissionDrawer from '../components/PermissionDrawer'
 import ProtocolCapabilityBanner from '../components/ProtocolCapabilityBanner'
+import ShareDetailDrawer from '../components/ShareDetailDrawer'
 
 // 协议标签颜色
 const PROTOCOL_COLOR: Record<string, string> = {
@@ -60,6 +66,8 @@ export default function Shares() {
   const { message, modal } = App.useApp()
   const [shares, setShares] = useState<Share[]>([])
   const [presets, setPresets] = useState<PermissionPreset[]>([])
+  const [users, setUsers] = useState<LocalUser[]>([])
+  const [groups, setGroups] = useState<LocalGroup[]>([])
   const [caps, setCaps] = useState<Record<Protocol, ProtocolCapabilities | null>>({
     smb: null,
     nfs: null,
@@ -72,6 +80,8 @@ export default function Shares() {
   const [editShare, setEditShare] = useState<Share | null>(null)
   const [permOpen, setPermOpen] = useState(false)
   const [permShare, setPermShare] = useState<Share | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailShare, setDetailShare] = useState<Share | null>(null)
   const [keyword, setKeyword] = useState('')
   const [form] = Form.useForm()
   const [editForm] = Form.useForm()
@@ -86,19 +96,26 @@ export default function Shares() {
   const shareToggleTick = useUiStore((s) => s.shareToggleTick)
   const activeProtocol = useUiStore((s) => s.activeProtocol)
   const setActiveProtocol = useUiStore((s) => s.setActiveProtocol)
+  const protocolCaps = useUiStore((s) => s.protocolCaps)
+  const setProtocolCaps = useUiStore((s) => s.setProtocolCaps)
+  const [installingProto, setInstallingProto] = useState<Protocol | null>(null)
 
   const load = async () => {
     setLoading(true)
     try {
       const proto = activeProtocol === 'all' ? undefined : activeProtocol
-      const [s, p, c] = await Promise.all([
+      const [s, p, c, u, g] = await Promise.all([
         call(() => api.adapter.list(proto)),
         call(api.preset.list),
-        call(api.adapter.capabilities)
+        call(api.adapter.capabilities),
+        call(api.user.list).catch(() => [] as LocalUser[]),
+        call(api.user.groups).catch(() => [] as LocalGroup[])
       ])
       setShares(s)
       setPresets(p)
       setCaps(c)
+      setUsers(u)
+      setGroups(g)
     } catch (e) {
       message.error((e as Error).message)
     } finally {
@@ -110,6 +127,30 @@ export default function Shares() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProtocol])
 
+  // 安装协议
+  const handleInstall = async (proto: Protocol) => {
+    setInstallingProto(proto)
+    try {
+      await call(() => api.protocol.install(proto))
+      message.success('安装成功，可能需要重启系统')
+      const result = await call(api.protocol.detect)
+      setProtocolCaps(result)
+      load()
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setInstallingProto(null)
+    }
+  }
+
+  // 判断当前选中协议是否已安装
+  const isCurrentProtoInstalled = (): boolean => {
+    if (activeProtocol === 'all') return true
+    const cap = protocolCaps?.[activeProtocol as Protocol]
+    // cap 未加载时默认视为已安装（避免误显安装引导）
+    return !cap || cap.installed
+  }
+
   // hotkey: Ctrl+N
   useEffect(() => {
     if (shareCreateOpen) {
@@ -119,10 +160,6 @@ export default function Shares() {
   }, [shareCreateOpen, setShareCreateOpen])
 
   useTickEffect(refreshTick, () => load())
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    load()
-  }, [activeProtocol])
 
   // hotkey: Del 批量删除
   useTickEffect(shareDeleteTick, () => {
@@ -186,7 +223,7 @@ export default function Shares() {
     const v = await form.validateFields()
     try {
       const protocol = (v.protocol || 'smb') as Protocol
-      const created = await call(() =>
+      await call(() =>
         api.adapter.create({
           protocol,
           name: v.name,
@@ -194,11 +231,22 @@ export default function Shares() {
           description: v.description,
           // SMB
           encrypted: v.encrypted,
+          fullAccess: v.fullAccess,
+          changeAccess: v.changeAccess,
+          readAccess: v.readAccess,
+          noAccess: v.noAccess,
+          encryptData: v.encryptData,
+          concurrentUserLimit: v.concurrentUserLimit,
+          cachingMode: v.cachingMode,
+          folderEnumerationMode: v.folderEnumerationMode,
+          shareShadowCopy: v.shareShadowCopy,
           // NFS
           authentication: v.authentication,
           nfsPermission: v.nfsPermission,
           allowRootAccess: v.allowRootAccess,
           enableUnmappedAccess: v.enableUnmappedAccess,
+          anonymousUid: v.anonymousUid,
+          anonymousGid: v.anonymousGid,
           // FTP
           port: v.port,
           sslPolicy: v.sslPolicy,
@@ -208,6 +256,7 @@ export default function Shares() {
         })
       )
       if (v.presetId && protocol === 'smb') {
+        const created = await call(() => api.share.get(v.name))
         await call(() => api.preset.apply(created.name, v.presetId, 'overwrite'))
       }
       message.success('创建成功')
@@ -317,6 +366,13 @@ export default function Shares() {
     }
   }
 
+  // SMB 访问控制选项：本地用户 + 本地组
+  const accountOptions = useMemo(() => {
+    const userOpts = users.map((u) => ({ label: u.name, value: u.name, isGroup: false }))
+    const groupOpts = groups.map((g) => ({ label: g.name, value: g.name, isGroup: true }))
+    return [...userOpts, ...groupOpts]
+  }, [users, groups])
+
   const filtered = useMemo(() => {
     const q = keyword.trim().toLowerCase()
     if (!q) return shares
@@ -336,6 +392,7 @@ export default function Shares() {
     ...(activeProtocol === 'all'
       ? [
           {
+            key: 'protocol',
             title: '协议',
             dataIndex: 'protocol',
             width: 80,
@@ -343,12 +400,45 @@ export default function Shares() {
           }
         ]
       : []),
-    { title: '名称', dataIndex: 'name', width: 160 },
-    { title: '路径', dataIndex: 'path', ellipsis: true },
-    { title: '描述', dataIndex: 'description', ellipsis: true },
+    { key: 'name', title: '名称', dataIndex: 'name', width: 160 },
+    { key: 'path', title: '路径', dataIndex: 'path', width: 160, ellipsis: true },
+    { key: 'description', title: '描述', dataIndex: 'description', width: 120, ellipsis: true },
+    // FTP 专有列（前置到路径/描述之后、连接数之前，便于 FTP 管理）
+    ...(activeProtocol === 'ftp'
+      ? [
+          {
+            key: 'ftp-port',
+            title: '端口',
+            dataIndex: 'port',
+            width: 70,
+            render: (v: number | undefined) => v ?? <span className="text-fog">-</span>
+          },
+          {
+            key: 'ftp-ssl',
+            title: 'SSL',
+            dataIndex: 'sslPolicy',
+            width: 130,
+            render: (v: string | undefined) =>
+              v ? (
+                <Tag color={v === 'SslRequire' || v === 'SslRequireCredentials' ? 'green' : 'default'}>{v}</Tag>
+              ) : (
+                <span className="text-fog">-</span>
+              )
+          },
+          {
+            key: 'ftp-auth',
+            title: '认证',
+            dataIndex: 'authMode',
+            width: 90,
+            render: (v: string | undefined) =>
+              v ? <Tag color={v === 'anonymous' ? 'orange' : 'blue'}>{v}</Tag> : <span className="text-fog">-</span>
+          }
+        ]
+      : []),
     ...(activeProtocol === 'all' || activeProtocol === 'nfs'
       ? [
           {
+            key: 'nfs-auth',
             title: '认证',
             dataIndex: 'authentication',
             width: 100,
@@ -364,6 +454,7 @@ export default function Shares() {
               )
           },
           {
+            key: 'nfs-perm',
             title: 'NFS权限',
             dataIndex: 'nfsPermission',
             width: 90,
@@ -372,46 +463,19 @@ export default function Shares() {
           }
         ]
       : []),
-    { title: '连接数', dataIndex: 'concurrentUsers', width: 80 },
-    // FTP 专有列
-    ...(activeProtocol === 'ftp'
-      ? [
-          {
-            title: '端口',
-            dataIndex: 'port',
-            width: 70,
-            render: (v: number | undefined) => v ?? <span className="text-fog">-</span>
-          },
-          {
-            title: 'SSL',
-            dataIndex: 'sslPolicy',
-            width: 130,
-            render: (v: string | undefined) =>
-              v ? (
-                <Tag color={v === 'SslRequire' || v === 'SslRequireCredentials' ? 'green' : 'default'}>{v}</Tag>
-              ) : (
-                <span className="text-fog">-</span>
-              )
-          },
-          {
-            title: '认证',
-            dataIndex: 'authMode',
-            width: 90,
-            render: (v: string | undefined) =>
-              v ? <Tag color={v === 'anonymous' ? 'orange' : 'blue'}>{v}</Tag> : <span className="text-fog">-</span>
-          }
-        ]
-      : []),
+    { key: 'concurrentUsers', title: '连接数', dataIndex: 'concurrentUsers', width: 80 },
     // WebDAV 专有列
     ...(activeProtocol === 'webdav'
       ? [
           {
+            key: 'webdav-port',
             title: '端口',
             dataIndex: 'port',
             width: 70,
             render: (v: number | undefined) => v ?? <span className="text-fog">-</span>
           },
           {
+            key: 'webdav-anon',
             title: '匿名',
             dataIndex: 'anonymousEnabled',
             width: 70,
@@ -419,6 +483,7 @@ export default function Shares() {
               v ? <Tag color="orange">是</Tag> : <span className="text-fog">-</span>
           },
           {
+            key: 'webdav-authoring',
             title: '作者',
             dataIndex: 'authoringEnabled',
             width: 70,
@@ -430,6 +495,7 @@ export default function Shares() {
     ...(activeProtocol === 'all' || activeProtocol === 'smb'
       ? [
           {
+            key: 'encrypted',
             title: '加密',
             dataIndex: 'encrypted',
             width: 70,
@@ -439,10 +505,21 @@ export default function Shares() {
         ]
       : []),
     {
+      key: 'actions',
       title: '操作',
-      width: 240,
+      width: 220,
       render: (_: unknown, r: Share) => (
         <Space>
+          <Tooltip title="详情">
+            <Button
+              size="small"
+              icon={<InfoCircleOutlined />}
+              onClick={() => {
+                setDetailShare(r)
+                setDetailOpen(true)
+              }}
+            />
+          </Tooltip>
           {canToggle(r.protocol) && (
             <Tooltip title={r.status === 'Enabled' ? '禁用' : '启用'}>
               <Button
@@ -494,9 +571,24 @@ export default function Shares() {
   const protocolTabs = [
     { key: 'all', label: '全部' },
     { key: 'smb', label: 'SMB' },
-    { key: 'nfs', label: 'NFS' },
-    { key: 'ftp', label: 'FTP' },
-    { key: 'webdav', label: 'WebDAV' }
+    {
+      key: 'nfs',
+      label: protocolCaps && !protocolCaps.nfs?.installed
+        ? <Badge dot status="warning" offset={[2, 0]}>NFS</Badge>
+        : 'NFS'
+    },
+    {
+      key: 'ftp',
+      label: protocolCaps && !protocolCaps.ftp?.installed
+        ? <Badge dot status="warning" offset={[2, 0]}>FTP</Badge>
+        : 'FTP'
+    },
+    {
+      key: 'webdav',
+      label: protocolCaps && !protocolCaps.webdav?.installed
+        ? <Badge dot status="warning" offset={[2, 0]}>WebDAV</Badge>
+        : 'WebDAV'
+    }
   ]
 
   return (
@@ -586,18 +678,65 @@ export default function Shares() {
             </Space>
           )}
         </div>
-        <Table
-          dataSource={filtered}
-          columns={columns}
-          rowKey={toKey}
-          loading={loading}
-          pagination={{ pageSize: 10 }}
-          size="middle"
-          rowSelection={{
-            selectedRowKeys: selectedShares,
-            onChange: (keys) => setSelectedShares(keys as string[])
-          }}
-        />
+        {isCurrentProtoInstalled() ? (
+          <Table
+            dataSource={filtered}
+            columns={columns}
+            rowKey={toKey}
+            loading={loading}
+            pagination={{ pageSize: 10 }}
+            size="middle"
+            rowSelection={{
+              selectedRowKeys: selectedShares,
+              onChange: (keys) => setSelectedShares(keys as string[])
+            }}
+          />
+        ) : (
+          <Empty
+            className="py-16"
+            description={
+              <div className="text-center">
+                <p className="text-base font-medium mb-2">
+                  {(activeProtocol as string).toUpperCase()} 协议未安装
+                </p>
+                <p className="text-sm text-fog mb-2">
+                  {protocolCaps?.[activeProtocol as Protocol]?.installHint}
+                </p>
+                {(() => {
+                  const cap = protocolCaps?.[activeProtocol as Protocol]
+                  if (!cap || cap.installed || cap.installType !== 'iis-role') return null
+                  const hint = cap.installHint || ''
+                  const tags: { label: string; color: string }[] = []
+                  if (/IIS.*已安装|IIS 基础.*已安装/.test(hint)) {
+                    tags.push({ label: 'IIS 已装', color: 'green' })
+                    tags.push({ label: `${(activeProtocol as string).toUpperCase()} 角色未装`, color: 'orange' })
+                  } else if (/IIS.*未安装|IIS.*均未安装/.test(hint)) {
+                    tags.push({ label: 'IIS 未装', color: 'red' })
+                  }
+                  if (/服务未运行|ftpsvc.*未运行|W3SVC.*未运行/.test(hint)) {
+                    tags.push({ label: '服务已停', color: 'volcano' })
+                  }
+                  if (tags.length === 0) return null
+                  return (
+                    <Space size={4} wrap className="mb-4 justify-center">
+                      {tags.map((t, i) => (
+                        <Tag key={i} color={t.color}>{t.label}</Tag>
+                      ))}
+                    </Space>
+                  )
+                })()}
+                <Button
+                  type="primary"
+                  className="mt-2"
+                  loading={installingProto === activeProtocol}
+                  onClick={() => handleInstall(activeProtocol as Protocol)}
+                >
+                  一键安装
+                </Button>
+              </div>
+            }
+          />
+        )}
       </div>
       <Modal
         open={modalOpen}
@@ -644,9 +783,113 @@ export default function Shares() {
                       ))}
                     </Select>
                   </Form.Item>
-                  <Form.Item name="encrypted" label="启用加密" valuePropName="checked" initialValue={false}>
+                  <Form.Item name="encrypted" label="启用 SMB 加密" valuePropName="checked" initialValue={false}>
                     <Switch />
                   </Form.Item>
+                  <Collapse
+                    size="small"
+                    className="mb-3"
+                    items={[
+                      {
+                        key: 'access',
+                        label: '访问控制（可选，不选则使用默认权限）',
+                        children: (
+                          <>
+                            <Form.Item name="fullAccess" label="完全控制">
+                              <Select
+                                mode="multiple"
+                                allowClear
+                                placeholder="选择用户/组授予完全控制"
+                                optionFilterProp="label"
+                                options={accountOptions.map((o) => ({
+                                  label: o.isGroup ? `${o.label}（组）` : o.label,
+                                  value: o.value
+                                }))}
+                              />
+                            </Form.Item>
+                            <Form.Item name="changeAccess" label="更改">
+                              <Select
+                                mode="multiple"
+                                allowClear
+                                placeholder="选择用户/组授予更改权限"
+                                optionFilterProp="label"
+                                options={accountOptions.map((o) => ({
+                                  label: o.isGroup ? `${o.label}（组）` : o.label,
+                                  value: o.value
+                                }))}
+                              />
+                            </Form.Item>
+                            <Form.Item name="readAccess" label="读取">
+                              <Select
+                                mode="multiple"
+                                allowClear
+                                placeholder="选择用户/组授予读取权限"
+                                optionFilterProp="label"
+                                options={accountOptions.map((o) => ({
+                                  label: o.isGroup ? `${o.label}（组）` : o.label,
+                                  value: o.value
+                                }))}
+                              />
+                            </Form.Item>
+                          </>
+                        )
+                      }
+                    ]}
+                  />
+                  <Collapse
+                    size="small"
+                    className="mb-3"
+                    items={[
+                      {
+                        key: 'advanced',
+                        label: '高级选项',
+                        children: (
+                          <>
+                            <Form.Item
+                              name="encryptData"
+                              label="共享级数据加密"
+                              valuePropName="checked"
+                              initialValue={false}
+                              tooltip="对通过此共享传输的数据进行加密，与 SMB 加密独立"
+                            >
+                              <Switch />
+                            </Form.Item>
+                            <Form.Item
+                              name="shareShadowCopy"
+                              label="卷影副本"
+                              valuePropName="checked"
+                              initialValue={false}
+                              tooltip="启用 VSS 卷影副本支持，允许客户端访问历史版本"
+                            >
+                              <Switch />
+                            </Form.Item>
+                            <Form.Item name="folderEnumerationMode" label="文件夹枚举模式" initialValue="Unrestricted">
+                              <Select
+                                options={[
+                                  { label: '无限制（可见全部子项）', value: 'Unrestricted' },
+                                  { label: '基于访问（仅可见有权限的子项）', value: 'AccessBased' }
+                                ]}
+                              />
+                            </Form.Item>
+                            <Form.Item name="cachingMode" label="脱机缓存模式" initialValue="Manual">
+                              <Select
+                                options={[
+                                  { label: '无', value: 'None' },
+                                  { label: '手动', value: 'Manual' },
+                                  { label: '文档', value: 'Documents' },
+                                  { label: '程序', value: 'Programs' },
+                                  { label: 'BranchCache', value: 'BranchCache' }
+                                ]}
+                              />
+                            </Form.Item>
+                            <Form.Item name="concurrentUserLimit" label="并发用户上限（0=无限制）" initialValue={0}>
+                              <InputNumber min={0} max={65535} style={{ width: '100%' }} />
+                            </Form.Item>
+                          </>
+                        )
+                      }
+                    ]}
+                  />
                 </>
               ) : null
             }
@@ -687,6 +930,12 @@ export default function Shares() {
                     initialValue={false}
                   >
                     <Switch />
+                  </Form.Item>
+                  <Form.Item name="anonymousUid" label="匿名 UID（0=默认）" initialValue={0}>
+                    <InputNumber min={-1} max={65535} style={{ width: '100%' }} />
+                  </Form.Item>
+                  <Form.Item name="anonymousGid" label="匿名 GID（0=默认）" initialValue={0}>
+                    <InputNumber min={-1} max={65535} style={{ width: '100%' }} />
                   </Form.Item>
                 </>
               ) : null
@@ -806,6 +1055,15 @@ export default function Shares() {
           setPermOpen(false)
           setPermShare(null)
         }}
+      />
+      <ShareDetailDrawer
+        open={detailOpen}
+        share={detailShare}
+        onClose={() => {
+          setDetailOpen(false)
+          setDetailShare(null)
+        }}
+        onSuccess={load}
       />
     </div>
   )

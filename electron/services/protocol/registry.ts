@@ -45,24 +45,26 @@ export function getCapabilitiesMap(): Record<Protocol, ProtocolCapabilities | nu
 // 统一路由：列出共享（不传 protocol = 合并所有已注册协议）
 // 注：协议未装/查询失败时优雅返回空数组，由 ProtocolCapabilityBanner 引导安装，不向 UI 抛错
 export async function adapterList(protocol?: Protocol): Promise<Share[]> {
+  console.time('[perf] adapterList')
   if (protocol) {
     try {
-      return await getAdapter(protocol).listShares()
+      const result = await getAdapter(protocol).listShares()
+      console.timeEnd('[perf] adapterList')
+      return result
     } catch {
-      // 单协议未装或失败：返回空，避免切 Tab 时弹错误
+      console.timeEnd('[perf] adapterList')
       return []
     }
   }
-  // 合并所有协议
+  // 合并所有协议：并行查询，避免 4 个 PowerShell 进程串行启动造成 2-4s 延迟
+  const protos = getRegisteredProtocols()
+  console.log(`[perf] adapterList 并行查询 ${protos.length} 个协议: ${protos.join(', ')}`)
+  const results = await Promise.allSettled(protos.map((p) => getAdapter(p).listShares()))
   const all: Share[] = []
-  for (const p of getRegisteredProtocols()) {
-    try {
-      const shares = await getAdapter(p).listShares()
-      all.push(...shares)
-    } catch {
-      // 单协议失败跳过
-    }
+  for (const r of results) {
+    if (r.status === 'fulfilled') all.push(...r.value)
   }
+  console.timeEnd('[perf] adapterList')
   return all
 }
 

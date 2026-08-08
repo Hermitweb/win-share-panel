@@ -1,7 +1,20 @@
 import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, crashReporter } from 'electron'
 import { join } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, rmSync } from 'fs'
 import { registerIpc } from './ipc'
+import { prewarmPool, shutdownPool } from './lib/powershellPool'
+
+// 禁用 GPU 着色器磁盘缓存：控制面板应用无需 GPU 缓存，
+// 且 Windows 上 GPUCache 目录常因文件锁/Archive 属性导致 "Unable to move the cache: 拒绝访问 (0x5)" 警告
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+app.commandLine.appendSwitch('disable-gpu-program-cache')
+
+// 启动前清理残留的 GPUCache 目录，避免旧缓存文件被锁导致创建失败
+try {
+  rmSync(join(app.getPath('userData'), 'GPUCache'), { recursive: true, force: true })
+} catch {
+  // 清理失败时忽略——上方开关已禁用 GPU 缓存，不会再尝试创建
+}
 
 crashReporter.start({ submitURL: '', uploadToServer: false, compress: true })
 
@@ -40,7 +53,7 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   })
 
@@ -131,11 +144,20 @@ if (!gotTheLock) {
     registerWindowIpc()
     createWindow()
     createTray()
+    // 后台预热 PowerShell 进程池（不阻塞首屏）；worker 懒 spawn，预热仅提前起 1 个
+    prewarmPool()
   })
 
   app.on('before-quit', () => {
     isQuitting = true
     tray?.destroy()
+    // 关闭常驻 PowerShell worker，避免残留子进程
+    shutdownPool()
+  })
+
+  // 兜底：before-quit 后再保险一次（幂等），确保无 powershell.exe 残留
+  app.on('will-quit', () => {
+    shutdownPool()
   })
 
   app.on('window-all-closed', (e: Event) => {

@@ -42,12 +42,27 @@ export interface LocalUser {
   enabled: boolean
   description: string
   groups: string[]
+  // 扩展账号属性
+  passwordRequired: boolean
+  passwordChangeable: boolean
+  passwordExpires: boolean
+  userMayChangePassword: boolean
+  passwordLastSet: string
+  lastLogon: string
+  sid: string
+  principalSource: 'Local' | 'ActiveDirectory' | 'MicrosoftAccount' | string
 }
 
 export interface LocalGroup {
   name: string
   description: string
-  members: string[]
+  members: GroupMember[]
+}
+
+export interface GroupMember {
+  name: string
+  objectClass: 'User' | 'Group'
+  principalSource: 'Local' | 'ActiveDirectory' | string
 }
 
 export interface SharePermission {
@@ -89,6 +104,22 @@ export interface SmbServerConfig {
   enableMultiChannel: boolean
   announceServer: boolean
   unauthenticatedUsersTimeLimit: number
+  // 扩展配置项
+  enableOplocks: boolean
+  enableOplockDirectoryCache: boolean
+  enableStrictNameChecking: boolean
+  enableLeasing: boolean
+  enableSMBQUIC: boolean
+  enableChannelChange: boolean
+  enableSMBDirectoryCache: boolean
+  sessionTimeoutSeconds: number
+  maxSessionPerConnection: number
+  maxMpxCount: number
+  maxWorkItems: number
+  maxThreadsPerQueue: number
+  multipleSessionsPerConnection: boolean
+  requestCompression: 'Off' | 'Allow' | 'Require'
+  silentAU: boolean
 }
 
 // NFS 服务器配置（Get-NfsServerConfiguration 返回字段子集）
@@ -97,8 +128,77 @@ export interface NfsServerConfig {
   logActivity: boolean
   enableUnmappedAccess: boolean
   enableAuthenticationRenegotiation: boolean
-  gatewayCharacterSet: string
-  protocolVersion: string
+  gatewayCharacterSet: string // 只读
+  protocolVersion: string // 只读
+  // 连接与超时（best-effort 读取，旧版 Windows 可能无此字段）
+  tcpConnectionTimeout: number // 秒，默认 240
+  udpConnectionTimeout: number // 秒，默认 240
+  restartConnectionTimeout: number // 秒，默认 60
+  maxConcurrentConnectionsPerUser: number // 默认 0（无限制）
+  directoryCacheExpiry: number // 秒，默认 60（仅 Server 2019+）
+  // 身份映射（只读展示）
+  anonymousUid: number // 默认 -2
+  anonymousGid: number // 默认 -2
+}
+
+// FTP 服务器配置（IIS ftpServer/* 配置节，服务器级 MACHINE/WEBROOT/APPHOST）
+export interface FtpServerConfig {
+  // SSL / 安全
+  sslControlChannelPolicy: 'SslAllow' | 'SslRequire' | 'SslRequireCredentials'
+  sslDataChannelPolicy: 'SslAllow' | 'SslRequire' | 'SslRequireCredentials'
+  sslServerCertHash: string // SHA-1 thumbprint，空字符串表示未配置
+  sslClientCertRequired: boolean
+  ssl128: boolean // 强制 128 位 SSL
+  // 认证
+  anonymousEnabled: boolean
+  anonymousUserName: string // 默认 IUSR
+  basicEnabled: boolean
+  // 防火墙（被动数据通道端口范围）
+  firewallLowDataChannelPort: number // 0 表示未配置
+  firewallHighDataChannelPort: number // 0 表示未配置
+  // 消息
+  greetingMessage: string
+  bannerMessage: string
+  exitMessage: string
+  maxClientsMessage: string
+  suppressDefaultMessages: boolean
+  // 目录浏览
+  showVirtualDirs: boolean
+  // 用户隔离
+  userIsolationMode: 'None' | 'StartInUsersDirectory' | 'IsolateUsers' | 'IsolateUsersWithoutAD' | 'ActiveDirectory'
+  // 连接超时（秒）
+  unauthenticatedTimeout: number
+  controlConnectionTimeout: number // 默认 300
+  dataChannelConnectionTimeout: number // 默认 30
+  // 文件处理
+  keepPartialUploads: boolean
+  allowReplaceOnRename: boolean
+  // 日志
+  logFileDirectory: string
+  logFilePeriod: 'Hourly' | 'Daily' | 'Weekly' | 'Monthly' | 'MaxSize' | 'Never'
+}
+
+// WebDAV 服务器配置（IIS system.webServer/* 配置节，服务器级 MACHINE/WEBROOT/APPHOST）
+export interface WebdavServerConfig {
+  // WebDAV authoring（全局默认）
+  authoringEnabled: boolean
+  authoringMaxRequestBodySize: number // 字节数，0 表示不限制
+  // 请求筛选
+  maxAllowedContentLength: number // 字节数，默认 30000000
+  allowDoubleEscaping: boolean
+  verifyIntegration: boolean
+  // 认证（服务器级默认）
+  anonymousEnabled: boolean
+  basicEnabled: boolean
+  windowsEnabled: boolean
+  // 请求限制
+  maxUrlLength: number // 默认 260
+  maxQueryStringLength: number // 默认 2048
+  // 只读信息
+  globalAuthoringRulesCount: number
+  enableStaticCompression: boolean
+  enableDynamicCompression: boolean
+  requireSSL: boolean
 }
 
 export interface PermissionPreset {
@@ -107,12 +207,16 @@ export interface PermissionPreset {
   description: string
   builtIn: boolean
   entries: PresetEntry[]
+  category?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface PresetEntry {
   account: string
   accountType: 'User' | 'Group'
   access: 'Full' | 'Change' | 'Read'
+  deny?: boolean
 }
 
 export interface UserInfo {
@@ -166,10 +270,26 @@ export interface CreateShareOpts {
   changeAccess?: string[]
   readAccess?: string[]
   encrypted?: boolean
+  noAccess?: string[]
+  // 扩展：SMB 共享高级选项
+  concurrentUserLimit?: number
+  cached?: boolean
+  encryptData?: boolean
+  securityDescriptor?: string
+  // 访问枚举与分支缓存
+  folderEnumerationMode?: 'AccessBased' | 'Unrestricted'
+  cachingMode?: 'None' | 'Manual' | 'Documents' | 'Programs' | 'BranchCache'
+  shareShadowCopy?: boolean
 }
 
 export interface UpdateShareOpts {
   description?: string
+  // 扩展可改字段
+  concurrentUserLimit?: number
+  cached?: boolean
+  folderEnumerationMode?: 'AccessBased' | 'Unrestricted'
+  cachingMode?: 'None' | 'Manual' | 'Documents' | 'Programs' | 'BranchCache'
+  encryptData?: boolean
 }
 
 // === 多协议扩展类型 ===
@@ -211,6 +331,12 @@ export interface CreateShareInput {
   fullAccess?: string[]
   changeAccess?: string[]
   readAccess?: string[]
+  noAccess?: string[]
+  encryptData?: boolean
+  concurrentUserLimit?: number
+  cachingMode?: 'None' | 'Manual' | 'Documents' | 'Programs' | 'BranchCache'
+  folderEnumerationMode?: 'AccessBased' | 'Unrestricted'
+  shareShadowCopy?: boolean
   // NFS
   authentication?: ('krb5' | 'krb5i' | 'krb5p' | 'sys')[]
   nfsPermission?: 'ro' | 'rw'

@@ -36,4 +36,8 @@ export interface ProtocolAdapter {
   restartService?(): Promise<void>
   getConfig?(): Promise<unknown>
   setConfig?(config: unknown): Promise<void>
+  // 默认配置对象（同步返回，供 UI 表单初始化/重置预填）
+  defaultConfig?(): unknown
+  // 恢复默认配置并返回新配置
+  restoreDefault?(): Promise<unknown>
 }

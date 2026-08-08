@@ -1,20 +1,22 @@
 # WinShare Panel 开发文档
 
-> 基于 Windows 文件共享功能（SMB）的全新控制面板
-> 版本：v1.0  |  更新日期：2026-08-06
+> Windows 多协议文件共享控制面板（SMB / NFS / FTP / WebDAV）
+> 版本：v1.0.0  |  更新日期：2026-08-08
 
 ---
 
 ## 一、项目概述
 
 ### 1.1 项目目标
-打造一个原生 Windows 桌面应用，通过可视化控制面板管理本机的文件共享（SMB）功能，替代系统自带的 `fsmgmt.msc` 和零散的 `net share` 命令，提供现代化、集成化、可视化的管理体验。
+打造一个原生 Windows 桌面应用，通过可视化控制面板**统一管理本机的四种文件共享协议**——SMB、NFS、FTP、WebDAV，替代系统自带的 `fsmgmt.msc`、零散的 `net share` / `New-SmbShare` / IIS 管理器等多套工具，提供现代化、集成化、可视化的管理体验。协议差异由适配器层（`ProtocolAdapter`）屏蔽，上层 UI 与 IPC 统一路由。
 
 ### 1.2 核心价值
+- **多协议统一**：一套界面管 SMB / NFS / FTP / WebDAV，协议差异由适配器层屏蔽
 - **可视化**：图形化管理共享、权限、会话，告别命令行
-- **集成化**：共享管理 + 权限管理 + 会话监控 + SMB 配置，一站式
+- **集成化**：共享管理 + 权限管理 + 会话监控 + 协议配置 + 用户/组管理，一站式
+- **高性能**：常驻 PowerShell 进程池 + 并行执行 + 请求去重，首屏与刷新从秒级降至百毫秒级
+- **安全加固**：命令注入运行时校验、IPC 边界校验、contextIsolation 隔离、事务回滚
 - **实时性**：会话与连接实时监控，异常即时告警
-- **安全性**：Windows 集成认证，操作全程审计
 
 ### 1.3 目标用户
 - 系统管理员（运维场景）
@@ -32,44 +34,51 @@
 │                   Electron 桌面应用                       │
 │  ┌───────────────────────┐   ┌───────────────────────┐  │
 │  │     渲染进程 (UI)      │   │     主进程 (Main)      │  │
-│  │  React 18 + TS + Vite │◄─►│  Node.js + Express    │  │
-│  │  Ant Design + Tailwind│IPC│  ├─ 共享服务            │  │
-│  │                       │   │  ├─ 用户/权限服务       │  │
-│  │  Pages:               │   │  ├─ 会话监控服务        │  │
-│  │  · 仪表板              │   │  ├─ SMB 配置服务        │  │
-│  │  · 共享管理            │   │  └─ PowerShell 执行器   │  │
-│  │  · 用户权限            │   │                       │  │
-│  │  · 会话监控            │   │  Windows 集成认证       │  │
-│  │  · 系统设置            │   │  UAC 管理员提权        │  │
-│  └───────────────────────┘   └──────────┬────────────┘  │
-└──────────────────────────────────────────┼──────────────┘
-                                           │ child_process
-                           ┌───────────────▼───────────────┐
+│  │  React 19 + TS + Vite │   │  Node.js              │  │
+│  │  Ant Design 6+ Tailwind│IPC│  ├─ 共享/用户/组服务    │  │
+│  │                       │   │  ├─ 会话监控服务        │  │
+│  │  Pages:               │   │  ├─ 协议适配器层        │  │
+│  │  · 仪表板              │   │  │  (SMB/NFS/FTP/WebDAV)│  │
+│  │  · 共享管理            │   │  ├─ 协议配置/探测服务   │  │
+│  │  · 用户权限            │   │  └─ PowerShell 执行器   │  │
+│  │  · 会话监控            │   │     └─ 常驻进程池 ◄     │  │
+│  │  · 协议配置            │   │                       │  │
+│  └───────────────────────┘   │  Windows 集成认证       │  │
+│                              │  UAC 管理员提权         │  │
+│                              │  单实例锁               │  │
+│                              └──────────┬────────────┘  │
+└─────────────────────────────────────────┼──────────────┘
+                                          │ stdin/stdout 标记协议
+                                          │ (常驻 worker 复用)
+                           ┌──────────────▼───────────────┐
                            │      Windows 系统层            │
-                           │  · PowerShell (Get-Smb*)       │
-                           │  · net.exe (share/session)     │
-                           │  · WMI / CIM                   │
+                           │  · SMB: Get/New/Set-Smb*       │
+                           │  · NFS: Get/New-NfsShare + 注册表│
+                           │  · FTP: IIS WebAdministration  │
+                           │  · WebDAV: IIS webdav/authoring│
+                           │  · net.exe / WMI / CIM         │
                            │  · icacls (NTFS 权限)          │
-                           │  · Windows API (原生模块)      │
                            └───────────────────────────────┘
 ```
+
+**多协议适配器层**（`electron/services/protocol/`）：四个协议各实现 `ProtocolAdapter` 接口，`registry.ts` 按协议路由；上层 IPC（`adapter:*`）与 UI 无需感知协议差异。详见 [4.7 多协议适配器架构](#47-多协议适配器架构)。
 
 ### 2.2 技术栈选型
 
 | 层级 | 技术 | 版本 | 选型理由 |
 |------|------|------|----------|
-| 桌面框架 | Electron | ^28.x | Node.js 生态原生集成，跨平台，打包成熟 |
-| 构建工具 | electron-vite | ^2.x | Electron 专用 Vite 集成，HMR 快 |
-| 前端框架 | React | ^18.x | 生态丰富，组件化，类型友好 |
-| 语言 | TypeScript | ^5.x | 全栈类型安全 |
-| UI 组件库 | Ant Design | ^5.x | 企业级管理后台首选，组件齐全（按需加载 + Tree Shaking） |
-| 样式方案 | TailwindCSS | ^3.x | 原子化 CSS，快速布局 |
-| 状态管理 | Zustand | ^4.x | 轻量，无样板代码 |
-| 路由 | React Router | ^6.x | SPA 路由标准方案 |
-| 图表 | ECharts | ^5.x | 仪表板数据可视化（按需引入 + Tree Shaking） |
-| 进程调用 | execa | ^8.x | 比 child_process 更友好的 API |
-| 打包工具 | electron-builder | ^24.x | Windows 安装包（NSIS）|
-| 测试 | Vitest + Playwright | latest | 单元 + E2E 测试 |
+| 桌面框架 | Electron | ^31 | Node.js 生态原生集成，打包成熟 |
+| 构建工具 | electron-vite | ^5 | Electron 专用 Vite 集成，HMR 快 |
+| 前端框架 | React | ^19 | 生态丰富，组件化，类型友好 |
+| 语言 | TypeScript | ^7 | 全栈类型安全 |
+| UI 组件库 | Ant Design | ^6 | 企业级管理后台首选，组件齐全（按需加载 + Tree Shaking） |
+| 样式方案 | TailwindCSS | ^3 | 原子化 CSS，快速布局 |
+| 状态管理 | Zustand | ^5 | 轻量，无样板代码 |
+| 路由 | React Router | ^7 | SPA 路由标准方案 |
+| 图表 | ECharts | ^6 | 仪表板数据可视化（按需引入 + Tree Shaking） |
+| 进程调用 | child_process + 常驻进程池 | 内置 | spawn 长期存活 PowerShell worker，stdin/stdout 复用 |
+| 打包工具 | electron-builder | ^25 | Windows 安装包（NSIS）+ 便携版 |
+| 测试 | Vitest | ^4 | 单元测试（注入防护 / 事务回滚 / 进程池排队/超时/压测） |
 
 ---
 
@@ -161,85 +170,81 @@ WinShare Panel
 
 ### 4.2 IPC 通道设计
 
-所有 IPC 通道命名遵循 `domain:action` 规范，统一通过 `preload.ts` 暴露：
+所有 IPC 通道命名遵循 `domain:action` 规范，统一通过 `preload.ts` 的 `contextBridge.exposeInMainWorld('winshare', api)` 暴露。IPC 入口对协议名 / 共享名 / 路径做运行时校验（见 [7.2 命令注入防护](#72-命令注入防护)）。API 命名空间概览（完整定义见 [electron/preload.ts](../electron/preload.ts)）：
 
 ```typescript
-// preload.ts 暴露的 API（contextBridge）
-interface WinShareAPI {
-  share: {
-    list: () => Promise<Share[]>
-    create: (opts: CreateShareOpts) => Promise<Share>
-    update: (name: string, opts: UpdateShareOpts) => Promise<Share>
-    delete: (name: string) => Promise<void>
-    toggle: (name: string, enabled: boolean) => Promise<void>
+interface WinShareApi {
+  // SMB 共享（兼容旧入口，内部路由到 adapter）
+  share: { list, get, create, update, delete, toggle, permissions, exportConfig,
+           importConfig, connections, openFiles, closeOpenFiles }
+  // 用户与组
+  user:  { list, get, groups, sharePermissions, sharePermissionsForUser, setSharePermissions,
+           ntfsPermissions, create, update, delete, setPassword, enable, disable, rename }
+  group: { create, delete, update, rename, addMember, removeMember }
+  // 会话监控
+  session: { list, files, close, closeFile }
+  // === 多协议统一路由（核心）===
+  adapter: {
+    list(protocol?): Promise<Share[]>
+    create(input: CreateShareInput): Promise<Share>
+    update(name, input: UpdateShareInput): Promise<Share>
+    delete(protocol, name): Promise<void>
+    toggle(protocol, name, enabled): Promise<void>
+    permissions(protocol, name): Promise<SharePermission[]>
+    setPermissions(protocol, name, perms): Promise<void>      // 事务回滚
+    sessions(protocol): Promise<ProtocolSession[]>
+    closeSession(protocol, sessionId): Promise<void>
+    capabilities(): Promise<Record<Protocol, ProtocolCapabilities | null>>
   }
-  user: {
-    listUsers: () => Promise<LocalUser[]>
-    listGroups: () => Promise<LocalGroup[]>
-    getSharePermissions: (shareName: string) => Promise<SharePermission[]>
-    setSharePermissions: (shareName: string, perms: SharePermission[]) => Promise<void>
-    getNtfsPermissions: (path: string) => Promise<NtfsAcl>
-  }
-  session: {
-    listSessions: () => Promise<SmbSession[]>
-    listOpenFiles: () => Promise<SmbOpenFile[]>
-    closeSession: (clientId: string) => Promise<void>
-    closeFile: (fileId: string) => Promise<void>
-  }
-  smb: {
-    getConfig: () => Promise<SmbServerConfig>
-    setConfig: (config: Partial<SmbServerConfig>) => Promise<void>
-    getServiceStatus: () => Promise<ServiceStatus>
-    restartService: () => Promise<void>
-  }
-  system: {
-    getCurrentUser: () => Promise<UserInfo>
-    isAdmin: () => Promise<boolean>
-    relaunchAsAdmin: () => Promise<void>
-    getDashboardStats: () => Promise<DashboardStats>
-  }
-  window: {
-    minimize: () => Promise<void>
-    toggleMaximize: () => Promise<boolean>   // 返回当前是否最大化
-    close: () => Promise<void>
-    isMaximized: () => Promise<boolean>
-  }
-  preset: {
-    list: () => Promise<PermissionPreset[]>
-    save: (preset: PermissionPreset) => Promise<void>           // 新增/更新
-    delete: (id: string) => Promise<void>                       // 仅自定义可删
-    apply: (shareName: string, presetId: string, mode: 'overwrite' | 'merge') => Promise<void>
-  }
+  // 各协议服务器级配置 + 服务控制
+  smb:    { getConfig, setConfig, restoreDefault, defaultConfig, serviceStatus,
+            restart, start, stop, listSnapshots, rollback }
+  nfs:    { getConfig, setConfig, restoreDefault, defaultConfig, serviceStatus, restart, start, stop }
+  ftp:    { getConfig, setConfig, restoreDefault, defaultConfig, serviceStatus, restart, start, stop }
+  webdav: { getConfig, setConfig, restoreDefault, defaultConfig, serviceStatus, restart, start, stop }
+  // 协议探测 + 引导安装
+  protocol: { detect(): Promise<ProtocolDetectionResult>; install(protocol): Promise<void> }
+  // 权限预设模板
+  preset: { list, get, save, update, delete, duplicate, apply, export, import }
+  // 系统
+  system: { currentUser, isAdmin, dashboard, auditLog, health }
+  // 窗口
+  window: { minimize, toggleMaximize, close, isMaximized, onMaximizeChange, showBalloon }
 }
 ```
 
+> **设计要点**：`adapter:*` 是多协议统一入口，第一个参数均为 `protocol: Protocol`（`'smb' | 'nfs' | 'ftp' | 'webdav'`），由 `registry` 路由到对应适配器。NFS/FTP/WebDAV 的**站点级**配置经 `adapter` 路由，**服务器级**配置经各自 `nfs:` / `ftp:` / `webdav:` 命名空间。
+
 ### 4.3 Windows 系统调用层
 
-通过 `PowerShell 执行器` 封装所有 Windows 操作，统一处理：
-- 命令执行（`execa` 调用 `powershell.exe -NoProfile -Command`）
-- 参数转义（防注入）
-- 错误处理与解析
-- 管理员权限检测
+通过 `PowerShell 执行器`（[electron/lib/powershell.ts](../electron/lib/powershell.ts)）封装所有 Windows 操作，统一处理：
+- 命令执行：经**常驻进程池**（[electron/lib/powershellPool.ts](../electron/lib/powershellPool.ts)）派发给长期存活的 `powershell.exe` worker；`WINSHARE_PSPOOL=0` 时回退单次 `execFile`
+- 命令编码：UTF-16LE→Base64（`-EncodedCommand`），规避中文 GBK 代码页问题
+- 参数转义 + 运行时类型校验（`psBool` / `psNumber` / `psEnum`，防注入）
+- 错误处理与 JSON 解析（`ConvertTo-Json -Depth 5 -Compress`）
+- 超时（默认 15s）+ 可重试错误自动重试；只读协议查询 `retries: 0`
 
 #### Windows 命令映射表
 
-| 功能 | PowerShell 命令 | 备注 |
-|------|----------------|------|
-| 列出共享 | `Get-SmbShare` | 含特殊共享 |
-| 创建共享 | `New-SmbShare -Name X -Path Y -Description Z -FullAccess A` | 权限参数化 |
-| 修改共享 | `Set-SmbShare -Name X -Description Z` | |
-| 删除共享 | `Remove-SmbShare -Name X` | |
-| 共享权限 | `Get-SmbShareAccess / Grant-SmbShareAccess / Revoke-SmbShareAccess` | |
-| 活动会话 | `Get-SmbSession` | |
-| 打开文件 | `Get-SmbOpenFile` | 需启用 openfiles |
-| 断开会话 | `Close-SmbSession -ClientUserName X` | |
-| 关闭文件 | `Close-SmbOpenFile -FileId X` | |
-| 本地用户 | `Get-LocalUser` | |
-| 本地组 | `Get-LocalGroup / Get-LocalGroupMember` | |
-| NTFS 权限 | `Get-Acl` / `icacls` | icacls 输出更友好 |
-| SMB 服务器配置 | `Get-SmbServerConfiguration / Set-SmbServerConfiguration` | |
-| 服务状态 | `Get-Service LanmanServer` | |
-| 重启服务 | `Restart-Service LanmanServer` | 危险操作 |
+| 协议 | 功能 | PowerShell 命令 | 备注 |
+|------|------|----------------|------|
+| SMB | 列出共享 | `Get-SmbShare` | 含特殊共享 |
+| SMB | 创建共享 | `New-SmbShare -Name X -Path Y -FullAccess A` | 权限参数化 |
+| SMB | 删除共享 | `Remove-SmbShare -Name X` | |
+| SMB | 共享权限 | `Grant/Revoke-SmbShareAccess` | 事务回滚 |
+| SMB | 会话/文件 | `Get-SmbSession / Get-SmbOpenFile / Close-*` | |
+| SMB | 服务器配置 | `Get/Set-SmbServerConfiguration` | 快照/回滚 |
+| NFS | 列出共享 | `Get-NfsShare` | 需 NFS 角色已安装 |
+| NFS | 创建共享 | `New-NfsShare -Name X -Path Y -Authentication sys -Permission rw -AnonymousGid N` | psBool/psNumber 校验 |
+| NFS | 服务器配置 | 注册表 `HKLM\SYSTEM\...NfsServer` + `Restart-Service NFS` | |
+| FTP | 站点管理 | `New-WebFtpSite` + `Set-WebConfigurationProperty`（IIS WebAdministration） | 站点不存在用 `Get-Website \| Where` 过滤；`retries:0` |
+| FTP | 认证模式 | `Set-WebConfigurationProperty ...ftpAuthentication` | try/catch 处理锁定节 |
+| WebDAV | 站点管理 | `New-Website` + `Add-WebConfigurationProperty`（`system.webServer/webdav/authoring`） | 完整 filter 路径；`enableAuthoring` try/catch |
+| WebDAV | 授权规则 | `Add/Clear-WebConfigurationProperty`（`webdav/authoringRules`） | 事务回滚 |
+| 通用 | 本地用户 | `Get/New/Set/Remove-LocalUser` | 内置用户受保护 |
+| 通用 | 本地组 | `Get/New-LocalGroup / Add/Remove-LocalGroupMember` | 内置组受保护 |
+| 通用 | NTFS 权限 | `Get-Acl` / `icacls` | icacls 输出更友好 |
+| 通用 | 服务控制 | `Get/Start/Stop/Restart-Service` | LanmanServer / NFS / FTP（MSFTPSVC）/ W3SVC |
 
 ### 4.4 认证与权限
 
@@ -355,6 +360,97 @@ interface PresetEntry {
 }
 ```
 
+多协议扩展类型（节选，完整定义见 [electron/types.ts](../electron/types.ts)）：
+
+```typescript
+type Protocol = 'smb' | 'nfs' | 'ftp' | 'webdav'
+
+interface ProtocolCapabilities {
+  installed: boolean                 // 协议是否已安装
+  createShare: boolean
+  deleteShare: boolean
+  updateShare: boolean
+  toggleShare: boolean
+  permissions: boolean               // 是否支持权限管理
+  sessions: boolean                  // 是否支持会话监控
+  serverConfig: boolean              // 是否暴露服务器级配置
+}
+
+interface CreateShareInput {
+  protocol: Protocol
+  name: string
+  path: string
+  description?: string
+  // 各协议特有字段（NFS authentication/permission/anonymousGid、FTP bindings/ssl、
+  // WebDAV authoringRules 等）—— 由适配器各自解析，上层统一透传
+  [key: string]: unknown
+}
+
+interface ProtocolSession {
+  protocol: Protocol
+  sessionId: string
+  user: string
+  computer: string
+  // ...
+}
+```
+
+### 4.7 多协议适配器架构
+
+`electron/services/protocol/` 实现**策略模式**，将协议差异收敛到适配器层：
+
+- **`ProtocolAdapter` 接口**（[ProtocolAdapter.ts](../electron/services/protocol/ProtocolAdapter.ts)）：必选 `listShares` / `createShare` / `deleteShare`；可选 `updateShare` / `toggleShare` / `getPermissions` / `setPermissions` / `listSessions` / `closeSession` / `getConfig` / `setConfig` / `restoreDefault` / `getServiceStatus` 等（用 `?` 标记，不支持的能力抛 `Errors.unsupported`）。
+- **`registry.ts`**：注册四个适配器（smb / nfs / ftp / webdav），按 `protocol` 路由 `adapter:*` IPC 调用。
+- **`detect.ts`**：探测各协议安装状态与能力（`ProtocolCapabilities`），只读查询 `retries: 0`，失败返回空结果而非抛错。
+- **适配器实现**：
+  - `smbAdapter.ts`：`Smb*` cmdlet，`createShare` 含 try/catch + 孤儿共享清理
+  - `nfsAdapter.ts`：`New-NfsShare` + 注册表配置，`createShare` 失败清理孤儿共享
+  - `ftpAdapter.ts`：IIS `New-WebFtpSite` + `Set-WebConfigurationProperty`，`createShare` 失败 `Remove-Website` 清理孤儿站点
+  - `webdavAdapter.ts`：IIS `New-Website` + `webdav/authoring` 配置（完整 filter 路径），`createShare` 含 `enableAuthoring` 校验 + 失败清理孤儿站点
+
+### 4.8 PowerShell 常驻进程池
+
+> 详细设计见 [.trae/documents/powershell-process-pool-design.md](../.trae/documents/powershell-process-pool-design.md)
+
+**背景**：原 `runPowerShell` 每次 `execFile` 拉起新 `powershell.exe`，每条命令承担 ~300–500ms 的 CLR+引擎+模块启动开销。常驻进程池将命令执行降至 ~30–80ms/条。
+
+**实现**（[electron/lib/powershellPool.ts](../electron/lib/powershellPool.ts)）：
+- **N 个长期存活 worker**（默认 3，`WINSHARE_PS_POOL_SIZE` 可调），每个加载一段"服务端脚本"（经 `-EncodedCommand` 启动）。
+- **stdin/stdout 标记协议**：载荷 = `encodeCommand(mode + '\u0000' + command)`（Base64）；worker 读取→`[ScriptBlock]::Create` 执行→JSON 模式 `ConvertTo-Json`、VOID 模式丢弃输出→写带 token 标记 `___PS_OK_<token>___` / `___PS_ERR_<token>___\n<msg>\n___PS_ERR_END_<token>___`。
+- **派发**：命令入队→找空闲 worker 派发；无空闲且未达容量则 spawn；全忙则排队。
+- **超时**：每命令独立计时，超时 reject + kill 中毒 worker + 补 spawn。
+- **崩溃**：worker.exit 时 reject 在飞命令（标记可重试，由 `runPowerShell` 换新 worker 重试）+ 移除补 spawn。
+- **错误语义镜像 execFile**：不设全局 `$ErrorActionPreference`，try/catch 仅捕获终止性错误（等价非零退出码→抛），非终止性错误被吞（等价零退出码→返回输出）。
+- **生命周期**：`app.whenReady()` 后 `prewarmPool()` 后台预热 1 个 worker（不阻塞首屏）；`before-quit` + `will-quit` 兜底 `shutdownPool()`，确保无 `powershell.exe` 残留。
+- **安全阀**：`WINSHARE_PSPOOL=0` 禁用池，回退 `execOnce`（单次 `execFile` + `-EncodedCommand`）。
+- **可测性**：`WorkerFactory` 注入，测试用伪造流控制响应，池的排队/派发/超时/崩溃逻辑完全可单测。
+
+`runPowerShell` / `runPowerShellVoid` 签名与行为不变，100+ 调用点与全部既有测试零改动。
+
+### 4.9 性能优化
+
+| 优化点 | 改动 | 效果 |
+|--------|------|------|
+| 协议探测并行 | `detect.ts` 多协议探测改 `Promise.allSettled` 并行（3 并发） | 探测耗时 ≈ 最慢一个而非累加 |
+| 协议探测去重 | in-flight Promise 缓存，并发 `protocol:detect` 共享同一请求 | 避免重复 PowerShell 调用 |
+| 共享列表并行 | 四协议 `adapter:list` 改 `Promise.allSettled` 并行（4 并发） | 列表刷新 ≈ 最慢一个 |
+| 仪表盘并行 | 仪表盘数据采集改 `Promise.allSettled` 并行（5 并发） | 首屏从 ~1.5–2.5s 降至百毫秒级 |
+| PowerShell 池 | 常驻 worker 复用（见 4.8） | 单命令 ~300ms → ~30–80ms |
+
+只读协议查询统一 `retries: 0`，避免协议未安装时的重试延迟；失败返回空数组而非抛错，保证主流程不被个别协议拖垮。
+
+### 4.10 事务补偿与孤儿清理
+
+**`setPermissions` 事务回滚**（四协议统一）：
+1. **备份**：读取当前权限并记录（`[setPermissions:<protocol>] 已备份当前权限: N 条`）。
+2. **应用**：清空旧权限 + 逐条授予新权限。
+3. **失败回滚**：任一步失败 → 还原备份权限，记录四个时间点状态：backup / rollback-trigger / pre-rollback / post-rollback。
+4. **成功**：`[setPermissions:<protocol>] 权限设置成功`。
+
+**`createShare` 孤儿清理**（四协议统一）：
+- 创建过程任一步失败 → 清理已创建的残留资源（SMB/NFS `Remove-*Share`，FTP/WebDAV `Remove-Website`），避免孤儿共享/站点泄漏。
+- FTP/WebDAV 额外校验：`createShare` 含 `enableAuthoring`（WebDAV）/ 认证模式（FTP）helper，失败即 `Remove-Website` 清理。
+
 ---
 
 ## 五、项目结构
@@ -362,58 +458,43 @@ interface PresetEntry {
 ```
 win-share-panel/
 ├── docs/
-│   └── DEVELOPMENT.md              # 本开发文档
+│   ├── DEVELOPMENT.md              # 本开发文档
+│   └── UI_DESIGN.md                # UI 设计规范
+├── .github/workflows/
+│   └── release.yml                 # tag 触发自动构建并发布 Release
+├── .trae/documents/                # 设计稿（进程池/共享自定义/协议配置/用户权限）
 ├── electron/                       # 主进程
-│   ├── main.ts                     # 主进程入口（窗口、UAC、IPC 注册）
-│   ├── preload.ts                  # 预加载脚本（contextBridge）
+│   ├── main.ts                     # 入口（窗口/UAC/单实例锁/IPC/托盘/进程池生命周期）
+│   ├── preload.ts                  # contextBridge 安全 API（多协议路由）
 │   ├── ipc/
-│   │   ├── index.ts                # IPC 路由注册
-│   │   ├── share.ts                # 共享相关 IPC handler
-│   │   ├── user.ts                 # 用户权限相关
-│   │   ├── session.ts              # 会话监控相关
-│   │   └── smb.ts                  # SMB 配置相关
+│   │   └── index.ts                # IPC 路由注册 + 边界校验
 │   ├── services/                   # 业务服务层
-│   │   ├── shareService.ts
-│   │   ├── userService.ts
-│   │   ├── sessionService.ts
-│   │   ├── smbConfigService.ts
-│   │   └── authService.ts
+│   │   ├── share.ts / user.ts / group.ts / session.ts
+│   │   ├── smb.ts / nfs.ts / ftp.ts / webdav.ts   # 各协议服务器级配置/服务控制
+│   │   ├── preset.ts / system.ts
+│   │   └── protocol/               # 多协议适配器层
+│   │       ├── ProtocolAdapter.ts  #   统一接口
+│   │       ├── registry.ts         #   协议路由
+│   │       ├── detect.ts           #   协议能力探测
+│   │       └── adapters/           #   smb/nfs/ftp/webdav 适配器 + 单元测试
 │   ├── lib/
-│   │   ├── powershell.ts           # PowerShell 执行器（核心）
-│   │   ├── parser.ts               # 输出解析器（JSON 转 TS 对象）
+│   │   ├── powershell.ts           # PowerShell 执行器（池化 + 回退 execFile）
+│   │   ├── powershellPool.ts       # 常驻进程池 / Persistent pool
 │   │   ├── audit.ts                # 审计日志
 │   │   └── errors.ts               # 统一错误定义
-│   └── types/                      # 主进程类型
+│   └── types.ts                    # 主进程类型（多协议）
 ├── src/                            # 渲染进程（React）
 │   ├── main.tsx                    # React 入口
 │   ├── App.tsx                     # 根组件 + 路由
-│   ├── pages/
-│   │   ├── Dashboard.tsx
-│   │   ├── Shares/
-│   │   │   ├── ShareList.tsx
-│   │   │   ├── ShareForm.tsx       # 新建/编辑
-│   │   │   └── SharePermission.tsx
-│   │   ├── Users/
-│   │   │   ├── UserList.tsx
-│   │   │   └── PermissionMatrix.tsx
-│   │   ├── Sessions/
-│   │   │   ├── SessionList.tsx
-│   │   │   └── OpenFileList.tsx
-│   │   └── Settings/
-│   │       └── SmbConfig.tsx
-│   ├── components/                 # 通用组件
-│   │   ├── Layout/
-│   │   ├── StatCard.tsx
-│   │   ├── ConfirmDialog.tsx
-│   │   └── ...
-│   ├── api/                        # 调用 preload API 的封装
-│   │   └── index.ts
-│   ├── stores/                     # Zustand 状态
-│   │   ├── shareStore.ts
-│   │   └── sessionStore.ts
-│   └── styles/
-├── resources/                      # 静态资源：logo.jpg(源)/logo.png(256,标题栏·托盘)/icon.ico(打包图标)
-├── scripts/                        # 构建脚本
+│   ├── pages/                      # Dashboard/Shares/Users/Sessions/Settings
+│   ├── components/                 # Layout/TitleBar/各协议设置面板/详情抽屉/创建弹窗
+│   ├── stores/                     # Zustand（uiStore 等）
+│   ├── hooks/                      # useTickEffect 等
+│   ├── utils/                      # 工具函数
+│   ├── api.ts                      # preload API 封装
+│   └── types.ts
+├── resources/                      # 静态资源：logo.png(标题栏·托盘)/icon.ico(打包图标)
+├── vitest.config.ts                # 单元测试配置
 ├── package.json
 ├── electron.vite.config.ts
 ├── electron-builder.yml            # 打包配置
@@ -499,26 +580,43 @@ win-share-panel/
 ## 七、安全设计
 
 ### 7.1 权限与认证
-- 应用以管理员权限运行（UAC requireAdministrator）
+- 应用以管理员权限运行（UAC `requireAdministrator`）
 - Windows 集成认证，无需独立账号系统
 - 所有写操作二次确认
+- **单实例锁**：`app.requestSingleInstanceLock()`，二次启动激活已有窗口而非新开进程
+- **受保护资源**：系统特殊共享（ADMIN$/IPC$/C$）与内置用户/组禁止删除
 
 ### 7.2 命令注入防护
-- 所有 PowerShell 命令参数化传递，禁止字符串拼接
-- 使用 `execa` 的数组参数形式，避免 shell 解析
-- 用户输入经过白名单校验（共享名、路径、账号名）
+- **`-EncodedCommand` 编码**：所有命令经 UTF-16LE→Base64 编码传递，规避中文 GBK 代码页问题与 shell 解析注入
+- **运行时类型校验**（[electron/lib/powershell.ts](../electron/lib/powershell.ts)）：
+  - `psBool(v)`：布尔字段强制 `true`/`false`，拒绝任意字符串拼入
+  - `psNumber(v)`：数字字段强制有限数，拒绝非数字注入
+  - `psEnum(v, allowed)`：枚举字段白名单校验（如 NFS `Authentication`、`Permission`；FTP `sslPolicy`）
+  - `psQuote` / `psEscapeSingle`：字符串单引号转义
+  - `validateName` / `validatePath`：共享名/路径白名单校验
+- **IPC 边界校验**：协议名 / 共享名 / 路径在 IPC 入口运行时校验，非法值直接拒绝
+- **只读查询容错**：`adapterList` / `adapterGetPermissions` / `adapterSessions` / `nfs.getConfig` 失败返回空数组而非抛错，避免错误信息泄露
 
-### 7.3 审计日志
+### 7.3 Electron 渲染进程隔离
+- `contextIsolation: true`：渲染进程与 Node.js 上下文隔离
+- `nodeIntegration: false`：渲染进程不直接访问 Node
+- `sandbox: true`：预加载脚本沙箱化
+- `preload.ts` 仅经 `contextBridge.exposeInMainWorld` 暴露白名单 API，无 `ipcRenderer.on` 任意通道
+
+### 7.4 审计日志
 - 记录所有写操作：时间、操作人、操作类型、目标、结果
 - 日志存储：`%APPDATA%/WinSharePanel/audit.log`
 - 日志轮转：单文件 5MB，保留 10 份
 
-### 7.4 危险操作清单（需二次确认）
-- 删除共享
-- 强制断开会话
-- 关闭打开的文件
-- 修改 SMB 服务器配置
-- 重启 Server 服务
+### 7.5 危险操作清单（需二次确认）
+- 删除共享 / 强制断开会话 / 关闭打开的文件
+- 修改各协议服务器配置 / 重启服务
+- `setPermissions`（事务回滚兜底）
+
+### 7.6 事务完整性
+- `setPermissions`：备份→应用→失败回滚（见 [4.10 事务补偿](#410-事务补偿与孤儿清理)）
+- `createShare`：失败清理孤儿共享/站点
+- SMB 配置：变更前自动快照，支持一键回滚
 
 ---
 
@@ -589,11 +687,11 @@ win-share-panel/
 ### 10.5 预防性清单（防踩坑）
 | 编号 | 建议 | 防的坑 |
 |------|------|--------|
-| P1 | PS 命令统一超时 + 重试封装 | 命令卡死致面板无响应 |
+| P1 | PS 命令统一超时 + 重试封装 + 常驻进程池 | 命令卡死致面板无响应；进程启动开销 |
 | P2 | 输出强制 ConvertTo-Json + 结构校验 | 输出漂移致解析崩溃 |
 | P3 | crashReporter + 错误日志轮转 | 崩溃后无迹可寻 |
-| P4 | 配置变更前自动快照 | 误改致共享全断无法回退 |
-| P5 | 参数白名单 + execa 数组传参 | 命令注入 |
+| P4 | 配置变更前自动快照 + setPermissions 事务回滚 | 误改致共享全断无法回退 |
+| P5 | `-EncodedCommand` 编码 + psBool/psNumber/psEnum 运行时校验 + IPC 边界校验 | 命令注入 |
 | P6 | 移除 Express / ECharts 按需 / AntD Tree Shake | 包膨胀启动慢 |
 | P7 | Win10/Win11 双材质策略 + 降级 | Win10 风格断裂白屏 |
 | P8 | UAC 拒绝优雅降级提示 | 非管理员闪退 |
@@ -612,57 +710,97 @@ win-share-panel/
 ```json
 {
   "dependencies": {
-    "electron": "^28.0.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.0",
-    "antd": "^5.12.0",
-    "zustand": "^4.4.0",
-    "echarts": "^5.4.0",
-    "echarts-for-react": "^3.0.2",
-    "execa": "^8.0.0",
-    "dayjs": "^1.11.0"
+    "electron": "^31.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2",
+    "antd": "^6.5.3",
+    "@ant-design/icons": "^6.3.2",
+    "zustand": "^5.0.14",
+    "echarts": "^6.1.0",
+    "echarts-for-react": "^3.0.6",
+    "dayjs": "^1.11.21"
   },
   "devDependencies": {
-    "electron-vite": "^2.0.0",
-    "electron-builder": "^24.9.0",
-    "typescript": "^5.3.0",
-    "vite": "^5.0.0",
-    "@vitejs/plugin-react": "^4.2.0",
-    "tailwindcss": "^3.4.0",
-    "vitest": "^1.0.0",
-    "@playwright/test": "^1.40.0"
+    "electron-vite": "^5.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "@vitejs/plugin-react": "^5.2.0",
+    "tailwindcss": "^3.4.13",
+    "vitest": "^4.1.10",
+    "@types/node": "^20.14.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4"
   }
 }
 ```
 
-### 11.2 PowerShell 输出 JSON 化示例
+### 11.2 PowerShell 执行器（进程池 + EncodedCommand）
 
-为便于解析，所有 PowerShell 命令统一输出 JSON：
-
-```powershell
-# 主进程调用示例
-powershell.exe -NoProfile -Command "Get-SmbShare | ConvertTo-Json -Depth 3"
-```
+所有 PowerShell 命令经 UTF-16LE→Base64（`-EncodedCommand`）编码传递，并由常驻进程池派发（`WINSHARE_PSPOOL=0` 时回退单次 `execFile`）：
 
 ```typescript
-// powershell.ts 执行器封装
-import { execa } from 'execa'
+// electron/lib/powershell.ts（节选）
+// 回退路径：单次 execFile 拉起 powershell.exe
+async function execOnce(command: string, withJson: boolean, timeout: number): Promise<string> {
+  const fullCmd = withJson
+    ? `${UTF8_PREFIX}${command} | ConvertTo-Json -Depth 5 -Compress`
+    : `${UTF8_PREFIX}${command}`
+  const { stdout } = await execFileAsync(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encodeCommand(fullCmd)],
+    { timeout, maxBuffer: 10 * 1024 * 1024, windowsHide: true }
+  )
+  return stdout
+}
 
-export async function runPowerShell<T>(command: string): Promise<T> {
-  const { stdout } = await execa('powershell.exe', [
-    '-NoProfile',
-    '-NonInteractive',
-    '-Command',
-    `${command} | ConvertTo-Json -Depth 5`
-  ])
-  const result = JSON.parse(stdout || 'null')
-  // Get-* 命令返回单个对象时 JSON 是对象，多个时是数组，统一成数组
-  return Array.isArray(result) ? result : (result ? [result] : [])
+export async function runPowerShell<T>(command: string, opts: PsOptions = {}): Promise<T> {
+  const timeout = opts.timeout ?? DEFAULT_TIMEOUT
+  const retries = opts.retries ?? DEFAULT_RETRIES
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const stdout = isPoolEnabled()
+        ? await getPool().execute(command, 'JSON', { timeout })   // 常驻进程池
+        : await execOnce(command, true, timeout)                  // 回退
+      return parseJson<T>(stdout)
+    } catch (err) {
+      if (!isRetryable((err as Error).message) || attempt === retries) throw formatPsError(err as Error)
+      await sleep(300 * (attempt + 1))
+    }
+  }
+  throw formatPsError(lastError!)
 }
 ```
 
-### 11.3 打包配置（electron-builder.yml 节选）
+运行时类型校验（防注入）：
+
+```typescript
+psBool(v)        // boolean → 'true'/'false'，非布尔抛错
+psNumber(v)      // number → 字符串，非有限数抛错
+psEnum(v, allowed) // 枚举白名单校验
+psQuote(s)       // 字符串单引号包裹 + 内部单引号转义
+```
+
+### 11.3 单元测试
+
+```bash
+pnpm test   # vitest run --passWithNoTests
+```
+
+**191 个单元测试**（10 个文件），覆盖：
+
+| 测试文件 | 覆盖范围 |
+|----------|----------|
+| `lib/powershell.test.ts` | `psBool`/`psNumber`/`psEnum`/`validateName`/`parseJson` 注入防护与解析 |
+| `lib/powershellPool.test.ts` | 进程池单命令/排队/并发/标记解析/ERR 路径/超时 kill/崩溃恢复/shutdown |
+| `lib/powershellPool.stress.test.ts` | 100 并发（全成功/含超时/全超时）排队与恢复压测 |
+| `services/protocol/detect.test.ts` | 协议能力探测、只读 `retries:0`、失败容错 |
+| `services/protocol/registry.test.ts` | 协议路由、不支持能力抛 unsupported |
+| `services/protocol/adapters/*.test.ts` | 四适配器 createShare（注入防护/孤儿清理）、setPermissions（事务回滚/空数组边界）、closeSession（sessionId 解析） |
+| `services/system.test.ts` | 仪表盘统计、健康检查 |
+
+### 11.4 打包配置（electron-builder.yml 节选）
 
 ```yaml
 appId: com.winshare.panel
@@ -671,7 +809,7 @@ directories:
   buildResources: resources
 win:
   target: nsis
-  icon: resources/icon.ico                       # 应用图标（官方 logo，已定稿）
+  icon: resources/icon.ico                       # 应用图标
   requestedExecutionLevel: requireAdministrator   # 强制管理员权限
 nsis:
   oneClick: false
@@ -681,6 +819,10 @@ nsis:
   uninstallerIcon: resources/icon.ico
 ```
 
+### 11.5 CI/CD 发布
+
+推送 `v*` 标签触发 [`.github/workflows/release.yml`](../.github/workflows/release.yml)：`windows-latest` 上 `pnpm install` → `pnpm typecheck` → `pnpm build:win` → 上传 `release/*.exe` + `latest.yml` 到 GitHub Release。
+
 ---
 
-**文档结束。确认无误后即可进入阶段 1 开发。**
+**文档结束。**

@@ -23,5 +23,6 @@ nsis:
   createStartMenuShortcut: true
   installerIcon: resources/icon.ico
   uninstallerIcon: resources/icon.ico
+  artifactName: ${productName}-${version}-Setup.exe
 portable:
   artifactName: ${productName}-${version}-portable.exe

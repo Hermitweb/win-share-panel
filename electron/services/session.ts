@@ -1,4 +1,5 @@
 import { runPowerShell, runPowerShellVoid, psQuote } from '../lib/powershell'
+import { Errors } from '../lib/errors'
 import type { SmbSession, SmbOpenFile } from '../types'
 
 export async function listSessions(): Promise<SmbSession[]> {
@@ -30,9 +31,17 @@ export async function listOpenFiles(): Promise<SmbOpenFile[]> {
 }
 
 export async function closeSession(clientUserName: string): Promise<void> {
+  // 防御纵深：clientUserName 来自 IPC，校验非空且无危险字符（psQuote 已兜底，此处提前拒绝明显非法值）
+  if (typeof clientUserName !== 'string' || !clientUserName || clientUserName.length > 200) {
+    throw Errors.invalidParam('会话标识非法')
+  }
   await runPowerShellVoid(`Close-SmbSession -ClientUserName ${psQuote(clientUserName)} -Force`)
 }
 
 export async function closeFile(fileId: string): Promise<void> {
+  // fileId 来自 Get-SmbOpenFile，应为数字；校验防注入（psQuote 已兜底）
+  if (typeof fileId !== 'string' || !/^\d+$/.test(fileId)) {
+    throw Errors.invalidParam('文件标识非法')
+  }
   await runPowerShellVoid(`Close-SmbOpenFile -FileId ${psQuote(fileId)} -Force`)
 }

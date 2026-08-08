@@ -53,8 +53,13 @@ export default function Sessions() {
 
   const prevUsersRef = useRef<Set<string>>(new Set())
   const lastBalloonRef = useRef<Record<string, number>>({})
+  // in-flight guard：防止轮询触发的 load 与手动刷新/协议切换的 load 并发堆积，
+  // 避免响应乱序覆盖与重复 PowerShell 调用
+  const inflightRef = useRef(false)
 
   const load = async (silent = false) => {
+    if (inflightRef.current) return
+    inflightRef.current = true
     if (!silent) setLoading(true)
     try {
       if (activeProto === 'smb') {
@@ -78,6 +83,7 @@ export default function Sessions() {
       if (!silent) message.error((e as Error).message)
     } finally {
       if (!silent) setLoading(false)
+      inflightRef.current = false
     }
   }
 

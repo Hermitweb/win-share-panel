@@ -6,6 +6,8 @@ export default function TitleBar() {
   const [maximized, setMaximized] = useState(false)
 
   useEffect(() => {
+    // 浏览器预览（无 Electron preload）时 window.winshare 不存在，跳过窗口控制
+    if (!api) return
     api.window.isMaximized().then(setMaximized)
     api.window.onMaximizeChange(setMaximized)
   }, [])

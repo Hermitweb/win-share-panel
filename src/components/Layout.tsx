@@ -22,7 +22,7 @@ const menus: MenuItem[] = [
   { path: '/shares', label: '共享管理', icon: <FolderOpenOutlined /> },
   { path: '/users', label: '用户权限', icon: <TeamOutlined /> },
   { path: '/sessions', label: '会话监控', icon: <ApiOutlined /> },
-  { path: '/settings', label: 'SMB 配置', icon: <SettingOutlined /> }
+  { path: '/settings', label: '服务配置', icon: <SettingOutlined /> }
 ]
 
 export default function Layout({ children, onCommand }: { children: ReactNode; onCommand: () => void }) {

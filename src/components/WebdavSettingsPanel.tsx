@@ -9,7 +9,6 @@ import {
   Descriptions,
   App,
   Spin,
-  Input,
   InputNumber,
   Collapse
 } from 'antd'
@@ -21,16 +20,16 @@ import {
   PauseOutlined
 } from '@ant-design/icons'
 import { api, call } from '../api'
-import type { NfsServerConfig, ServiceStatus } from '../types'
+import type { WebdavServerConfig, ServiceStatus } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
 
-// NFS 服务器配置 + 服务控制
-// 仅在已安装 NFS 角色时可用；未安装时显示降级提示
-export default function NfsSettingsPanel() {
+// WebDAV 服务器级配置 + 服务控制
+// 仅在已安装 IIS + WebDAV 角色时可用；未安装时显示降级提示
+export default function WebdavSettingsPanel() {
   const { message } = App.useApp()
-  const [config, setConfig] = useState<Partial<NfsServerConfig>>({})
+  const [config, setConfig] = useState<Partial<WebdavServerConfig>>({})
   const [svc, setSvc] = useState<ServiceStatus | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -45,8 +44,8 @@ export default function NfsSettingsPanel() {
     setLoading(true)
     try {
       const [c, s] = await Promise.all([
-        call(api.nfs.getConfig) as Promise<NfsServerConfig>,
-        call(api.nfs.serviceStatus)
+        call(api.webdav.getConfig) as Promise<WebdavServerConfig>,
+        call(api.webdav.serviceStatus)
       ])
       setConfig(c)
       setSvc(s)
@@ -58,10 +57,10 @@ export default function NfsSettingsPanel() {
     }
   }
 
-  // 协议探测：store 中无缓存时主动 detect（避免依赖 Shares 页面懒加载）
+  // 协议探测：store 中无缓存时主动 detect
   useEffect(() => {
     if (protocolCaps) {
-      setInstalled(!!protocolCaps.nfs?.installed)
+      setInstalled(!!protocolCaps.webdav?.installed)
       return
     }
     let cancelled = false
@@ -70,7 +69,6 @@ export default function NfsSettingsPanel() {
         const result = await call(api.protocol.detect)
         if (!cancelled) setProtocolCaps(result)
       } catch {
-        // 检测失败：当作未装处理
         if (!cancelled) setInstalled(false)
       }
     })()
@@ -79,7 +77,6 @@ export default function NfsSettingsPanel() {
     }
   }, [protocolCaps, setProtocolCaps])
 
-  // 仅在明确已装时加载配置，避免未装时触发 nfs:getConfig 错误
   useEffect(() => {
     if (installed !== true) return
     load()
@@ -94,7 +91,7 @@ export default function NfsSettingsPanel() {
     const v = await form.validateFields()
     setSaving(true)
     try {
-      await call(() => api.nfs.setConfig(v))
+      await call(() => api.webdav.setConfig(v))
       message.success('已保存')
       load()
     } catch (e) {
@@ -106,8 +103,8 @@ export default function NfsSettingsPanel() {
 
   const restart = async () => {
     try {
-      await call(api.nfs.restart)
-      message.success('NFS 服务已重启')
+      await call(api.webdav.restart)
+      message.success('WebDAV 服务已重启')
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -116,8 +113,8 @@ export default function NfsSettingsPanel() {
 
   const startSvc = async () => {
     try {
-      await call(api.nfs.start)
-      message.success('NFS 服务已启动')
+      await call(api.webdav.start)
+      message.success('WebDAV 服务已启动')
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -126,8 +123,8 @@ export default function NfsSettingsPanel() {
 
   const stopSvc = async () => {
     try {
-      await call(api.nfs.stop)
-      message.success('NFS 服务已停止')
+      await call(api.webdav.stop)
+      message.success('WebDAV 服务已停止')
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -136,7 +133,7 @@ export default function NfsSettingsPanel() {
 
   const restoreDefault = async () => {
     try {
-      const def = (await call(api.nfs.restoreDefault)) as NfsServerConfig
+      const def = (await call(api.webdav.restoreDefault)) as WebdavServerConfig
       message.success('已恢复默认配置')
       form.setFieldsValue(def)
       setConfig(def)
@@ -149,16 +146,15 @@ export default function NfsSettingsPanel() {
   if (installed === false) {
     return (
       <div className="glass-card p-4">
-        <ProtocolCapabilityBanner protocol="nfs" />
+        <ProtocolCapabilityBanner protocol="webdav" />
       </div>
     )
   }
 
   if (installed === null) {
-    // 协议能力检测中
     return (
       <div className="glass-card p-4">
-        <Spin tip="正在检测 NFS 协议..." />
+        <Spin tip="正在检测 WebDAV 协议..." />
       </div>
     )
   }
@@ -167,22 +163,38 @@ export default function NfsSettingsPanel() {
     <Spin spinning={loading}>
       <div className="glass-card p-4">
         <Form form={form} layout="vertical">
-          <div className="text-sm font-medium mb-2 text-fog">基础配置</div>
+          <div className="text-sm font-medium mb-2 text-fog">WebDAV Authoring</div>
           <div className="flex flex-wrap gap-6 mb-3">
-            <Form.Item name="gracefulUnmount" label="优雅卸载" valuePropName="checked">
+            <Form.Item name="authoringEnabled" label="启用 Authoring" valuePropName="checked">
               <Switch />
             </Form.Item>
-            <Form.Item name="logActivity" label="记录活动日志" valuePropName="checked">
+            <Form.Item name="authoringMaxRequestBodySize" label="最大请求体(字节, 0=不限)">
+              <InputNumber min={0} max={4294967295} />
+            </Form.Item>
+          </div>
+
+          <div className="text-sm font-medium mb-2 text-fog">请求筛选</div>
+          <div className="flex flex-wrap gap-6 mb-3">
+            <Form.Item name="maxAllowedContentLength" label="最大内容长度(字节)">
+              <InputNumber min={0} max={4294967295} />
+            </Form.Item>
+            <Form.Item name="allowDoubleEscaping" label="允许双重转义" valuePropName="checked">
               <Switch />
             </Form.Item>
-            <Form.Item name="enableUnmappedAccess" label="未映射用户访问" valuePropName="checked">
+            <Form.Item name="verifyIntegration" label="验证集成" valuePropName="checked">
               <Switch />
             </Form.Item>
-            <Form.Item
-              name="enableAuthenticationRenegotiation"
-              label="认证重协商"
-              valuePropName="checked"
-            >
+          </div>
+
+          <div className="text-sm font-medium mb-2 text-fog">认证</div>
+          <div className="flex flex-wrap gap-6 mb-3">
+            <Form.Item name="anonymousEnabled" label="匿名认证" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+            <Form.Item name="basicEnabled" label="基本认证" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+            <Form.Item name="windowsEnabled" label="Windows 认证" valuePropName="checked">
               <Switch />
             </Form.Item>
           </div>
@@ -192,26 +204,14 @@ export default function NfsSettingsPanel() {
             className="mb-3"
             items={[
               {
-                key: 'conn',
-                label: '连接与超时',
+                key: 'limits',
+                label: '请求限制',
                 children: (
                   <div className="flex flex-wrap gap-6">
-                    <Form.Item name="tcpConnectionTimeout" label="TCP 连接超时(秒)">
+                    <Form.Item name="maxUrlLength" label="最大 URL 长度">
                       <InputNumber min={0} max={65535} />
                     </Form.Item>
-                    <Form.Item name="udpConnectionTimeout" label="UDP 连接超时(秒)">
-                      <InputNumber min={0} max={65535} />
-                    </Form.Item>
-                    <Form.Item name="restartConnectionTimeout" label="重启连接超时(秒)">
-                      <InputNumber min={0} max={65535} />
-                    </Form.Item>
-                    <Form.Item
-                      name="maxConcurrentConnectionsPerUser"
-                      label="每用户最大并发连接(0=不限)"
-                    >
-                      <InputNumber min={0} max={65535} />
-                    </Form.Item>
-                    <Form.Item name="directoryCacheExpiry" label="目录缓存过期(秒)">
+                    <Form.Item name="maxQueryStringLength" label="最大查询字符串长度">
                       <InputNumber min={0} max={65535} />
                     </Form.Item>
                   </div>
@@ -219,22 +219,46 @@ export default function NfsSettingsPanel() {
               },
               {
                 key: 'readonly',
-                label: '身份映射 / 网关信息（只读）',
+                label: '只读信息（服务器级状态）',
                 children: (
-                  <div className="flex flex-wrap gap-6">
-                    <Form.Item name="anonymousUid" label="匿名 UID">
-                      <InputNumber disabled style={{ width: 160 }} />
-                    </Form.Item>
-                    <Form.Item name="anonymousGid" label="匿名 GID">
-                      <InputNumber disabled style={{ width: 160 }} />
-                    </Form.Item>
-                    <Form.Item name="gatewayCharacterSet" label="网关字符集">
-                      <Input disabled style={{ width: 160 }} />
-                    </Form.Item>
-                    <Form.Item name="protocolVersion" label="协议版本">
-                      <Input disabled style={{ width: 160 }} />
-                    </Form.Item>
-                  </div>
+                  <Descriptions
+                    size="small"
+                    column={2}
+                    items={[
+                      {
+                        key: 'rules',
+                        label: '全局 Authoring 规则数',
+                        children: config.globalAuthoringRulesCount ?? 0
+                      },
+                      {
+                        key: 'sc',
+                        label: '静态压缩',
+                        children: (
+                          <Tag color={config.enableStaticCompression ? 'green' : 'default'}>
+                            {config.enableStaticCompression ? '启用' : '禁用'}
+                          </Tag>
+                        )
+                      },
+                      {
+                        key: 'dc',
+                        label: '动态压缩',
+                        children: (
+                          <Tag color={config.enableDynamicCompression ? 'green' : 'default'}>
+                            {config.enableDynamicCompression ? '启用' : '禁用'}
+                          </Tag>
+                        )
+                      },
+                      {
+                        key: 'ssl',
+                        label: '要求 SSL',
+                        children: (
+                          <Tag color={config.requireSSL ? 'orange' : 'default'}>
+                            {config.requireSSL ? '是' : '否'}
+                          </Tag>
+                        )
+                      }
+                    ]}
+                  />
                 )
               }
             ]}
@@ -245,7 +269,7 @@ export default function NfsSettingsPanel() {
               保存配置
             </Button>
             <Popconfirm
-              title="确认恢复 NFS 默认配置？"
+              title="确认恢复 WebDAV 默认配置？"
               okText="恢复默认"
               okType="danger"
               cancelText="取消"
@@ -255,7 +279,7 @@ export default function NfsSettingsPanel() {
                 恢复默认
               </Button>
             </Popconfirm>
-            <Popconfirm title="重启 NfsService 服务？" onConfirm={restart}>
+            <Popconfirm title="重启 W3SVC 服务？" onConfirm={restart}>
               <Button icon={<PoweroffOutlined />}>重启服务</Button>
             </Popconfirm>
             {svc?.status === 'Stopped' ? (
@@ -263,7 +287,7 @@ export default function NfsSettingsPanel() {
                 启动
               </Button>
             ) : (
-              <Popconfirm title="停止 NfsService 服务？" onConfirm={stopSvc}>
+              <Popconfirm title="停止 W3SVC 服务？" onConfirm={stopSvc}>
                 <Button icon={<PauseOutlined />}>停止</Button>
               </Popconfirm>
             )}
@@ -288,7 +312,7 @@ export default function NfsSettingsPanel() {
             />
           )}
           <div className="mt-3 text-xs text-fog">
-            NFS 服务器配置修改后通常即时生效，部分参数需重启服务。客户端能力检测与共享管理见「共享管理」页。
+            WebDAV 服务器级配置（IIS system.webServer/* 配置节）。站点级 authoring 规则请在「共享管理」页对单个站点编辑。只读字段为服务器级状态，不可直接修改。
           </div>
         </Form>
       </div>

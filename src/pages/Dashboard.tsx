@@ -34,6 +34,8 @@ export default function Dashboard() {
   const chartRef = useRef<ReactECharts>(null)
 
   const refreshTick = useUiStore((s) => s.refreshTick)
+  const protocolCaps = useUiStore((s) => s.protocolCaps)
+  const setProtocolCaps = useUiStore((s) => s.setProtocolCaps)
 
   const load = async () => {
     setLoading(true)
@@ -48,6 +50,24 @@ export default function Dashboard() {
   useEffect(() => {
     load()
   }, [])
+
+  // 协议安装状态检测：如果 store 中未缓存，挂载时触发一次
+  // 仪表盘需要用 installed 字段判断"已安装/未安装"，而非用共享数判断
+  useEffect(() => {
+    if (protocolCaps) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const result = await call(api.protocol.detect)
+        if (!cancelled) setProtocolCaps(result)
+      } catch {
+        // 检测失败静默，不影响仪表盘主流程
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [protocolCaps, setProtocolCaps])
 
   // hotkey F5 刷新
   useTickEffect(refreshTick, () => {
@@ -180,16 +200,18 @@ export default function Dashboard() {
           <Row gutter={16}>
             {(['smb', 'nfs', 'ftp', 'webdav'] as Protocol[]).map((p) => {
               const info = stats?.byProtocol[p]
-              const has = (info?.shares ?? 0) > 0 || (info?.sessions ?? 0) > 0
+              // 用 protocolCaps.installed 判断是否已安装，而非用共享/会话数判断
+              // （协议可能已安装但尚未创建共享，此时不应显示"未装"）
+              const installed = protocolCaps?.[p]?.installed ?? false
               return (
                 <Col span={6} key={p}>
                   <div className="mb-2">
                     <Tag color={PROTOCOL_TAG_COLOR[p]} style={{ fontSize: 13, padding: '1px 10px' }}>
                       {PROTOCOL_LABEL[p]}
                     </Tag>
-                    {!has && <span className="text-xs text-fog ml-1">未装</span>}
+                    {!installed && <span className="text-xs text-fog ml-1">未装</span>}
                   </div>
-                  <Statistic title="共享数" value={info?.shares ?? 0} valueStyle={{ color: PROTOCOL_COLOR[p] }} />
+                  <Statistic title="共享数" value={info?.shares ?? 0} styles={{ content: { color: PROTOCOL_COLOR[p] } }} />
                   <div className="text-xs text-fog mt-1">会话 {info?.sessions ?? 0}</div>
                 </Col>
               )

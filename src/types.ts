@@ -5,14 +5,18 @@ import type {
   SharePermission,
   LocalUser,
   LocalGroup,
+  GroupMember,
   NtfsAcl,
   NtfsAclEntry,
   SmbSession,
   SmbOpenFile,
   SmbServerConfig,
   NfsServerConfig,
+  FtpServerConfig,
+  WebdavServerConfig,
   ServiceStatus,
   PermissionPreset,
+  PresetEntry,
   UserInfo,
   DashboardStats,
   SmbSnapshot,
@@ -20,6 +24,7 @@ import type {
   Protocol,
   ProtocolSession,
   ProtocolDetectionResult,
+  ProtocolFeatureState,
   ProtocolCapabilities,
   CreateShareInput,
   UpdateShareInput
@@ -32,14 +37,18 @@ export type {
   SharePermission,
   LocalUser,
   LocalGroup,
+  GroupMember,
   NtfsAcl,
   NtfsAclEntry,
   SmbSession,
   SmbOpenFile,
   SmbServerConfig,
   NfsServerConfig,
+  FtpServerConfig,
+  WebdavServerConfig,
   ServiceStatus,
   PermissionPreset,
+  PresetEntry,
   UserInfo,
   DashboardStats,
   SmbSnapshot,
@@ -47,14 +56,55 @@ export type {
   Protocol,
   ProtocolSession,
   ProtocolDetectionResult,
+  ProtocolFeatureState,
   ProtocolCapabilities,
   CreateShareInput,
   UpdateShareInput
 }
 
+// 共享连接信息
+export interface ShareConnections {
+  concurrentUsers: number
+  clientConnections: { clientUserName: string; clientComputerName: string; openFiles: number }[]
+}
+
+export interface ShareOpenFile {
+  fileId: number
+  path: string
+  clientUserName: string
+  clientComputerName: string
+  lockCount: number
+}
+
+// 用户创建/更新参数
+export interface CreateUserOpts {
+  name: string
+  password: string
+  fullName?: string
+  description?: string
+  enabled?: boolean
+  passwordChangeable?: boolean
+  passwordExpires?: boolean
+}
+
+export interface UpdateUserOpts {
+  fullName?: string
+  description?: string
+  enabled?: boolean
+  passwordChangeable?: boolean
+  passwordExpires?: boolean
+}
+
+// 组创建参数
+export interface CreateGroupOpts {
+  name: string
+  description?: string
+}
+
 export interface WinShareApi {
   share: {
     list: () => Promise<Share[]>
+    get: (name: string) => Promise<Share>
     create: (opts: CreateShareOpts) => Promise<Share>
     update: (name: string, opts: UpdateShareOpts) => Promise<Share>
     delete: (name: string) => Promise<void>
@@ -62,13 +112,33 @@ export interface WinShareApi {
     permissions: (name: string) => Promise<SharePermission[]>
     exportConfig: () => Promise<string>
     importConfig: (json: string) => Promise<{ imported: number; skipped: number; errors: string[] }>
+    connections: (name: string) => Promise<ShareConnections>
+    openFiles: (name: string) => Promise<ShareOpenFile[]>
+    closeOpenFiles: (name: string) => Promise<{ closed: number; failed: number }>
   }
   user: {
     list: () => Promise<LocalUser[]>
+    get: (name: string) => Promise<LocalUser>
     groups: () => Promise<LocalGroup[]>
     sharePermissions: (name: string) => Promise<SharePermission[]>
+    sharePermissionsForUser: (name: string) => Promise<SharePermission[]>
     setSharePermissions: (name: string, perms: SharePermission[]) => Promise<void>
     ntfsPermissions: (path: string) => Promise<NtfsAcl>
+    create: (opts: CreateUserOpts) => Promise<void>
+    update: (name: string, opts: UpdateUserOpts) => Promise<void>
+    delete: (name: string) => Promise<void>
+    setPassword: (name: string, password: string) => Promise<void>
+    enable: (name: string) => Promise<void>
+    disable: (name: string) => Promise<void>
+    rename: (oldName: string, newName: string) => Promise<void>
+  }
+  group: {
+    create: (opts: CreateGroupOpts) => Promise<void>
+    delete: (name: string) => Promise<void>
+    update: (name: string, description: string) => Promise<void>
+    rename: (oldName: string, newName: string) => Promise<void>
+    addMember: (group: string, member: string) => Promise<void>
+    removeMember: (group: string, member: string) => Promise<void>
   }
   session: {
     list: () => Promise<SmbSession[]>
@@ -79,16 +149,25 @@ export interface WinShareApi {
   smb: {
     getConfig: () => Promise<SmbServerConfig>
     setConfig: (config: Partial<SmbServerConfig>) => Promise<void>
+    restoreDefault: () => Promise<SmbServerConfig>
+    defaultConfig: () => Promise<SmbServerConfig>
     serviceStatus: () => Promise<ServiceStatus>
     restart: () => Promise<void>
+    start: () => Promise<void>
+    stop: () => Promise<void>
     listSnapshots: () => Promise<SmbSnapshotMeta[]>
     rollback: (id: string) => Promise<void>
   }
   preset: {
     list: () => Promise<PermissionPreset[]>
+    get: (id: string) => Promise<PermissionPreset | null>
     save: (preset: PermissionPreset) => Promise<void>
+    update: (id: string, updates: Partial<PermissionPreset>) => Promise<void>
     delete: (id: string) => Promise<void>
+    duplicate: (id: string, name?: string) => Promise<PermissionPreset>
     apply: (shareName: string, presetId: string, mode: 'overwrite' | 'merge') => Promise<void>
+    export: () => Promise<string>
+    import: (json: string) => Promise<{ imported: number; skipped: number; errors: string[] }>
   }
   system: {
     currentUser: () => Promise<UserInfo>
@@ -121,16 +200,32 @@ export interface WinShareApi {
   nfs: {
     getConfig: () => Promise<NfsServerConfig>
     setConfig: (config: Partial<NfsServerConfig>) => Promise<void>
+    restoreDefault: () => Promise<NfsServerConfig>
+    defaultConfig: () => Promise<NfsServerConfig>
     serviceStatus: () => Promise<ServiceStatus>
     restart: () => Promise<void>
+    start: () => Promise<void>
+    stop: () => Promise<void>
   }
   ftp: {
+    getConfig: () => Promise<FtpServerConfig>
+    setConfig: (config: Partial<FtpServerConfig>) => Promise<void>
+    restoreDefault: () => Promise<FtpServerConfig>
+    defaultConfig: () => Promise<FtpServerConfig>
     serviceStatus: () => Promise<ServiceStatus>
     restart: () => Promise<void>
+    start: () => Promise<void>
+    stop: () => Promise<void>
   }
   webdav: {
+    getConfig: () => Promise<WebdavServerConfig>
+    setConfig: (config: Partial<WebdavServerConfig>) => Promise<void>
+    restoreDefault: () => Promise<WebdavServerConfig>
+    defaultConfig: () => Promise<WebdavServerConfig>
     serviceStatus: () => Promise<ServiceStatus>
     restart: () => Promise<void>
+    start: () => Promise<void>
+    stop: () => Promise<void>
   }
   protocol: {
     detect: () => Promise<ProtocolDetectionResult>
