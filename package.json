@@ -1,6 +1,6 @@
 {
   "name": "winshare-panel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "WinShare Panel - Windows 文件共享控制面板",
   "main": "out/main/index.js",
   "author": "WinShare Panel",
