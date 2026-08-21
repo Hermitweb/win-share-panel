@@ -147,8 +147,6 @@ export async function createUser(opts: CreateUserOpts): Promise<void> {
   if (opts.passwordChangeable === false) parts.push('-UserMayNotChangePassword')
   if (opts.passwordExpires === true) parts.push('-PasswordNeverExpires:$false')
   else parts.push('-PasswordNeverExpires')
-  // 不创建 profile，避免某些系统上的副作用
-  parts.push('-NoProfile')
   await runPowerShellVoid(parts.join(' '), { retries: 0 })
 }
 

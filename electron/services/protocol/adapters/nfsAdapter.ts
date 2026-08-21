@@ -30,15 +30,12 @@ interface RawNfsShare {
   Permission: string
 }
 
-interface RawNfsClient {
-  ClientName: string
-  ClientComputerName: string
-  ClientIpAddress: string
-  SessionStartTime: string
-  OpenFileCount: number
-  IdleTime: number
-  BytesReceived: number
-  BytesSent: number
+// Get-NfsSession 输出（CIM 类 root/Microsoft/Windows/NFS/MSFT_NfsSession，NFS v4.1 会话）
+interface RawNfsSession {
+  SessionId: string
+  NetworkName: string
+  State: number
+  ClientId: number
 }
 
 interface RawNfsPermission {
@@ -290,28 +287,30 @@ export const nfsAdapter: ProtocolAdapter = {
 
   async listSessions(): Promise<ProtocolSession[]> {
     // retries:0 避免未装 NFS 时无谓重试
-    const raw = await runPowerShell<RawNfsClient | RawNfsClient[]>(
-      'Get-NfsClient',
+    // MSFT_NfsSession 仅含 SessionId/NetworkName/State/ClientId，
+    // 无用户名、开始时间、打开文件、流量等字段，相应字段留空/置 0
+    const raw = await runPowerShell<RawNfsSession | RawNfsSession[]>(
+      'Get-NfsSession',
       { retries: 0 }
     )
     const arr = Array.isArray(raw) ? raw : [raw]
-    return arr.map((c) => ({
+    return arr.map((s) => ({
       protocol: 'nfs' as const,
-      sessionId: c.ClientName || c.ClientComputerName || c.ClientIpAddress || '',
-      clientUserName: c.ClientName || '',
-      clientComputerName: c.ClientComputerName || c.ClientIpAddress || '',
-      sessionStartTime: c.SessionStartTime || '',
-      clientOpenFiles: c.OpenFileCount || 0,
-      clientIdleTime: c.IdleTime || 0,
-      bytesReceived: c.BytesReceived || 0,
-      bytesSent: c.BytesSent || 0
+      sessionId: s.SessionId || String(s.ClientId ?? ''),
+      clientUserName: s.ClientId !== undefined ? `Client ${s.ClientId}` : '',
+      clientComputerName: s.NetworkName || '',
+      sessionStartTime: '',
+      clientOpenFiles: 0,
+      clientIdleTime: 0,
+      bytesReceived: 0,
+      bytesSent: 0
     }))
   },
 
   async closeSession(sessionId: string): Promise<void> {
-    // NFS 关闭客户端会话：Disconnect-NfsClient（需 ClientName）
+    // NFS 关闭会话：Disconnect-NfsSession（需 SessionId，来自 Get-NfsSession 输出）
     console.log('[closeSession:nfs] 关闭会话:', sessionId)
-    const cmd = `Disconnect-NfsClient -ClientName ${psQuote(sessionId)} -Confirm:$false`
+    const cmd = `Disconnect-NfsSession -SessionId ${psQuote(sessionId)} -Confirm:$false`
     console.log('[closeSession:nfs] PowerShell 命令:', cmd)
     try {
       await runPowerShellVoid(cmd)
