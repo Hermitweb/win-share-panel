@@ -12,8 +12,12 @@ extraResources:
     filter: ['**/*']
 win:
   target:
-    - nsis
-    - portable
+    - target: nsis
+      arch: [x64, ia32]
+    - target: portable
+      arch: [x64, ia32]
+    - target: msi
+      arch: [x64, ia32]
   icon: resources/icon.ico
   requestedExecutionLevel: requireAdministrator
 nsis:
@@ -23,6 +27,9 @@ nsis:
   createStartMenuShortcut: true
   installerIcon: resources/icon.ico
   uninstallerIcon: resources/icon.ico
-  artifactName: ${productName}-${version}-Setup.exe
+  artifactName: ${productName}-${version}-Setup-${arch}.exe
 portable:
-  artifactName: ${productName}-${version}-portable.exe
+  artifactName: ${productName}-${version}-portable-${arch}.exe
+msi:
+  oneClick: false
+  artifactName: ${productName}-${version}-${arch}.msi

@@ -8,3 +8,7 @@ release/
 .env
 .env.local
 coverage/
+
+# build environment artifacts
+.pnpm-store/
+*.deb
