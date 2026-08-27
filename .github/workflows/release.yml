@@ -43,8 +43,10 @@ jobs:
       - name: Build & Package (electron-vite + electron-builder)
         run: pnpm build:win
         env:
-          # electron-builder 用 GH_TOKEN 上传产物到 release（若配置 publish）
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # EP_PUBLISH=never: 禁用 electron-builder 自动发布（CI 检测到 GH_TOKEN 会
+          # 自动上传产物，与下方 softprops 上传步骤叠加产生重复资产），
+          # 统一由下方 "Upload artifacts" 步骤负责上传。
+          EP_PUBLISH: never
           # GitHub Actions runner 在国外，直连 npm/electron 较快，无需镜像
           # 仍保留 ELECTRON_MIRROR 兜底，避免偶发下载失败
           ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
