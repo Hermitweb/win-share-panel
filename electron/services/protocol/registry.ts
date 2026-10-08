@@ -1,3 +1,4 @@
+import { log } from '../../lib/logger'
 import type { ProtocolAdapter } from './ProtocolAdapter'
 import type {
   Protocol,
@@ -45,26 +46,29 @@ export function getCapabilitiesMap(): Record<Protocol, ProtocolCapabilities | nu
 // 统一路由：列出共享（不传 protocol = 合并所有已注册协议）
 // 注：协议未装/查询失败时优雅返回空数组，由 ProtocolCapabilityBanner 引导安装，不向 UI 抛错
 export async function adapterList(protocol?: Protocol): Promise<Share[]> {
-  console.time('[perf] adapterList')
+  // M-8：按次时间戳计时，规避并发调用下 console.time 同名标签冲突（"No such label" 警告）
+  const t0 = Date.now()
+  const done = (n: number) =>
+    log.info('perf', `adapterList(${protocol ?? 'all'}) 耗时 ${Date.now() - t0}ms，返回 ${n} 条`)
   if (protocol) {
     try {
       const result = await getAdapter(protocol).listShares()
-      console.timeEnd('[perf] adapterList')
+      done(result.length)
       return result
     } catch {
-      console.timeEnd('[perf] adapterList')
+      done(0)
       return []
     }
   }
   // 合并所有协议：并行查询，避免 4 个 PowerShell 进程串行启动造成 2-4s 延迟
   const protos = getRegisteredProtocols()
-  console.log(`[perf] adapterList 并行查询 ${protos.length} 个协议: ${protos.join(', ')}`)
+  log.info('perf', `adapterList 并行查询 ${protos.length} 个协议: ${protos.join(', ')}`)
   const results = await Promise.allSettled(protos.map((p) => getAdapter(p).listShares()))
   const all: Share[] = []
   for (const r of results) {
     if (r.status === 'fulfilled') all.push(...r.value)
   }
-  console.timeEnd('[perf] adapterList')
+  done(all.length)
   return all
 }
 

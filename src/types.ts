@@ -176,6 +176,10 @@ export interface WinShareApi {
     auditLog: () => Promise<string>
     health: () => Promise<{ ok: boolean; detail: string }>
   }
+  log: {
+    write: (level: 'debug' | 'info' | 'warn' | 'error', message: string) => Promise<null>
+    tail: (lines?: number) => Promise<string>
+  }
   window: {
     minimize: () => Promise<void>
     toggleMaximize: () => Promise<boolean>

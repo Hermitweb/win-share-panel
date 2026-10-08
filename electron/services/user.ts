@@ -1,3 +1,4 @@
+import { log } from '../lib/logger'
 import {
   runPowerShell,
   runPowerShellVoid,
@@ -355,7 +356,8 @@ export async function setSharePermissions(
 
   // 事务补偿：先备份当前权限，若后续 Grant/Block 中途失败则回滚到原状态
   const backup = await getSharePermissions(shareName).catch(() => [] as SharePermission[])
-  console.log(
+  log.info(
+    'user',
     '[setPermissions:smb] 已备份当前权限:',
     backup.length,
     '条 →',
@@ -401,10 +403,11 @@ export async function setSharePermissions(
 
   // 若有失败项：尝试回滚到备份状态，保证共享不处于"全空"危险状态
   if (failed.length > 0) {
-    console.error('[setPermissions:smb] 回滚触发！失败账号:', failed.join(', '))
+    log.error('user', '[setPermissions:smb] 回滚触发！失败账号:', failed.join(', '))
     // 查询回滚前的当前权限状态（部分授予后的残留状态）
     const beforeRollback = await getSharePermissions(shareName).catch(() => [] as SharePermission[])
-    console.log(
+    log.info(
+      'user',
       '[setPermissions:smb] 回滚前权限状态:',
       beforeRollback.length,
       '条 →',
@@ -430,11 +433,12 @@ export async function setSharePermissions(
       }
     } catch {
       // 回滚失败：已尽力，抛出原始错误
-      console.error('[setPermissions:smb] 回滚过程出错！')
+      log.error('user', '[setPermissions:smb] 回滚过程出错！')
     }
     // 查询回滚后的权限状态，验证是否恢复成功
     const afterRollback = await getSharePermissions(shareName).catch(() => [] as SharePermission[])
-    console.log(
+    log.info(
+      'user',
       '[setPermissions:smb] 回滚后权限状态:',
       afterRollback.length,
       '条 →',

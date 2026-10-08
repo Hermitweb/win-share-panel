@@ -1,3 +1,4 @@
+import { log } from '../../../lib/logger'
 import type { ProtocolAdapter } from '../ProtocolAdapter'
 import type {
   Share,
@@ -124,7 +125,7 @@ export const ftpAdapter: ProtocolAdapter = {
   },
 
   async createShare(input: CreateShareInput): Promise<Share> {
-    console.log('[createShare:ftp] 适配器接收输入:', {
+    log.info('adapter:ftpAdapter', '[createShare:ftp] 适配器接收输入:', {
       name: input.name,
       path: input.path,
       port: input.port,
@@ -136,16 +137,25 @@ export const ftpAdapter: ProtocolAdapter = {
     const port = input.port || 21
     // 创建 FTP 站点（retries:0，端口冲突等失败为确定性错误，重试无意义）
     const createCmd = `New-WebFtpSite -Name ${psQuote(input.name)} -PhysicalPath ${psQuote(input.path)} -Port ${port} -Force`
-    console.log('[createShare:ftp] 步骤 1/3 创建站点, PowerShell 命令:', createCmd)
+    log.info(
+      'adapter:ftpAdapter',
+      '[createShare:ftp] 步骤 1/3 创建站点, PowerShell 命令:',
+      createCmd,
+    )
     try {
       await runPowerShellVoid(createCmd, { retries: 0 })
     } catch (e) {
-      console.error('[createShare:ftp] 步骤 1/3 创建站点失败:', (e as Error).message)
+      log.error(
+        'adapter:ftpAdapter',
+        '[createShare:ftp] 步骤 1/3 创建站点失败:',
+        (e as Error).message,
+      )
       throw e
     }
-    console.log('[createShare:ftp] 步骤 1/3 站点创建成功')
+    log.info('adapter:ftpAdapter', '[createShare:ftp] 步骤 1/3 站点创建成功')
     // 端口冲突由 New-WebFtpSite 抛错；成功后配置 SSL 与认证（best-effort，不阻断创建）
-    console.log(
+    log.info(
+      'adapter:ftpAdapter',
       '[createShare:ftp] 步骤 2/3 应用 SSL/认证配置, sslPolicy:',
       input.sslPolicy,
       'authMode:',
@@ -153,16 +163,20 @@ export const ftpAdapter: ProtocolAdapter = {
     )
     try {
       await applyFtpConfig(input.name, input)
-      console.log('[createShare:ftp] 步骤 2/3 配置应用完成')
+      log.info('adapter:ftpAdapter', '[createShare:ftp] 步骤 2/3 配置应用完成')
     } catch (e) {
-      console.error('[createShare:ftp] 步骤 2/3 配置应用失败（非致命）:', (e as Error).message)
+      log.error(
+        'adapter:ftpAdapter',
+        '[createShare:ftp] 步骤 2/3 配置应用失败（非致命）:',
+        (e as Error).message,
+      )
     }
-    console.log('[createShare:ftp] 步骤 3/3 读取站点信息...')
+    log.info('adapter:ftpAdapter', '[createShare:ftp] 步骤 3/3 读取站点信息...')
     const site = await fetchSite(input.name)
     if (!site) {
-      console.error('[createShare:ftp] 步骤 3/3 站点创建后未能读取:', input.name)
+      log.error('adapter:ftpAdapter', '[createShare:ftp] 步骤 3/3 站点创建后未能读取:', input.name)
       // 清理孤儿站点，避免端口占用残留
-      console.log('[createShare:ftp] 清理孤儿站点...')
+      log.info('adapter:ftpAdapter', '[createShare:ftp] 清理孤儿站点...')
       await runPowerShellVoid(
         `Import-Module WebAdministration; try { Remove-Item ${iisPath(input.name)} -Recurse -Force -ErrorAction Stop } catch {}`,
         { retries: 0 },
@@ -173,56 +187,66 @@ export const ftpAdapter: ProtocolAdapter = {
         { retries: 0 },
       ).catch(() => null)
       if (stillExists) {
-        console.error('[createShare:ftp] 孤儿站点清理失败！站点仍存在:', input.name)
+        log.error(
+          'adapter:ftpAdapter',
+          '[createShare:ftp] 孤儿站点清理失败！站点仍存在:',
+          input.name,
+        )
       } else {
-        console.log('[createShare:ftp] 孤儿站点已确认清理:', input.name)
+        log.info('adapter:ftpAdapter', '[createShare:ftp] 孤儿站点已确认清理:', input.name)
       }
       throw Errors.commandFailed('FTP 站点创建后未能读取，已自动清理孤儿站点')
     }
-    console.log('[createShare:ftp] 共享创建完成:', input.name)
+    log.info('adapter:ftpAdapter', '[createShare:ftp] 共享创建完成:', input.name)
     return site
   },
 
   async deleteShare(name: string): Promise<void> {
-    console.log('[deleteShare:ftp] 删除站点:', name)
+    log.info('adapter:ftpAdapter', '[deleteShare:ftp] 删除站点:', name)
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     // Import-Module 确保 IIS: PSDrive 存在（-NoProfile 下未自动加载）；
     // try/catch 包裹：站点不存在时不抛错（幂等删除）
     const cmd = `Import-Module WebAdministration; try { Remove-Item ${iisPath(name)} -Recurse -Force -ErrorAction Stop } catch {}`
-    console.log('[deleteShare:ftp] PowerShell 命令:', cmd)
+    log.info('adapter:ftpAdapter', '[deleteShare:ftp] PowerShell 命令:', cmd)
     try {
       await runPowerShellVoid(cmd)
-      console.log('[deleteShare:ftp] 删除成功:', name)
+      log.info('adapter:ftpAdapter', '[deleteShare:ftp] 删除成功:', name)
     } catch (e) {
-      console.error('[deleteShare:ftp] 删除失败:', name, (e as Error).message)
+      log.error('adapter:ftpAdapter', '[deleteShare:ftp] 删除失败:', name, (e as Error).message)
       throw e
     }
   },
 
   async updateShare(name: string, input: UpdateShareInput): Promise<Share> {
-    console.log('[updateShare:ftp] 更新站点:', name, {
+    log.info('adapter:ftpAdapter', '[updateShare:ftp] 更新站点:', name, {
       sslPolicy: input.sslPolicy,
       authMode: input.authMode,
     })
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     try {
       await applyFtpConfig(name, input)
-      console.log('[updateShare:ftp] 配置应用完成，正在读取站点信息...')
+      log.info('adapter:ftpAdapter', '[updateShare:ftp] 配置应用完成，正在读取站点信息...')
       const site = await fetchSite(name)
       if (!site) {
-        console.error('[updateShare:ftp] 站点更新后未能读取:', name)
+        log.error('adapter:ftpAdapter', '[updateShare:ftp] 站点更新后未能读取:', name)
         throw Errors.shareNotFound(name)
       }
-      console.log('[updateShare:ftp] 站点更新完成:', name)
+      log.info('adapter:ftpAdapter', '[updateShare:ftp] 站点更新完成:', name)
       return site
     } catch (e) {
-      console.error('[updateShare:ftp] 更新失败:', name, (e as Error).message)
+      log.error('adapter:ftpAdapter', '[updateShare:ftp] 更新失败:', name, (e as Error).message)
       throw e
     }
   },
 
   async toggleShare(name: string, enabled: boolean): Promise<void> {
-    console.log('[toggleShare:ftp] 切换站点状态:', name, '→', enabled ? '启用' : '禁用')
+    log.info(
+      'adapter:ftpAdapter',
+      '[toggleShare:ftp] 切换站点状态:',
+      name,
+      '→',
+      enabled ? '启用' : '禁用',
+    )
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     // 先检查站点是否存在，不存在则抛错（不再静默吞错返回假成功）
     const exists = await runPowerShell<string>(
@@ -230,7 +254,7 @@ export const ftpAdapter: ProtocolAdapter = {
       { retries: 0 },
     ).catch(() => null)
     if (!exists) {
-      console.error('[toggleShare:ftp] 站点不存在:', name)
+      log.error('adapter:ftpAdapter', '[toggleShare:ftp] 站点不存在:', name)
       throw Errors.shareNotFound(name)
     }
     // 用 Start-Website / Stop-Website（WebAdministration cmdlet，自动加载模块）
@@ -238,12 +262,18 @@ export const ftpAdapter: ProtocolAdapter = {
     // try/catch 容忍"已在目标状态"的非致命错误（如站点已启动时再 Start）
     const action = enabled ? 'Start-Website' : 'Stop-Website'
     const cmd = `try { ${action} -Name ${psQuote(name)} -ErrorAction Stop } catch {}`
-    console.log('[toggleShare:ftp] PowerShell 命令:', cmd)
+    log.info('adapter:ftpAdapter', '[toggleShare:ftp] PowerShell 命令:', cmd)
     try {
       await runPowerShellVoid(cmd)
-      console.log('[toggleShare:ftp] 切换成功:', name, '→', enabled ? '启用' : '禁用')
+      log.info(
+        'adapter:ftpAdapter',
+        '[toggleShare:ftp] 切换成功:',
+        name,
+        '→',
+        enabled ? '启用' : '禁用',
+      )
     } catch (e) {
-      console.error('[toggleShare:ftp] 切换失败:', name, (e as Error).message)
+      log.error('adapter:ftpAdapter', '[toggleShare:ftp] 切换失败:', name, (e as Error).message)
       throw e
     }
   },
@@ -273,7 +303,7 @@ export const ftpAdapter: ProtocolAdapter = {
   },
 
   async setPermissions(name: string, perms: SharePermission[]): Promise<void> {
-    console.log('[setPermissions:ftp] 设置权限:', name, {
+    log.info('adapter:ftpAdapter', '[setPermissions:ftp] 设置权限:', name, {
       权限条数: perms.length,
       权限: perms.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`),
     })
@@ -284,14 +314,15 @@ export const ftpAdapter: ProtocolAdapter = {
     const backup = this.getPermissions
       ? await this.getPermissions(name).catch(() => [] as SharePermission[])
       : []
-    console.log(
+    log.info(
+      'adapter:ftpAdapter',
       '[setPermissions:ftp] 已备份当前权限:',
       backup.length,
       '条 →',
       backup.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)',
     )
     // 先清空已有授权规则，再按传入列表重建
-    console.log('[setPermissions:ftp] 清空已有授权规则...')
+    log.info('adapter:ftpAdapter', '[setPermissions:ftp] 清空已有授权规则...')
     await runPowerShellVoid(
       `Clear-WebConfiguration -Filter 'ftpServer/security/authorization' -PSPath ${iisPath(name)} -ErrorAction SilentlyContinue`,
       { retries: 0 },
@@ -308,22 +339,28 @@ export const ftpAdapter: ProtocolAdapter = {
       const userField =
         p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
       const cmd = `Add-WebConfiguration -Filter 'ftpServer/security/authorization' -PSPath ${iisPath(name)} -Value @{accessType='${accessType}';${userField};permissions='${permissions}'} -ErrorAction Stop`
-      console.log('[setPermissions:ftp] 授予权限, PowerShell 命令:', cmd)
+      log.info('adapter:ftpAdapter', '[setPermissions:ftp] 授予权限, PowerShell 命令:', cmd)
       try {
         await runPowerShellVoid(cmd, { retries: 0 })
       } catch (e) {
-        console.error('[setPermissions:ftp] 授予失败:', p.account, (e as Error).message)
+        log.error(
+          'adapter:ftpAdapter',
+          '[setPermissions:ftp] 授予失败:',
+          p.account,
+          (e as Error).message,
+        )
         failed.push(p.account)
       }
     }
     // 若有失败项：回滚到备份状态
     if (failed.length > 0) {
-      console.error('[setPermissions:ftp] 回滚触发！失败账号:', failed.join(', '))
+      log.error('adapter:ftpAdapter', '[setPermissions:ftp] 回滚触发！失败账号:', failed.join(', '))
       // 查询回滚前的当前权限状态（部分授予后的残留状态）
       const beforeRollback = this.getPermissions
         ? await this.getPermissions(name).catch(() => [] as SharePermission[])
         : []
-      console.log(
+      log.info(
+        'adapter:ftpAdapter',
         '[setPermissions:ftp] 回滚前权限状态:',
         beforeRollback.length,
         '条 →',
@@ -352,7 +389,8 @@ export const ftpAdapter: ProtocolAdapter = {
       const afterRollback = this.getPermissions
         ? await this.getPermissions(name).catch(() => [] as SharePermission[])
         : []
-      console.log(
+      log.info(
+        'adapter:ftpAdapter',
         '[setPermissions:ftp] 回滚后权限状态:',
         afterRollback.length,
         '条 →',
@@ -361,7 +399,7 @@ export const ftpAdapter: ProtocolAdapter = {
       )
       throw Errors.commandFailed(`部分权限授予失败（${failed.join(', ')}），已回滚到原始状态`)
     }
-    console.log('[setPermissions:ftp] 权限设置成功:', name)
+    log.info('adapter:ftpAdapter', '[setPermissions:ftp] 权限设置成功:', name)
   },
 
   // FTP 无原生会话 API（capabilities.supportsSessions=false），不实现 listSessions
@@ -370,12 +408,12 @@ export const ftpAdapter: ProtocolAdapter = {
   },
 
   async restartService(): Promise<void> {
-    console.log('[restartService:ftp] 重启 FTP 服务...')
+    log.info('adapter:ftpAdapter', '[restartService:ftp] 重启 FTP 服务...')
     try {
       await ftp.restartService()
-      console.log('[restartService:ftp] 服务重启成功')
+      log.info('adapter:ftpAdapter', '[restartService:ftp] 服务重启成功')
     } catch (e) {
-      console.error('[restartService:ftp] 服务重启失败:', (e as Error).message)
+      log.error('adapter:ftpAdapter', '[restartService:ftp] 服务重启失败:', (e as Error).message)
       throw e
     }
   },
@@ -385,12 +423,12 @@ export const ftpAdapter: ProtocolAdapter = {
   },
 
   async setConfig(config: Partial<FtpServerConfig>): Promise<void> {
-    console.log('[setConfig:ftp] 设置服务器配置:', Object.keys(config))
+    log.info('adapter:ftpAdapter', '[setConfig:ftp] 设置服务器配置:', Object.keys(config))
     try {
       await ftp.setConfig(config)
-      console.log('[setConfig:ftp] 配置设置成功')
+      log.info('adapter:ftpAdapter', '[setConfig:ftp] 配置设置成功')
     } catch (e) {
-      console.error('[setConfig:ftp] 配置设置失败:', (e as Error).message)
+      log.error('adapter:ftpAdapter', '[setConfig:ftp] 配置设置失败:', (e as Error).message)
       throw e
     }
   },

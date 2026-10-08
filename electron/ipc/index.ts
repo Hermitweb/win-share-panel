@@ -1,3 +1,4 @@
+import { log, normalizeLevel, readLogTail, writeLog } from '../lib/logger'
 import { ipcMain } from 'electron'
 import { audit } from '../lib/audit'
 import { Errors } from '../lib/errors'
@@ -273,6 +274,29 @@ export function registerIpc(): void {
   ipcMain.handle('system:auditLog', () => system.getAuditLog())
   ipcMain.handle('system:health', () => system.healthCheck())
 
+  // === app: 日志系统（E6）===
+  // 渲染层错误/事件转发主进程持久化；边界守卫：level 白名单、长度截断、简单限流
+  let logWindowStart = Date.now()
+  let logWindowCount = 0
+  ipcMain.handle('app:logWrite', (_e, level: unknown, message: unknown) => {
+    if (typeof message !== 'string' || !message.length) return null
+    const now = Date.now()
+    if (now - logWindowStart > 1000) {
+      logWindowStart = now
+      logWindowCount = 0
+    }
+    logWindowCount++
+    // 每秒 30 条限流：失控循环不得刷爆日志
+    if (logWindowCount > 30) return null
+    writeLog(normalizeLevel(level), 'renderer', message.slice(0, 4000))
+    return null
+  })
+  ipcMain.handle('app:logTail', (_e, lines: unknown) => {
+    const n =
+      typeof lines === 'number' && Number.isFinite(lines) ? Math.min(Math.max(1, lines), 2000) : 300
+    return readLogTail(n)
+  })
+
   // === adapter: 多协议统一路由（共享 CRUD + 权限 + 会话） ===
   ipcMain.handle('adapter:list', (_e, protocol?: Protocol) =>
     wrap(() => adapterList(protocol), 'list', `shares:${protocol || 'all'}`),
@@ -285,7 +309,10 @@ export function registerIpc(): void {
     requireStringArray(input?.changeAccess)
     requireStringArray(input?.readAccess)
     requireStringArray(input?.noAccess)
-    console.log(`[createShare] IPC 入口校验通过, 协议: ${input.protocol}, 共享名: ${input.name}`)
+    log.info(
+      'index',
+      `[createShare] IPC 入口校验通过, 协议: ${input.protocol}, 共享名: ${input.name}`,
+    )
     return wrap(() => adapterCreate(input), 'create', `${input.protocol}:${input.name}`)
   })
   ipcMain.handle('adapter:update', (_e, name: string, input: UpdateShareInput) => {

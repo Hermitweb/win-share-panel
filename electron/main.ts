@@ -1,8 +1,18 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, crashReporter } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Tray,
+  Menu,
+  nativeImage,
+  crashReporter,
+  shell,
+} from 'electron'
 import { join } from 'path'
 import { existsSync, rmSync } from 'fs'
 import { registerIpc } from './ipc'
 import { prewarmPool, shutdownPool } from './lib/powershellPool'
+import { logDir } from './lib/logger'
 
 // 禁用 GPU 着色器磁盘缓存：控制面板应用无需 GPU 缓存，
 // 且 Windows 上 GPUCache 目录常因文件锁/Archive 属性导致 "Unable to move the cache: 拒绝访问 (0x5)" 警告
@@ -91,6 +101,9 @@ function createTray(): void {
   tray = new Tray(image)
   const menu = Menu.buildFromTemplate([
     { label: '显示主窗口', click: () => mainWindow?.show() },
+    { type: 'separator' },
+    // E6：直达日志目录，报错现场可追溯复制
+    { label: '打开日志文件夹', click: () => void shell.openPath(logDir()) },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() },
   ])

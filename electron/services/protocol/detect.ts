@@ -1,3 +1,4 @@
+import { log } from '../../lib/logger'
 import { runPowerShell, runPowerShellVoid } from '../../lib/powershell'
 import { Errors } from '../../lib/errors'
 import type { Protocol, ProtocolDetectionResult, ProtocolFeatureState } from '../../types'
@@ -170,13 +171,14 @@ let inflightDetect: Promise<ProtocolDetectionResult> | null = null
 
 export async function detectProtocols(): Promise<ProtocolDetectionResult> {
   if (inflightDetect) {
-    console.log('[perf] detectProtocols 复用 in-flight promise（跳过重复检测）')
+    log.info('perf', 'detectProtocols 复用 in-flight promise（跳过重复检测）')
     return inflightDetect
   }
-  console.time('[perf] detectProtocols')
+  // M-8：按次时间戳计时，规避 console.time 标签冲突
+  const t0 = Date.now()
   inflightDetect = doDetectProtocols().finally(() => {
     inflightDetect = null
-    console.timeEnd('[perf] detectProtocols')
+    log.info('perf', `detectProtocols 耗时 ${Date.now() - t0}ms`)
   })
   return inflightDetect
 }

@@ -1,3 +1,4 @@
+import { log } from './logger'
 import { spawn } from 'child_process'
 import { randomBytes } from 'crypto'
 import type { Writable, Readable } from 'stream'
@@ -237,7 +238,7 @@ export class PowerShellPool {
     handle.stderr.on('data', (chunk: string | Buffer) => {
       const text = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
       const t = text.trim()
-      if (t) console.debug('[psPool] worker stderr:', t.slice(0, 200))
+      if (t) log.debug('powershellPool', '[psPool] worker stderr:', t.slice(0, 200))
     })
     // worker 退出时写 stdin 可能 EPIPE，吞掉由 exit 处理
     handle.stdin.on('error', () => {

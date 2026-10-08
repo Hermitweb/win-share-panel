@@ -157,6 +157,12 @@ const api = {
     auditLog: (): Promise<string> => ipcRenderer.invoke('system:auditLog'),
     health: (): Promise<{ ok: boolean; detail: string }> => ipcRenderer.invoke('system:health'),
   },
+  // 日志系统（E6）：渲染层错误持久化 + 应用日志查看
+  log: {
+    write: (level: 'debug' | 'info' | 'warn' | 'error', message: string): Promise<null> =>
+      ipcRenderer.invoke('app:logWrite', level, message),
+    tail: (lines?: number): Promise<string> => ipcRenderer.invoke('app:logTail', lines),
+  },
   window: {
     minimize: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
     toggleMaximize: (): Promise<boolean> => ipcRenderer.invoke('window:toggleMaximize'),

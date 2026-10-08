@@ -1,3 +1,4 @@
+import { log } from '../lib/logger'
 import { userInfo } from 'os'
 import { app } from 'electron'
 import { runPowerShell, runPowerShellVoid, psQuote } from '../lib/powershell'
@@ -51,7 +52,8 @@ export async function relaunchAsAdmin(): Promise<void> {
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  console.time('[perf] getDashboardStats')
+  // M-8：按次时间戳计时，规避并发调用（挂载+F5）下 console.time 标签冲突
+  const t0 = Date.now()
   // 所有独立查询并行执行，避免 5+ 个 PowerShell 进程串行启动造成 3-5s 延迟
   const [allSharesResult, smbSessionsResult, smbFilesResult, nfsSessionsResult, svcResult] =
     await Promise.allSettled([
@@ -106,7 +108,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     .sort((a, b) => b.connections - a.connections)
     .slice(0, 8)
 
-  console.timeEnd('[perf] getDashboardStats')
+  log.info('perf', `getDashboardStats 耗时 ${Date.now() - t0}ms`)
   return {
     shareCount: allShares.filter((s) => s.type !== 'Special' && s.type !== 'IPC').length,
     activeSessions,

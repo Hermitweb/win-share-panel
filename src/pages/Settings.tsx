@@ -47,6 +47,7 @@ export default function Settings() {
   const [presets, setPresets] = useState<PermissionPreset[]>([])
   const [snapshots, setSnapshots] = useState<SmbSnapshotMeta[]>([])
   const [audit, setAudit] = useState('')
+  const [appLog, setAppLog] = useState('')
   const [saving, setSaving] = useState(false)
   const [form] = Form.useForm()
   const [editPreset, setEditPreset] = useState<PermissionPreset | null>(null)
@@ -56,16 +57,18 @@ export default function Settings() {
 
   const load = async () => {
     try {
-      const [c, s, p, a, snaps] = await Promise.all([
+      const [c, s, p, a, snaps, al] = await Promise.all([
         call(api.smb.getConfig),
         call(api.smb.serviceStatus),
         call(api.preset.list),
         call(api.system.auditLog),
         call(api.smb.listSnapshots).catch(() => [] as SmbSnapshotMeta[]),
+        api.log ? api.log.tail(300).catch(() => '') : Promise.resolve(''),
       ])
       setSvc(s)
       setPresets(p)
       setAudit(a)
+      setAppLog(al)
       setSnapshots(snaps)
       form.setFieldsValue(c)
     } catch (e) {
@@ -161,6 +164,32 @@ export default function Settings() {
     const a = document.createElement('a')
     a.href = url
     a.download = `audit-${Date.now()}.log`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // === 应用日志（E6）：查看/复制/导出 ===
+  const copyAppLog = async () => {
+    try {
+      await navigator.clipboard.writeText(appLog)
+      message.success('应用日志已复制到剪贴板')
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = appLog
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      message.success('应用日志已复制')
+    }
+  }
+
+  const exportAppLog = () => {
+    const blob = new Blob([appLog], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `app-${Date.now()}.log`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -571,6 +600,28 @@ export default function Settings() {
                         </Button>
                         <pre className="text-xs bg-white/40 p-3 rounded-card max-h-96 overflow-auto whitespace-pre-wrap">
                           {audit || '暂无日志'}
+                        </pre>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'applog',
+                    label: '应用日志',
+                    children: (
+                      <div className="glass-card p-3">
+                        <Space className="mb-2">
+                          <Button icon={<ReloadOutlined />} onClick={load}>
+                            刷新
+                          </Button>
+                          <Button onClick={copyAppLog}>复制</Button>
+                          <Button onClick={exportAppLog}>导出</Button>
+                        </Space>
+                        <div className="text-xs text-fog mb-2">
+                          显示 app.log 最近 300
+                          行（%APPDATA%\WinSharePanel\logs\，2MB×3轮转）；含主进程运行日志与渲染层错误，报错后可在此复制完整堆栈。
+                        </div>
+                        <pre className="text-xs bg-white/40 p-3 rounded-card max-h-96 overflow-auto whitespace-pre-wrap">
+                          {appLog || '暂无日志'}
                         </pre>
                       </div>
                     ),

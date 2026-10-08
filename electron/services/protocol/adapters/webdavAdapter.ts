@@ -1,3 +1,4 @@
+import { log } from '../../../lib/logger'
 import type { ProtocolAdapter } from '../ProtocolAdapter'
 import type {
   Share,
@@ -112,7 +113,7 @@ export const webdavAdapter: ProtocolAdapter = {
   },
 
   async createShare(input: CreateShareInput): Promise<Share> {
-    console.log('[createShare:webdav] 适配器接收输入:', {
+    log.info('adapter:webdavAdapter', '[createShare:webdav] 适配器接收输入:', {
       name: input.name,
       path: input.path,
       port: input.port,
@@ -123,21 +124,32 @@ export const webdavAdapter: ProtocolAdapter = {
     const port = input.port || 80
     // 创建 Web 站点（WebDAV 寄生于 Web 站点）
     const createCmd = `New-Website -Name ${psQuote(input.name)} -PhysicalPath ${psQuote(input.path)} -Port ${port} -Force`
-    console.log('[createShare:webdav] 步骤 1/4 创建 Web 站点, PowerShell 命令:', createCmd)
+    log.info(
+      'adapter:webdavAdapter',
+      '[createShare:webdav] 步骤 1/4 创建 Web 站点, PowerShell 命令:',
+      createCmd,
+    )
     try {
       await runPowerShellVoid(createCmd, { retries: 0 })
     } catch (e) {
-      console.error('[createShare:webdav] 步骤 1/4 创建站点失败:', (e as Error).message)
+      log.error(
+        'adapter:webdavAdapter',
+        '[createShare:webdav] 步骤 1/4 创建站点失败:',
+        (e as Error).message,
+      )
       throw e
     }
-    console.log('[createShare:webdav] 步骤 1/4 站点创建成功')
+    log.info('adapter:webdavAdapter', '[createShare:webdav] 步骤 1/4 站点创建成功')
     // 启用 WebDAV authoring 并验证是否真正生效。
     // 需先解锁配置节（overrideModeDefault=Deny），再用完整 filter 路径写入。
     // 若未能启用（功能未装/解锁失败），清理孤儿站点并给出明确提示，避免 IIS 残留。
-    console.log('[createShare:webdav] 步骤 2/4 启用 WebDAV authoring...')
+    log.info('adapter:webdavAdapter', '[createShare:webdav] 步骤 2/4 启用 WebDAV authoring...')
     const authoringOk = await enableAuthoring(input.name)
     if (!authoringOk) {
-      console.error('[createShare:webdav] 步骤 2/4 authoring 启用失败，清理孤儿站点...')
+      log.error(
+        'adapter:webdavAdapter',
+        '[createShare:webdav] 步骤 2/4 authoring 启用失败，清理孤儿站点...',
+      )
       // 孤儿站点清理：用 Remove-Website（WebAdministration cmdlet，自动加载模块）
       // 而非 Remove-Item 'IIS:\Sites\...'（依赖 IIS: PSDrive，-NoProfile 下未 Import 时不存在）
       await runPowerShellVoid(
@@ -148,11 +160,12 @@ export const webdavAdapter: ProtocolAdapter = {
         'WebDAV authoring 启用失败。可能原因：1) WebDAV 发布功能未安装（服务器：Web-WebDAV；客户端：IIS-WebDAV）；2) 配置节锁定且解锁失败（需管理员权限）。请确认后重试',
       )
     }
-    console.log('[createShare:webdav] 步骤 2/4 authoring 启用成功')
+    log.info('adapter:webdavAdapter', '[createShare:webdav] 步骤 2/4 authoring 启用成功')
     if (input.anonymousEnabled !== undefined) {
       const anon = psBool(input.anonymousEnabled)
       if (anon) {
-        console.log(
+        log.info(
+          'adapter:webdavAdapter',
           '[createShare:webdav] 步骤 3/4 配置匿名访问, anonymousEnabled:',
           input.anonymousEnabled,
         )
@@ -164,19 +177,23 @@ export const webdavAdapter: ProtocolAdapter = {
           )} -Name enabled -Value ${anon} -ErrorAction Stop } catch {}`,
           { retries: 0 },
         )
-        console.log('[createShare:webdav] 步骤 3/4 匿名访问配置完成')
+        log.info('adapter:webdavAdapter', '[createShare:webdav] 步骤 3/4 匿名访问配置完成')
       } else {
-        console.log('[createShare:webdav] 步骤 3/4 跳过匿名访问（未启用）')
+        log.info('adapter:webdavAdapter', '[createShare:webdav] 步骤 3/4 跳过匿名访问（未启用）')
       }
     } else {
-      console.log('[createShare:webdav] 步骤 3/4 跳过匿名访问（未指定）')
+      log.info('adapter:webdavAdapter', '[createShare:webdav] 步骤 3/4 跳过匿名访问（未指定）')
     }
-    console.log('[createShare:webdav] 步骤 4/4 读取站点信息...')
+    log.info('adapter:webdavAdapter', '[createShare:webdav] 步骤 4/4 读取站点信息...')
     const site = await fetchSite(input.name)
     if (!site) {
-      console.error('[createShare:webdav] 步骤 4/4 站点创建后未能读取:', input.name)
+      log.error(
+        'adapter:webdavAdapter',
+        '[createShare:webdav] 步骤 4/4 站点创建后未能读取:',
+        input.name,
+      )
       // 清理孤儿站点，避免端口占用残留
-      console.log('[createShare:webdav] 清理孤儿站点...')
+      log.info('adapter:webdavAdapter', '[createShare:webdav] 清理孤儿站点...')
       await runPowerShellVoid(
         `try { Remove-Website -Name ${psQuote(input.name)} -ErrorAction Stop } catch {}`,
         { retries: 0 },
@@ -187,35 +204,44 @@ export const webdavAdapter: ProtocolAdapter = {
         { retries: 0 },
       ).catch(() => null)
       if (stillExists) {
-        console.error('[createShare:webdav] 孤儿站点清理失败！站点仍存在:', input.name)
+        log.error(
+          'adapter:webdavAdapter',
+          '[createShare:webdav] 孤儿站点清理失败！站点仍存在:',
+          input.name,
+        )
       } else {
-        console.log('[createShare:webdav] 孤儿站点已确认清理:', input.name)
+        log.info('adapter:webdavAdapter', '[createShare:webdav] 孤儿站点已确认清理:', input.name)
       }
       throw Errors.commandFailed('WebDAV 站点创建后未能读取，已自动清理孤儿站点')
     }
-    console.log('[createShare:webdav] 共享创建完成:', input.name)
+    log.info('adapter:webdavAdapter', '[createShare:webdav] 共享创建完成:', input.name)
     return site
   },
 
   async deleteShare(name: string): Promise<void> {
-    console.log('[deleteShare:webdav] 删除站点:', name)
+    log.info('adapter:webdavAdapter', '[deleteShare:webdav] 删除站点:', name)
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     // 用 Remove-Website（WebAdministration cmdlet，自动加载模块，-Name 接受字符串）
     // 而非 Remove-Item 'IIS:\Sites\...'（依赖 IIS: PSDrive，-NoProfile 下未 Import 时不存在）
     // try/catch 包裹：站点不存在时不抛错（幂等删除）
     const cmd = `try { Remove-Website -Name ${psQuote(name)} -ErrorAction Stop } catch {}`
-    console.log('[deleteShare:webdav] PowerShell 命令:', cmd)
+    log.info('adapter:webdavAdapter', '[deleteShare:webdav] PowerShell 命令:', cmd)
     try {
       await runPowerShellVoid(cmd)
-      console.log('[deleteShare:webdav] 删除成功:', name)
+      log.info('adapter:webdavAdapter', '[deleteShare:webdav] 删除成功:', name)
     } catch (e) {
-      console.error('[deleteShare:webdav] 删除失败:', name, (e as Error).message)
+      log.error(
+        'adapter:webdavAdapter',
+        '[deleteShare:webdav] 删除失败:',
+        name,
+        (e as Error).message,
+      )
       throw e
     }
   },
 
   async updateShare(name: string, input: UpdateShareInput): Promise<Share> {
-    console.log('[updateShare:webdav] 更新站点:', name, {
+    log.info('adapter:webdavAdapter', '[updateShare:webdav] 更新站点:', name, {
       anonymousEnabled: input.anonymousEnabled,
     })
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
@@ -223,7 +249,8 @@ export const webdavAdapter: ProtocolAdapter = {
       if (input.anonymousEnabled !== undefined) {
         const anon = psBool(input.anonymousEnabled)
         if (anon) {
-          console.log(
+          log.info(
+            'adapter:webdavAdapter',
             '[updateShare:webdav] 配置匿名访问, anonymousEnabled:',
             input.anonymousEnabled,
           )
@@ -235,25 +262,36 @@ export const webdavAdapter: ProtocolAdapter = {
             )} -Name enabled -Value ${anon} -ErrorAction Stop } catch {}`,
             { retries: 0 },
           )
-          console.log('[updateShare:webdav] 匿名访问配置完成')
+          log.info('adapter:webdavAdapter', '[updateShare:webdav] 匿名访问配置完成')
         }
       }
-      console.log('[updateShare:webdav] 正在读取站点信息...')
+      log.info('adapter:webdavAdapter', '[updateShare:webdav] 正在读取站点信息...')
       const site = await fetchSite(name)
       if (!site) {
-        console.error('[updateShare:webdav] 站点更新后未能读取:', name)
+        log.error('adapter:webdavAdapter', '[updateShare:webdav] 站点更新后未能读取:', name)
         throw Errors.shareNotFound(name)
       }
-      console.log('[updateShare:webdav] 站点更新完成:', name)
+      log.info('adapter:webdavAdapter', '[updateShare:webdav] 站点更新完成:', name)
       return site
     } catch (e) {
-      console.error('[updateShare:webdav] 更新失败:', name, (e as Error).message)
+      log.error(
+        'adapter:webdavAdapter',
+        '[updateShare:webdav] 更新失败:',
+        name,
+        (e as Error).message,
+      )
       throw e
     }
   },
 
   async toggleShare(name: string, enabled: boolean): Promise<void> {
-    console.log('[toggleShare:webdav] 切换站点状态:', name, '→', enabled ? '启用' : '禁用')
+    log.info(
+      'adapter:webdavAdapter',
+      '[toggleShare:webdav] 切换站点状态:',
+      name,
+      '→',
+      enabled ? '启用' : '禁用',
+    )
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     // 先检查站点是否存在，不存在则抛错（不再静默吞错返回假成功）
     const exists = await runPowerShell<string>(
@@ -261,7 +299,7 @@ export const webdavAdapter: ProtocolAdapter = {
       { retries: 0 },
     ).catch(() => null)
     if (!exists) {
-      console.error('[toggleShare:webdav] 站点不存在:', name)
+      log.error('adapter:webdavAdapter', '[toggleShare:webdav] 站点不存在:', name)
       throw Errors.shareNotFound(name)
     }
     // 用 Start-Website / Stop-Website（WebAdministration cmdlet，自动加载模块）
@@ -269,12 +307,23 @@ export const webdavAdapter: ProtocolAdapter = {
     // try/catch 容忍"已在目标状态"的非致命错误（如站点已启动时再 Start）
     const action = enabled ? 'Start-Website' : 'Stop-Website'
     const cmd = `try { ${action} -Name ${psQuote(name)} -ErrorAction Stop } catch {}`
-    console.log('[toggleShare:webdav] PowerShell 命令:', cmd)
+    log.info('adapter:webdavAdapter', '[toggleShare:webdav] PowerShell 命令:', cmd)
     try {
       await runPowerShellVoid(cmd)
-      console.log('[toggleShare:webdav] 切换成功:', name, '→', enabled ? '启用' : '禁用')
+      log.info(
+        'adapter:webdavAdapter',
+        '[toggleShare:webdav] 切换成功:',
+        name,
+        '→',
+        enabled ? '启用' : '禁用',
+      )
     } catch (e) {
-      console.error('[toggleShare:webdav] 切换失败:', name, (e as Error).message)
+      log.error(
+        'adapter:webdavAdapter',
+        '[toggleShare:webdav] 切换失败:',
+        name,
+        (e as Error).message,
+      )
       throw e
     }
   },
@@ -306,7 +355,7 @@ export const webdavAdapter: ProtocolAdapter = {
   },
 
   async setPermissions(name: string, perms: SharePermission[]): Promise<void> {
-    console.log('[setPermissions:webdav] 设置权限:', name, {
+    log.info('adapter:webdavAdapter', '[setPermissions:webdav] 设置权限:', name, {
       权限条数: perms.length,
       权限: perms.map((p) => `${p.account}=${p.access}`),
     })
@@ -317,13 +366,14 @@ export const webdavAdapter: ProtocolAdapter = {
     const backup = this.getPermissions
       ? await this.getPermissions(name).catch(() => [] as SharePermission[])
       : []
-    console.log(
+    log.info(
+      'adapter:webdavAdapter',
       '[setPermissions:webdav] 已备份当前权限:',
       backup.length,
       '条 →',
       backup.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)',
     )
-    console.log('[setPermissions:webdav] 清空已有授权规则...')
+    log.info('adapter:webdavAdapter', '[setPermissions:webdav] 清空已有授权规则...')
     await runPowerShellVoid(
       `Clear-WebConfiguration -Filter '${AUTHORING_RULES_FILTER}' -PSPath ${iisPath(
         name,
@@ -342,22 +392,32 @@ export const webdavAdapter: ProtocolAdapter = {
       const userField =
         p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
       const cmd = `Add-WebConfiguration -Filter '${AUTHORING_RULES_FILTER}' -PSPath ${iisPath(name)} -Value @{${userField};path='*';access='${access}'} -ErrorAction Stop`
-      console.log('[setPermissions:webdav] 授予权限, PowerShell 命令:', cmd)
+      log.info('adapter:webdavAdapter', '[setPermissions:webdav] 授予权限, PowerShell 命令:', cmd)
       try {
         await runPowerShellVoid(cmd, { retries: 0 })
       } catch (e) {
-        console.error('[setPermissions:webdav] 授予失败:', p.account, (e as Error).message)
+        log.error(
+          'adapter:webdavAdapter',
+          '[setPermissions:webdav] 授予失败:',
+          p.account,
+          (e as Error).message,
+        )
         failed.push(p.account)
       }
     }
     // 若有失败项：回滚到备份状态
     if (failed.length > 0) {
-      console.error('[setPermissions:webdav] 回滚触发！失败账号:', failed.join(', '))
+      log.error(
+        'adapter:webdavAdapter',
+        '[setPermissions:webdav] 回滚触发！失败账号:',
+        failed.join(', '),
+      )
       // 查询回滚前的当前权限状态（部分授予后的残留状态）
       const beforeRollback = this.getPermissions
         ? await this.getPermissions(name).catch(() => [] as SharePermission[])
         : []
-      console.log(
+      log.info(
+        'adapter:webdavAdapter',
         '[setPermissions:webdav] 回滚前权限状态:',
         beforeRollback.length,
         '条 →',
@@ -387,7 +447,8 @@ export const webdavAdapter: ProtocolAdapter = {
       const afterRollback = this.getPermissions
         ? await this.getPermissions(name).catch(() => [] as SharePermission[])
         : []
-      console.log(
+      log.info(
+        'adapter:webdavAdapter',
         '[setPermissions:webdav] 回滚后权限状态:',
         afterRollback.length,
         '条 →',
@@ -396,7 +457,7 @@ export const webdavAdapter: ProtocolAdapter = {
       )
       throw Errors.commandFailed(`部分权限授予失败（${failed.join(', ')}），已回滚到原始状态`)
     }
-    console.log('[setPermissions:webdav] 权限设置成功:', name)
+    log.info('adapter:webdavAdapter', '[setPermissions:webdav] 权限设置成功:', name)
   },
 
   // WebDAV 无原生会话 API（capabilities.supportsSessions=false）
@@ -405,12 +466,16 @@ export const webdavAdapter: ProtocolAdapter = {
   },
 
   async restartService(): Promise<void> {
-    console.log('[restartService:webdav] 重启 WebDAV 服务...')
+    log.info('adapter:webdavAdapter', '[restartService:webdav] 重启 WebDAV 服务...')
     try {
       await webdav.restartService()
-      console.log('[restartService:webdav] 服务重启成功')
+      log.info('adapter:webdavAdapter', '[restartService:webdav] 服务重启成功')
     } catch (e) {
-      console.error('[restartService:webdav] 服务重启失败:', (e as Error).message)
+      log.error(
+        'adapter:webdavAdapter',
+        '[restartService:webdav] 服务重启失败:',
+        (e as Error).message,
+      )
       throw e
     }
   },
@@ -420,12 +485,12 @@ export const webdavAdapter: ProtocolAdapter = {
   },
 
   async setConfig(config: Partial<WebdavServerConfig>): Promise<void> {
-    console.log('[setConfig:webdav] 设置服务器配置:', Object.keys(config))
+    log.info('adapter:webdavAdapter', '[setConfig:webdav] 设置服务器配置:', Object.keys(config))
     try {
       await webdav.setConfig(config)
-      console.log('[setConfig:webdav] 配置设置成功')
+      log.info('adapter:webdavAdapter', '[setConfig:webdav] 配置设置成功')
     } catch (e) {
-      console.error('[setConfig:webdav] 配置设置失败:', (e as Error).message)
+      log.error('adapter:webdavAdapter', '[setConfig:webdav] 配置设置失败:', (e as Error).message)
       throw e
     }
   },

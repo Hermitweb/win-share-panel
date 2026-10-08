@@ -1,3 +1,4 @@
+import { log } from '../lib/logger'
 import {
   runPowerShell,
   runPowerShellVoid,
@@ -127,7 +128,7 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
     parts.push('-ShareShadowCopy')
   }
   const cmd = parts.join(' ')
-  console.log('[createShare:smb] 输入参数:', {
+  log.info('share', '[createShare:smb] 输入参数:', {
     name: opts.name,
     path: opts.path,
     description: opts.description,
@@ -142,17 +143,17 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
     folderEnumerationMode: opts.folderEnumerationMode,
     shareShadowCopy: opts.shareShadowCopy,
   })
-  console.log('[createShare:smb] PowerShell 命令:', cmd)
+  log.info('share', '[createShare:smb] PowerShell 命令:', cmd)
   try {
     await runPowerShellVoid(cmd)
-    console.log('[createShare:smb] New-SmbShare 执行成功，正在读取共享信息...')
+    log.info('share', '[createShare:smb] New-SmbShare 执行成功，正在读取共享信息...')
     const raw = await runPowerShell<RawShare>(`Get-SmbShare -Name ${psQuote(opts.name)}`)
-    console.log('[createShare:smb] 共享创建完成:', opts.name)
+    log.info('share', '[createShare:smb] 共享创建完成:', opts.name)
     return mapShare(raw)
   } catch (e) {
-    console.error('[createShare:smb] 创建失败:', opts.name, (e as Error).message)
+    log.error('share', '[createShare:smb] 创建失败:', opts.name, (e as Error).message)
     // 清理可能的孤儿共享（New-SmbShare 成功但 Get-SmbShare 失败的情况）
-    console.log('[createShare:smb] 尝试清理可能的孤儿共享...')
+    log.info('share', '[createShare:smb] 尝试清理可能的孤儿共享...')
     await runPowerShellVoid(
       `try { Remove-SmbShare -Name ${psQuote(opts.name)} -Force -ErrorAction Stop } catch {}`,
       { retries: 0 },
@@ -163,9 +164,9 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
       { retries: 0 },
     ).catch(() => null)
     if (stillExists) {
-      console.error('[createShare:smb] 孤儿共享清理失败！共享仍存在:', opts.name)
+      log.error('share', '[createShare:smb] 孤儿共享清理失败！共享仍存在:', opts.name)
     } else {
-      console.log('[createShare:smb] 孤儿共享已确认清理:', opts.name)
+      log.info('share', '[createShare:smb] 孤儿共享已确认清理:', opts.name)
     }
     throw e
   }
