@@ -148,6 +148,13 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
     await runPowerShellVoid(cmd)
     log.info('share', '[createShare:smb] New-SmbShare 执行成功，正在读取共享信息...')
     const raw = await runPowerShell<RawShare>(`Get-SmbShare -Name ${psQuote(opts.name)}`)
+    // B-2：回读判空守卫——历史缺陷（日志 2026-10-08 实锤）：写命令错误被吞时此处拿到
+    // 空结果仍"成功"返回垃圾对象。回读不到即判失败，走孤儿清理路径重抛。
+    if (!raw || !(raw as RawShare).Name) {
+      throw Errors.commandFailed(
+        '共享创建已执行但未能回读到该共享，请检查执行权限（需管理员）或系统服务状态',
+      )
+    }
     log.info('share', '[createShare:smb] 共享创建完成:', opts.name)
     return mapShare(raw)
   } catch (e) {
@@ -158,11 +165,12 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
       `try { Remove-SmbShare -Name ${psQuote(opts.name)} -Force -ErrorAction Stop } catch {}`,
       { retries: 0 },
     )
-    // 验证清理结果
-    const stillExists = await runPowerShell<string>(
+    // 验证清理结果（单值期望查询：空数组是 truthy，必须归一化，否则误报"清理失败"）
+    const found = await runPowerShell<string>(
       `try { Get-SmbShare -Name ${psQuote(opts.name)} -ErrorAction Stop | Select-Object -First 1 -ExpandProperty Name } catch {}`,
       { retries: 0 },
     ).catch(() => null)
+    const stillExists = Array.isArray(found) ? found.length > 0 : Boolean(found)
     if (stillExists) {
       log.error('share', '[createShare:smb] 孤儿共享清理失败！共享仍存在:', opts.name)
     } else {

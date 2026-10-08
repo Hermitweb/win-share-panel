@@ -11,8 +11,10 @@ const DEFAULT_RETRIES = 2
 // （中文 Windows 默认控制台代码页 936/GBK，ConvertTo-Json 输出的中文按 GBK 编码）
 // $ProgressPreference=SilentlyContinue 抑制模块加载进度输出，避免 -NonInteractive 模式下
 // 序列化为 CLIXML 污染 stderr 导致 formatPsError 误报
+// $ErrorActionPreference=Stop：B-1 修复——cmdlet 非终止性错误（权限不足等）不得被吞成退出码 0
+// （与进程池 server 脚本同语义；依赖吞错误的调用点均已显式 -EA SilentlyContinue 或 try/catch）
 const UTF8_PREFIX =
-  "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $OutputEncoding=[System.Text.Encoding]::UTF8; $ProgressPreference='SilentlyContinue'; "
+  "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $OutputEncoding=[System.Text.Encoding]::UTF8; $ProgressPreference='SilentlyContinue'; $ErrorActionPreference='Stop'; "
 
 export interface PsOptions {
   timeout?: number
@@ -103,6 +105,13 @@ function parseJson<T>(stdout: string): T {
   }
   if (result === null) return [] as unknown as T
   return result as T
+}
+
+// 单值期望查询归一化：parseJson 对"无结果"输出返回 []（truthy！）。
+// 存在性检查必须经本函数取首元素，否则 `if (exists)` 恒真（B-2 附带发现的同型缺陷）。
+export function firstOrNull<T>(v: T | T[] | null | undefined): T | null {
+  if (Array.isArray(v)) return (v[0] as T) ?? null
+  return v ?? null
 }
 
 function isRetryable(msg: string): boolean {

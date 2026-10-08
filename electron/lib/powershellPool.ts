@@ -20,8 +20,9 @@ import type { Writable, Readable } from 'stream'
 // 超时：每命令独立计时，超时则 reject + kill 中毒 worker + 补 spawn。
 // 崩溃：worker.exit 时若在飞命令则 reject（可重试），移除并补 spawn。
 //
-// 错误语义镜像原 execFile：不设全局 $ErrorActionPreference（保持默认 'Continue'），
-// try/catch 仅捕获终止性错误（等价原非零退出码→抛），非终止性错误被吞（等价原零退出码→返回输出）。
+// 错误语义（B-1 修订）：worker 启动即 $ErrorActionPreference='Stop'——cmdlet 非终止性错误
+// 转为终止性，由 try/catch 捕获 → ERR 标记 → reject；不再出现"错误进错误流+退出码 0"
+// 导致的写操作假成功（历史上曾把权限不足/名称冲突吞成成功）。
 
 export type Mode = 'JSON' | 'VOID'
 
@@ -83,6 +84,11 @@ function buildServerScript(
     '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8',
     '$OutputEncoding=[System.Text.Encoding]::UTF8',
     "$ProgressPreference='SilentlyContinue'",
+    // B-1（2026-10 日志排障发现）：默认 Continue 会把 cmdlet 非终止性错误（权限不足、名称
+    // 冲突等）写进错误流后以退出码 0 结束 → 写操作"假成功"。Stop 使错误成为终止性 →
+    // 走下方 catch → ERR 标记 reject，真实失败暴露到 UI 与日志。
+    // 依赖吞非终止错误来容错的调用点均已显式 -EA SilentlyContinue 或包在 try/catch 内。
+    "$ErrorActionPreference='Stop'",
     'while ($true) {',
     '  $line = [Console]::In.ReadLine()',
     '  if ($null -eq $line) { break }',

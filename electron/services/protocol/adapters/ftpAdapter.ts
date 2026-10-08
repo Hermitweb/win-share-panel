@@ -16,6 +16,7 @@ import {
   psEnum,
   validateName,
   validatePath,
+  firstOrNull,
 } from '../../../lib/powershell'
 import { Errors } from '../../../lib/errors'
 import * as ftp from '../../ftp'
@@ -181,11 +182,13 @@ export const ftpAdapter: ProtocolAdapter = {
         `Import-Module WebAdministration; try { Remove-Item ${iisPath(input.name)} -Recurse -Force -ErrorAction Stop } catch {}`,
         { retries: 0 },
       )
-      // 验证清理结果
-      const stillExists = await runPowerShell<string>(
-        `Get-Website | Where-Object { $_.Name -eq ${psQuote(input.name)} } | Select-Object -First 1 -ExpandProperty Name -ErrorAction SilentlyContinue`,
-        { retries: 0 },
-      ).catch(() => null)
+      // 验证清理结果（firstOrNull 归一化：[] truthy 会误报"仍存在"）
+      const stillExists = firstOrNull(
+        await runPowerShell<string>(
+          `Get-Website | Where-Object { $_.Name -eq ${psQuote(input.name)} } | Select-Object -First 1 -ExpandProperty Name -ErrorAction SilentlyContinue`,
+          { retries: 0 },
+        ).catch(() => null),
+      )
       if (stillExists) {
         log.error(
           'adapter:ftpAdapter',
@@ -248,11 +251,13 @@ export const ftpAdapter: ProtocolAdapter = {
       enabled ? '启用' : '禁用',
     )
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
-    // 先检查站点是否存在，不存在则抛错（不再静默吞错返回假成功）
-    const exists = await runPowerShell<string>(
-      `Get-Website | Where-Object { $_.Name -eq ${psQuote(name)} } | Select-Object -First 1 -ExpandProperty Name -ErrorAction SilentlyContinue`,
-      { retries: 0 },
-    ).catch(() => null)
+    // 先检查站点是否存在，不存在则抛错（firstOrNull 归一化：[] truthy 会误判"存在"）
+    const exists = firstOrNull(
+      await runPowerShell<string>(
+        `Get-Website | Where-Object { $_.Name -eq ${psQuote(name)} } | Select-Object -First 1 -ExpandProperty Name -ErrorAction SilentlyContinue`,
+        { retries: 0 },
+      ).catch(() => null),
+    )
     if (!exists) {
       log.error('adapter:ftpAdapter', '[toggleShare:ftp] 站点不存在:', name)
       throw Errors.shareNotFound(name)

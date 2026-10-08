@@ -140,6 +140,12 @@ export const nfsAdapter: ProtocolAdapter = {
       await runPowerShellVoid(cmd)
       log.info('adapter:nfsAdapter', '[createShare:nfs] New-NfsShare 执行成功，正在读取共享信息...')
       const raw = await runPowerShell<RawNfsShare>(`Get-NfsShare -Name ${psQuote(input.name)}`)
+      // B-2：回读判空守卫（同 share.ts）——回读不到即判失败，走孤儿清理路径重抛
+      if (!raw || !(raw as RawNfsShare).Name) {
+        throw Errors.commandFailed(
+          'NFS 共享创建已执行但未能回读到该共享，请检查执行权限（需管理员）或 NFS 服务状态',
+        )
+      }
       log.info('adapter:nfsAdapter', '[createShare:nfs] 共享创建完成:', input.name)
       return mapNfsShare(raw)
     } catch (e) {
