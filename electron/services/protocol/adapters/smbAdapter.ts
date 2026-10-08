@@ -7,7 +7,7 @@ import type {
   SmbOpenFile,
   SmbServerConfig,
   CreateShareInput,
-  UpdateShareInput
+  UpdateShareInput,
 } from '../../../types'
 import * as share from '../../share'
 import * as session from '../../session'
@@ -26,7 +26,7 @@ export const smbAdapter: ProtocolAdapter = {
     supportsOpenFiles: true,
     supportsServerConfig: true,
     supportsRestart: true,
-    permissionModel: 'smb-acl'
+    permissionModel: 'smb-acl',
   },
 
   async listShares(): Promise<Share[]> {
@@ -47,7 +47,7 @@ export const smbAdapter: ProtocolAdapter = {
       concurrentUserLimit: input.concurrentUserLimit,
       cachingMode: input.cachingMode,
       folderEnumerationMode: input.folderEnumerationMode,
-      shareShadowCopy: input.shareShadowCopy
+      shareShadowCopy: input.shareShadowCopy,
     })
     try {
       const result = await share.createShare({
@@ -63,7 +63,7 @@ export const smbAdapter: ProtocolAdapter = {
         concurrentUserLimit: input.concurrentUserLimit,
         cachingMode: input.cachingMode,
         folderEnumerationMode: input.folderEnumerationMode,
-        shareShadowCopy: input.shareShadowCopy
+        shareShadowCopy: input.shareShadowCopy,
       })
       console.log('[createShare:smb] 共享创建完成:', input.name)
       return result
@@ -112,7 +112,10 @@ export const smbAdapter: ProtocolAdapter = {
   },
 
   async setPermissions(name: string, perms: SharePermission[]): Promise<void> {
-    console.log('[setPermissions:smb] 设置权限:', name, { 权限条数: perms.length, 权限: perms.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`) })
+    console.log('[setPermissions:smb] 设置权限:', name, {
+      权限条数: perms.length,
+      权限: perms.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`),
+    })
     try {
       await user.setSharePermissions(name, perms)
       console.log('[setPermissions:smb] 权限设置成功:', name)
@@ -133,7 +136,7 @@ export const smbAdapter: ProtocolAdapter = {
       clientOpenFiles: s.clientOpenFiles,
       clientIdleTime: s.clientIdleTime,
       bytesReceived: s.bytesReceived,
-      bytesSent: s.bytesSent
+      bytesSent: s.bytesSent,
     }))
   },
 
@@ -203,5 +206,5 @@ export const smbAdapter: ProtocolAdapter = {
 
   async restoreDefault(): Promise<SmbServerConfig> {
     return smb.restoreDefault()
-  }
+  },
 }

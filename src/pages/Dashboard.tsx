@@ -12,19 +12,19 @@ const PROTOCOL_COLOR: Record<Protocol, string> = {
   smb: '#7EC8F0',
   nfs: '#B37FEB',
   ftp: '#73D13D',
-  webdav: '#FFA940'
+  webdav: '#FFA940',
 }
 const PROTOCOL_TAG_COLOR: Record<Protocol, string> = {
   smb: 'blue',
   nfs: 'purple',
   ftp: 'green',
-  webdav: 'orange'
+  webdav: 'orange',
 }
 const PROTOCOL_LABEL: Record<Protocol, string> = {
   smb: 'SMB',
   nfs: 'NFS',
   ftp: 'FTP',
-  webdav: 'WebDAV'
+  webdav: 'WebDAV',
 }
 
 export default function Dashboard() {
@@ -47,8 +47,10 @@ export default function Dashboard() {
       setLoading(false)
     }
   }
+  // 有意仅在挂载时加载一次：load 身份每轮渲染变化，加入依赖会造成无限循环
   useEffect(() => {
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 协议安装状态检测：如果 store 中未缓存，挂载时触发一次
@@ -82,7 +84,7 @@ export default function Dashboard() {
         if (!p || !stats) return ''
         const s = stats.topShares[p.dataIndex]
         return s ? `${PROTOCOL_LABEL[s.protocol]} · ${s.name}<br/>连接数：${p.value}` : ''
-      }
+      },
     },
     xAxis: { type: 'category', data: stats?.topShares.map((s) => s.name) || [] },
     yAxis: { type: 'value' },
@@ -92,12 +94,12 @@ export default function Dashboard() {
         data:
           stats?.topShares.map((s) => ({
             value: s.connections,
-            itemStyle: { color: PROTOCOL_COLOR[s.protocol], borderRadius: [6, 6, 0, 0] }
+            itemStyle: { color: PROTOCOL_COLOR[s.protocol], borderRadius: [6, 6, 0, 0] },
           })) || [],
-        barMaxWidth: 40
-      }
+        barMaxWidth: 40,
+      },
     ],
-    grid: { left: 40, right: 20, top: 20, bottom: 30 }
+    grid: { left: 40, right: 20, top: 20, bottom: 30 },
   }
 
   const svc = stats?.serviceStatus
@@ -113,7 +115,7 @@ export default function Dashboard() {
     const url = inst.getDataURL({
       type: 'png',
       pixelRatio: 2,
-      backgroundColor: '#F4FAFD'
+      backgroundColor: '#F4FAFD',
     })
     const a = document.createElement('a')
     a.href = url
@@ -132,7 +134,7 @@ export default function Dashboard() {
       ['共享总数', stats.shareCount],
       ['活跃会话', stats.activeSessions],
       ['打开文件', stats.openFiles],
-      ['服务状态', stats.serviceStatus]
+      ['服务状态', stats.serviceStatus],
     ]
     ;(['smb', 'nfs', 'ftp', 'webdav'] as Protocol[]).forEach((p) => {
       const info = stats.byProtocol[p]
@@ -206,12 +208,19 @@ export default function Dashboard() {
               return (
                 <Col span={6} key={p}>
                   <div className="mb-2">
-                    <Tag color={PROTOCOL_TAG_COLOR[p]} style={{ fontSize: 13, padding: '1px 10px' }}>
+                    <Tag
+                      color={PROTOCOL_TAG_COLOR[p]}
+                      style={{ fontSize: 13, padding: '1px 10px' }}
+                    >
                       {PROTOCOL_LABEL[p]}
                     </Tag>
                     {!installed && <span className="text-xs text-fog ml-1">未装</span>}
                   </div>
-                  <Statistic title="共享数" value={info?.shares ?? 0} styles={{ content: { color: PROTOCOL_COLOR[p] } }} />
+                  <Statistic
+                    title="共享数"
+                    value={info?.shares ?? 0}
+                    styles={{ content: { color: PROTOCOL_COLOR[p] } }}
+                  />
                   <div className="text-xs text-fog mt-1">会话 {info?.sessions ?? 0}</div>
                 </Col>
               )

@@ -7,8 +7,6 @@ import {
   Tag,
   Tabs,
   Table,
-  Modal,
-  Input,
   Space,
   Popconfirm,
   Descriptions,
@@ -17,12 +15,11 @@ import {
   Tooltip,
   Upload,
   Divider,
-  Collapse
+  Collapse,
 } from 'antd'
 import {
   ReloadOutlined,
   PoweroffOutlined,
-  PlusOutlined,
   DeleteOutlined,
   HistoryOutlined,
   EditOutlined,
@@ -31,12 +28,12 @@ import {
   ImportOutlined,
   UndoOutlined,
   CaretRightOutlined,
-  PauseOutlined
+  PauseOutlined,
 } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
 import dayjs from 'dayjs'
 import { api, call } from '../api'
-import type { SmbServerConfig, ServiceStatus, PermissionPreset, SmbSnapshotMeta } from '../types'
+import type { ServiceStatus, PermissionPreset, SmbSnapshotMeta } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import NfsSettingsPanel from '../components/NfsSettingsPanel'
@@ -46,7 +43,6 @@ import PresetEditor from '../components/PresetEditor'
 
 export default function Settings() {
   const { message, modal } = App.useApp()
-  const [config, setConfig] = useState<Partial<SmbServerConfig>>({})
   const [svc, setSvc] = useState<ServiceStatus | null>(null)
   const [presets, setPresets] = useState<PermissionPreset[]>([])
   const [snapshots, setSnapshots] = useState<SmbSnapshotMeta[]>([])
@@ -65,9 +61,8 @@ export default function Settings() {
         call(api.smb.serviceStatus),
         call(api.preset.list),
         call(api.system.auditLog),
-        call(api.smb.listSnapshots).catch(() => [] as SmbSnapshotMeta[])
+        call(api.smb.listSnapshots).catch(() => [] as SmbSnapshotMeta[]),
       ])
-      setConfig(c)
       setSvc(s)
       setPresets(p)
       setAudit(a)
@@ -77,8 +72,10 @@ export default function Settings() {
       message.error((e as Error).message)
     }
   }
+  // 有意仅在挂载时加载一次：load 身份每轮渲染变化，加入依赖会造成无限循环
   useEffect(() => {
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // hotkey F5 刷新
@@ -135,7 +132,6 @@ export default function Settings() {
       const def = await call(api.smb.restoreDefault)
       message.success('已恢复默认配置')
       form.setFieldsValue(def)
-      setConfig(def)
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -185,7 +181,7 @@ export default function Settings() {
         } catch (e) {
           message.error((e as Error).message)
         }
-      }
+      },
     })
   }
 
@@ -222,7 +218,7 @@ export default function Settings() {
         const result = await call(() => api.preset.import(text))
         if (result.skipped > 0) {
           message.warning(
-            `导入完成：成功 ${result.imported} 个，跳过 ${result.skipped} 个。${result.errors.slice(0, 2).join('；')}${result.errors.length > 2 ? ' 等' : ''}`
+            `导入完成：成功 ${result.imported} 个，跳过 ${result.skipped} 个。${result.errors.slice(0, 2).join('；')}${result.errors.length > 2 ? ' 等' : ''}`,
           )
         } else {
           message.success(`导入完成：成功 ${result.imported} 个模板`)
@@ -234,10 +230,8 @@ export default function Settings() {
       return false
     },
     showUploadList: false,
-    accept: '.json'
+    accept: '.json',
   }
-
-  void config
 
   const presetColumns = [
     { title: '名称', dataIndex: 'name', width: 140 },
@@ -247,19 +241,19 @@ export default function Settings() {
       dataIndex: 'category',
       width: 90,
       render: (v: string | undefined) =>
-        v ? <Tag color="blue">{v}</Tag> : <span className="text-fog">-</span>
+        v ? <Tag color="blue">{v}</Tag> : <span className="text-fog">-</span>,
     },
     {
       title: '类型',
       dataIndex: 'builtIn',
       width: 80,
-      render: (v: boolean) => (v ? <Tag>内置</Tag> : <Tag color="blue">自定义</Tag>)
+      render: (v: boolean) => (v ? <Tag>内置</Tag> : <Tag color="blue">自定义</Tag>),
     },
     {
       title: '条目',
       dataIndex: 'entries',
       width: 60,
-      render: (v: { length: number } | undefined) => v?.length || 0
+      render: (v: { length: number } | undefined) => v?.length || 0,
     },
     {
       title: '操作',
@@ -278,8 +272,8 @@ export default function Settings() {
             </Popconfirm>
           )}
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -306,16 +300,32 @@ export default function Settings() {
                         <Form form={form} layout="vertical">
                           <div className="text-sm font-medium mb-2 text-fog">基础协议</div>
                           <div className="flex flex-wrap gap-6 mb-3">
-                            <Form.Item name="enableSMB1Protocol" label="SMB1" valuePropName="checked">
+                            <Form.Item
+                              name="enableSMB1Protocol"
+                              label="SMB1"
+                              valuePropName="checked"
+                            >
                               <Switch />
                             </Form.Item>
-                            <Form.Item name="enableSMB2Protocol" label="SMB2" valuePropName="checked">
+                            <Form.Item
+                              name="enableSMB2Protocol"
+                              label="SMB2"
+                              valuePropName="checked"
+                            >
                               <Switch />
                             </Form.Item>
-                            <Form.Item name="enableSMB3Protocol" label="SMB3" valuePropName="checked">
+                            <Form.Item
+                              name="enableSMB3Protocol"
+                              label="SMB3"
+                              valuePropName="checked"
+                            >
                               <Switch />
                             </Form.Item>
-                            <Form.Item name="auditSmb1Access" label="审计 SMB1" valuePropName="checked">
+                            <Form.Item
+                              name="auditSmb1Access"
+                              label="审计 SMB1"
+                              valuePropName="checked"
+                            >
                               <Switch />
                             </Form.Item>
                           </div>
@@ -391,10 +401,18 @@ export default function Settings() {
                             >
                               <Switch />
                             </Form.Item>
-                            <Form.Item name="enableSMBQUIC" label="SMB QUIC" valuePropName="checked">
+                            <Form.Item
+                              name="enableSMBQUIC"
+                              label="SMB QUIC"
+                              valuePropName="checked"
+                            >
                               <Switch />
                             </Form.Item>
-                            <Form.Item name="announceServer" label="声明服务器" valuePropName="checked">
+                            <Form.Item
+                              name="announceServer"
+                              label="声明服务器"
+                              valuePropName="checked"
+                            >
                               <Switch />
                             </Form.Item>
                             <Form.Item
@@ -447,13 +465,13 @@ export default function Settings() {
                                         options={[
                                           { label: '关闭', value: 'Off' },
                                           { label: '允许', value: 'Allow' },
-                                          { label: '要求', value: 'Require' }
+                                          { label: '要求', value: 'Require' },
                                         ]}
                                       />
                                     </Form.Item>
                                   </div>
-                                )
-                              }
+                                ),
+                              },
                             ]}
                           />
 
@@ -482,9 +500,7 @@ export default function Settings() {
                               </Button>
                             ) : (
                               <Popconfirm title="停止 LanmanServer 服务？" onConfirm={stopSvc}>
-                                <Button icon={<PauseOutlined />}>
-                                  停止
-                                </Button>
+                                <Button icon={<PauseOutlined />}>停止</Button>
                               </Popconfirm>
                             )}
                           </Space>
@@ -501,20 +517,21 @@ export default function Settings() {
                                     <Tag color={svc.status === 'Running' ? 'green' : 'red'}>
                                       {svc.status}
                                     </Tag>
-                                  )
+                                  ),
                                 },
                                 { key: 'srt', label: '启动类型', children: svc.startType || '-' },
-                                { key: 'sn', label: '服务名', children: svc.name }
+                                { key: 'sn', label: '服务名', children: svc.name },
                               ]}
                             />
                           )}
                           <Divider style={{ margin: '12px 0' }} />
                           <div className="text-xs text-fog">
-                            提示：SMB1 出于安全考虑默认关闭；建议保持"要求签名"开启以防止中间人攻击。修改高级参数可能影响性能与兼容性，不确定时请点"恢复默认"。
+                            提示：SMB1
+                            出于安全考虑默认关闭；建议保持"要求签名"开启以防止中间人攻击。修改高级参数可能影响性能与兼容性，不确定时请点"恢复默认"。
                           </div>
                         </Form>
                       </div>
-                    )
+                    ),
                   },
                   {
                     key: 'presets',
@@ -542,7 +559,7 @@ export default function Settings() {
                           columns={presetColumns}
                         />
                       </div>
-                    )
+                    ),
                   },
                   {
                     key: 'audit',
@@ -556,7 +573,7 @@ export default function Settings() {
                           {audit || '暂无日志'}
                         </pre>
                       </div>
-                    )
+                    ),
                   },
                   {
                     key: 'snapshots',
@@ -568,7 +585,8 @@ export default function Settings() {
                     children: (
                       <div className="glass-card p-3">
                         <p className="text-xs text-fog mb-3">
-                          每次 SMB 配置写入前自动保存当前完整配置为快照（最多 20 份）。回滚会覆盖当前配置，且不产生新快照。
+                          每次 SMB 配置写入前自动保存当前完整配置为快照（最多 20
+                          份）。回滚会覆盖当前配置，且不产生新快照。
                         </p>
                         <Table
                           dataSource={snapshots}
@@ -580,7 +598,7 @@ export default function Settings() {
                             {
                               title: '时间',
                               dataIndex: 'id',
-                              render: (v: string) => fmtSnapshotTs(v)
+                              render: (v: string) => fmtSnapshotTs(v),
                             },
                             {
                               title: '操作',
@@ -596,32 +614,32 @@ export default function Settings() {
                                 >
                                   <Button size="small">回滚</Button>
                                 </Popconfirm>
-                              )
-                            }
+                              ),
+                            },
                           ]}
                         />
                       </div>
-                    )
-                  }
+                    ),
+                  },
                 ]}
               />
-            )
+            ),
           },
           {
             key: 'nfs',
             label: 'NFS',
-            children: <NfsSettingsPanel />
+            children: <NfsSettingsPanel />,
           },
           {
             key: 'ftp',
             label: 'FTP',
-            children: <FtpSettingsPanel />
+            children: <FtpSettingsPanel />,
           },
           {
             key: 'webdav',
             label: 'WebDAV',
-            children: <WebdavSettingsPanel />
-          }
+            children: <WebdavSettingsPanel />,
+          },
         ]}
       />
       <PresetEditor

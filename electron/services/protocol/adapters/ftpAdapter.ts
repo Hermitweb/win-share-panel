@@ -5,9 +5,17 @@ import type {
   ServiceStatus,
   FtpServerConfig,
   CreateShareInput,
-  UpdateShareInput
+  UpdateShareInput,
 } from '../../../types'
-import { runPowerShell, runPowerShellVoid, psQuote, psEscapeSingle, psEnum, validateName, validatePath } from '../../../lib/powershell'
+import {
+  runPowerShell,
+  runPowerShellVoid,
+  psQuote,
+  psEscapeSingle,
+  psEnum,
+  validateName,
+  validatePath,
+} from '../../../lib/powershell'
 import { Errors } from '../../../lib/errors'
 import * as ftp from '../../ftp'
 
@@ -82,7 +90,7 @@ function mapFtpSite(r: RawFtpSite): Share {
     port: r.Port || 21,
     siteName: r.Name,
     sslPolicy,
-    authMode
+    authMode,
   }
 }
 
@@ -105,15 +113,12 @@ export const ftpAdapter: ProtocolAdapter = {
     supportsOpenFiles: false,
     supportsServerConfig: true,
     supportsRestart: true,
-    permissionModel: 'iis-auth'
+    permissionModel: 'iis-auth',
   },
 
   async listShares(): Promise<Share[]> {
     // retries:0 避免未装 IIS 时无谓重试 2 次造成切 Tab 延迟
-    const raw = await runPowerShell<RawFtpSite | RawFtpSite[]>(
-      LIST_SCRIPT,
-      { retries: 0 }
-    )
+    const raw = await runPowerShell<RawFtpSite | RawFtpSite[]>(LIST_SCRIPT, { retries: 0 })
     const arr = Array.isArray(raw) ? raw : [raw]
     return arr.filter((r) => r && r.Name).map(mapFtpSite)
   },
@@ -124,7 +129,7 @@ export const ftpAdapter: ProtocolAdapter = {
       path: input.path,
       port: input.port,
       sslPolicy: input.sslPolicy,
-      authMode: input.authMode
+      authMode: input.authMode,
     })
     if (!validateName(input.name)) throw Errors.invalidParam('站点名非法')
     if (!validatePath(input.path)) throw Errors.invalidParam('路径非法')
@@ -140,7 +145,12 @@ export const ftpAdapter: ProtocolAdapter = {
     }
     console.log('[createShare:ftp] 步骤 1/3 站点创建成功')
     // 端口冲突由 New-WebFtpSite 抛错；成功后配置 SSL 与认证（best-effort，不阻断创建）
-    console.log('[createShare:ftp] 步骤 2/3 应用 SSL/认证配置, sslPolicy:', input.sslPolicy, 'authMode:', input.authMode)
+    console.log(
+      '[createShare:ftp] 步骤 2/3 应用 SSL/认证配置, sslPolicy:',
+      input.sslPolicy,
+      'authMode:',
+      input.authMode,
+    )
     try {
       await applyFtpConfig(input.name, input)
       console.log('[createShare:ftp] 步骤 2/3 配置应用完成')
@@ -155,12 +165,12 @@ export const ftpAdapter: ProtocolAdapter = {
       console.log('[createShare:ftp] 清理孤儿站点...')
       await runPowerShellVoid(
         `Import-Module WebAdministration; try { Remove-Item ${iisPath(input.name)} -Recurse -Force -ErrorAction Stop } catch {}`,
-        { retries: 0 }
+        { retries: 0 },
       )
       // 验证清理结果
       const stillExists = await runPowerShell<string>(
         `Get-Website | Where-Object { $_.Name -eq ${psQuote(input.name)} } | Select-Object -First 1 -ExpandProperty Name -ErrorAction SilentlyContinue`,
-        { retries: 0 }
+        { retries: 0 },
       ).catch(() => null)
       if (stillExists) {
         console.error('[createShare:ftp] 孤儿站点清理失败！站点仍存在:', input.name)
@@ -192,7 +202,7 @@ export const ftpAdapter: ProtocolAdapter = {
   async updateShare(name: string, input: UpdateShareInput): Promise<Share> {
     console.log('[updateShare:ftp] 更新站点:', name, {
       sslPolicy: input.sslPolicy,
-      authMode: input.authMode
+      authMode: input.authMode,
     })
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     try {
@@ -217,7 +227,7 @@ export const ftpAdapter: ProtocolAdapter = {
     // 先检查站点是否存在，不存在则抛错（不再静默吞错返回假成功）
     const exists = await runPowerShell<string>(
       `Get-Website | Where-Object { $_.Name -eq ${psQuote(name)} } | Select-Object -First 1 -ExpandProperty Name -ErrorAction SilentlyContinue`,
-      { retries: 0 }
+      { retries: 0 },
     ).catch(() => null)
     if (!exists) {
       console.error('[toggleShare:ftp] 站点不存在:', name)
@@ -242,7 +252,7 @@ export const ftpAdapter: ProtocolAdapter = {
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     const raw = await runPowerShell<RawFtpAuthRule | RawFtpAuthRule[]>(
       `Get-WebConfiguration -Filter 'ftpServer/security/authorization/*' -PSPath ${iisPath(name)} -ErrorAction SilentlyContinue`,
-      { retries: 0 }
+      { retries: 0 },
     )
     const arr = (Array.isArray(raw) ? raw : [raw]).filter((r) => r && (r.Users || r.Roles))
     return arr.map((r) => {
@@ -257,24 +267,34 @@ export const ftpAdapter: ProtocolAdapter = {
         account: r.Users || r.Roles || '*',
         accountType: isGroup ? 'Group' : 'User',
         access,
-        deny: String(r.AccessType || '').toLowerCase() === 'deny'
+        deny: String(r.AccessType || '').toLowerCase() === 'deny',
       }
     })
   },
 
   async setPermissions(name: string, perms: SharePermission[]): Promise<void> {
-    console.log('[setPermissions:ftp] 设置权限:', name, { 权限条数: perms.length, 权限: perms.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`) })
+    console.log('[setPermissions:ftp] 设置权限:', name, {
+      权限条数: perms.length,
+      权限: perms.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`),
+    })
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     // authorization 配置节默认锁定，需先解锁（复用 ftp.ts 的统一解锁）
     await ftp.ensureFtpSectionsUnlocked()
     // 事务补偿：先备份当前权限，若后续授予中途失败则回滚到原状态
-    const backup = this.getPermissions ? await this.getPermissions(name).catch(() => [] as SharePermission[]) : []
-    console.log('[setPermissions:ftp] 已备份当前权限:', backup.length, '条 →', backup.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+    const backup = this.getPermissions
+      ? await this.getPermissions(name).catch(() => [] as SharePermission[])
+      : []
+    console.log(
+      '[setPermissions:ftp] 已备份当前权限:',
+      backup.length,
+      '条 →',
+      backup.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)',
+    )
     // 先清空已有授权规则，再按传入列表重建
     console.log('[setPermissions:ftp] 清空已有授权规则...')
     await runPowerShellVoid(
       `Clear-WebConfiguration -Filter 'ftpServer/security/authorization' -PSPath ${iisPath(name)} -ErrorAction SilentlyContinue`,
-      { retries: 0 }
+      { retries: 0 },
     )
     // 逐个授予，收集失败项（不再静默吞错）
     const failed: string[] = []
@@ -285,7 +305,8 @@ export const ftpAdapter: ProtocolAdapter = {
       if (p.access === 'Change' || p.access === 'Full') permBits.push('Write')
       const permissions = permBits.join(',')
       // 用户授权用 users，组授权用 roles
-      const userField = p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
+      const userField =
+        p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
       const cmd = `Add-WebConfiguration -Filter 'ftpServer/security/authorization' -PSPath ${iisPath(name)} -Value @{accessType='${accessType}';${userField};permissions='${permissions}'} -ErrorAction Stop`
       console.log('[setPermissions:ftp] 授予权限, PowerShell 命令:', cmd)
       try {
@@ -299,27 +320,45 @@ export const ftpAdapter: ProtocolAdapter = {
     if (failed.length > 0) {
       console.error('[setPermissions:ftp] 回滚触发！失败账号:', failed.join(', '))
       // 查询回滚前的当前权限状态（部分授予后的残留状态）
-      const beforeRollback = this.getPermissions ? await this.getPermissions(name).catch(() => [] as SharePermission[]) : []
-      console.log('[setPermissions:ftp] 回滚前权限状态:', beforeRollback.length, '条 →', beforeRollback.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+      const beforeRollback = this.getPermissions
+        ? await this.getPermissions(name).catch(() => [] as SharePermission[])
+        : []
+      console.log(
+        '[setPermissions:ftp] 回滚前权限状态:',
+        beforeRollback.length,
+        '条 →',
+        beforeRollback.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') ||
+          '(空)',
+      )
       await runPowerShellVoid(
         `Clear-WebConfiguration -Filter 'ftpServer/security/authorization' -PSPath ${iisPath(name)} -ErrorAction SilentlyContinue`,
-        { retries: 0 }
+        { retries: 0 },
       )
       for (const p of backup) {
         const accessType = p.deny ? 'Deny' : 'Allow'
         const permBits: string[] = []
-        if (p.access === 'Read' || p.access === 'Full' || p.access === 'Change') permBits.push('Read')
+        if (p.access === 'Read' || p.access === 'Full' || p.access === 'Change')
+          permBits.push('Read')
         if (p.access === 'Change' || p.access === 'Full') permBits.push('Write')
         const permissions = permBits.join(',')
-        const userField = p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
+        const userField =
+          p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
         await runPowerShellVoid(
           `Add-WebConfiguration -Filter 'ftpServer/security/authorization' -PSPath ${iisPath(name)} -Value @{accessType='${accessType}';${userField};permissions='${permissions}'} -ErrorAction SilentlyContinue`,
-          { retries: 0 }
+          { retries: 0 },
         ).catch(() => {})
       }
       // 查询回滚后的权限状态，验证是否恢复成功
-      const afterRollback = this.getPermissions ? await this.getPermissions(name).catch(() => [] as SharePermission[]) : []
-      console.log('[setPermissions:ftp] 回滚后权限状态:', afterRollback.length, '条 →', afterRollback.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+      const afterRollback = this.getPermissions
+        ? await this.getPermissions(name).catch(() => [] as SharePermission[])
+        : []
+      console.log(
+        '[setPermissions:ftp] 回滚后权限状态:',
+        afterRollback.length,
+        '条 →',
+        afterRollback.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') ||
+          '(空)',
+      )
       throw Errors.commandFailed(`部分权限授予失败（${failed.join(', ')}），已回滚到原始状态`)
     }
     console.log('[setPermissions:ftp] 权限设置成功:', name)
@@ -362,7 +401,7 @@ export const ftpAdapter: ProtocolAdapter = {
 
   async restoreDefault(): Promise<FtpServerConfig> {
     return ftp.restoreDefault()
-  }
+  },
 }
 
 // 读取单个 FTP 站点
@@ -385,7 +424,7 @@ async function fetchSite(name: string): Promise<Share | null> {
         try { $basic = [bool](Get-WebConfigurationProperty -Filter 'ftpServer/security/authentication/basicAuthentication' -PSPath "IIS:\\Sites\\$n" -Name enabled -ErrorAction SilentlyContinue) } catch {}
         [PSCustomObject]@{ Name=$n; State=$_.State; PhysicalPath=$path; Port=$port; SslPolicy=$ssl; AnonymousEnabled=$anon; BasicEnabled=$basic }
       }`,
-      { retries: 0 }
+      { retries: 0 },
     )
     const arr = Array.isArray(raw) ? raw : [raw]
     const r = arr.find((x) => x && x.Name)
@@ -402,7 +441,10 @@ async function fetchSite(name: string): Promise<Share | null> {
 // 需先调用 ensureFtpSectionsUnlocked 解锁，再用 PowerShell try/catch + -ErrorAction Stop 包裹每个 cmdlet，
 // 确保非终止错误也能被 catch 捕获，不阻断创建流程。
 // 实际生效的配置会由 fetchSite 读回并在返回的 Share 中反映。
-async function applyFtpConfig(name: string, input: { sslPolicy?: Share['sslPolicy']; authMode?: Share['authMode'] }): Promise<void> {
+async function applyFtpConfig(
+  name: string,
+  input: { sslPolicy?: Share['sslPolicy']; authMode?: Share['authMode'] },
+): Promise<void> {
   const pspath = iisPath(name)
   const parts: string[] = []
   const policy = psEnum(input.sslPolicy, SSL_POLICIES)
@@ -411,7 +453,7 @@ async function applyFtpConfig(name: string, input: { sslPolicy?: Share['sslPolic
     const p = psQuote(policy)
     parts.push(
       `try { Set-WebConfigurationProperty -Filter 'ftpServer/security/ssl' -PSPath ${pspath} -Name controlChannelPolicy -Value ${p} -ErrorAction Stop } catch {}`,
-      `try { Set-WebConfigurationProperty -Filter 'ftpServer/security/ssl' -PSPath ${pspath} -Name dataChannelPolicy -Value ${p} -ErrorAction Stop } catch {}`
+      `try { Set-WebConfigurationProperty -Filter 'ftpServer/security/ssl' -PSPath ${pspath} -Name dataChannelPolicy -Value ${p} -ErrorAction Stop } catch {}`,
     )
   }
   if (input.authMode) {
@@ -420,7 +462,7 @@ async function applyFtpConfig(name: string, input: { sslPolicy?: Share['sslPolic
     const basicEnabled = input.authMode === 'basic' || input.authMode === 'windows'
     parts.push(
       `try { Set-WebConfigurationProperty -Filter 'ftpServer/security/authentication/anonymousAuthentication' -PSPath ${pspath} -Name enabled -Value $${anonEnabled ? 'true' : 'false'} -ErrorAction Stop } catch {}`,
-      `try { Set-WebConfigurationProperty -Filter 'ftpServer/security/authentication/basicAuthentication' -PSPath ${pspath} -Name enabled -Value $${basicEnabled ? 'true' : 'false'} -ErrorAction Stop } catch {}`
+      `try { Set-WebConfigurationProperty -Filter 'ftpServer/security/authentication/basicAuthentication' -PSPath ${pspath} -Name enabled -Value $${basicEnabled ? 'true' : 'false'} -ErrorAction Stop } catch {}`,
     )
   }
   if (parts.length === 0) return

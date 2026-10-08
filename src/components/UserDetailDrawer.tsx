@@ -12,11 +12,10 @@ import {
   Table,
   App,
   Spin,
-  Popconfirm,
   Select,
   Empty,
   Progress,
-  Tooltip
+  Tooltip,
 } from 'antd'
 import {
   SaveOutlined,
@@ -25,12 +24,16 @@ import {
   ThunderboltOutlined,
   TeamOutlined,
   PlusOutlined,
-  DeleteOutlined
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { api, call } from '../api'
 import type { LocalUser, LocalGroup, SharePermission } from '../types'
-import { generatePassword, evaluateStrength, STRENGTH_LABEL, STRENGTH_COLOR } from '../utils/password'
+import {
+  generatePassword,
+  evaluateStrength,
+  STRENGTH_LABEL,
+  STRENGTH_COLOR,
+} from '../utils/password'
 
 interface Props {
   open: boolean
@@ -39,20 +42,18 @@ interface Props {
   onSuccess: () => void
 }
 
-type Access = 'Full' | 'Change' | 'Read' | 'NoAccess'
-
 const ACCESS_TAG_COLOR: Record<string, string> = {
   Full: 'blue',
   Change: 'purple',
   Read: 'default',
-  NoAccess: 'red'
+  NoAccess: 'red',
 }
 
 const ACCESS_LABEL: Record<string, string> = {
   Full: '完全控制',
   Change: '更改',
   Read: '只读',
-  NoAccess: '拒绝'
+  NoAccess: '拒绝',
 }
 
 // 用户详情抽屉：属性编辑 + 组成员管理 + 共享权限查看
@@ -85,7 +86,7 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
       description: user.description,
       enabled: user.enabled,
       userMayChangePassword: user.userMayChangePassword,
-      passwordNeverExpires: !user.passwordExpires
+      passwordNeverExpires: !user.passwordExpires,
     })
     setPwdOpen(false)
     setNewPwd('')
@@ -141,8 +142,8 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
           description: v.description || '',
           enabled: v.enabled,
           passwordChangeable: v.userMayChangePassword,
-          passwordExpires: !v.passwordNeverExpires
-        })
+          passwordExpires: !v.passwordNeverExpires,
+        }),
       )
       // 重设密码
       if (pwdOpen && newPwd) {
@@ -211,14 +212,14 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
       render: (v: string, r: SharePermission) => {
         const access = r.deny ? 'NoAccess' : v
         return <Tag color={ACCESS_TAG_COLOR[access]}>{ACCESS_LABEL[access]}</Tag>
-      }
+      },
     },
     {
       title: '类型',
       dataIndex: 'accountType',
       width: 80,
-      render: (v: string) => <Tag>{v === 'User' ? '用户' : '组'}</Tag>
-    }
+      render: (v: string) => <Tag>{v === 'User' ? '用户' : '组'}</Tag>,
+    },
   ]
 
   return (
@@ -257,9 +258,16 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
                   rules={[
                     { required: true, message: '请输入用户名' },
                     { max: 20, message: '用户名不能超过 20 字符' },
-                    { pattern: /^[A-Za-z0-9._-]+$/, message: '仅支持字母、数字、点、下划线、连字符' }
+                    {
+                      pattern: /^[A-Za-z0-9._-]+$/,
+                      message: '仅支持字母、数字、点、下划线、连字符',
+                    },
                   ]}
-                  extra={originalName !== form.getFieldValue('name') ? '用户名已修改，保存时将执行重命名' : undefined}
+                  extra={
+                    originalName !== form.getFieldValue('name')
+                      ? '用户名已修改，保存时将执行重命名'
+                      : undefined
+                  }
                 >
                   <Input />
                 </Form.Item>
@@ -273,10 +281,18 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
                   <Form.Item name="enabled" label="启用账号" valuePropName="checked">
                     <Switch />
                   </Form.Item>
-                  <Form.Item name="userMayChangePassword" label="允许修改密码" valuePropName="checked">
+                  <Form.Item
+                    name="userMayChangePassword"
+                    label="允许修改密码"
+                    valuePropName="checked"
+                  >
                     <Switch />
                   </Form.Item>
-                  <Form.Item name="passwordNeverExpires" label="密码永不过期" valuePropName="checked">
+                  <Form.Item
+                    name="passwordNeverExpires"
+                    label="密码永不过期"
+                    valuePropName="checked"
+                  >
                     <Switch />
                   </Form.Item>
                 </Space>
@@ -286,7 +302,11 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
                     <span className="text-sm font-medium">重设密码</span>
                     <Space size="small">
                       <Tooltip title="生成随机强密码">
-                        <Button size="small" icon={<ThunderboltOutlined />} onClick={handleGeneratePwd}>
+                        <Button
+                          size="small"
+                          icon={<ThunderboltOutlined />}
+                          onClick={handleGeneratePwd}
+                        >
                           生成
                         </Button>
                       </Tooltip>
@@ -324,15 +344,31 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
                     column={1}
                     colon={false}
                     items={[
-                      { key: 'sid', label: 'SID', children: <span className="text-fog text-xs">{user.sid || '-'}</span> },
+                      {
+                        key: 'sid',
+                        label: 'SID',
+                        children: <span className="text-fog text-xs">{user.sid || '-'}</span>,
+                      },
                       { key: 'src', label: '来源', children: user.principalSource || 'Local' },
-                      { key: 'pls', label: '上次设置密码', children: <span className="text-fog text-xs">{fmtTime(user.passwordLastSet)}</span> },
-                      { key: 'll', label: '上次登录', children: <span className="text-fog text-xs">{fmtTime(user.lastLogon)}</span> }
+                      {
+                        key: 'pls',
+                        label: '上次设置密码',
+                        children: (
+                          <span className="text-fog text-xs">{fmtTime(user.passwordLastSet)}</span>
+                        ),
+                      },
+                      {
+                        key: 'll',
+                        label: '上次登录',
+                        children: (
+                          <span className="text-fog text-xs">{fmtTime(user.lastLogon)}</span>
+                        ),
+                      },
                     ]}
                   />
                 )}
               </Form>
-            )
+            ),
           },
           {
             key: 'groups',
@@ -372,11 +408,19 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
                       placeholder="选择要加入的组"
                       value={addGroup}
                       onChange={setAddGroup}
-                      options={availableGroups.map((g) => ({ label: `${g.name}${g.description ? ` (${g.description})` : ''}`, value: g.name }))}
+                      options={availableGroups.map((g) => ({
+                        label: `${g.name}${g.description ? ` (${g.description})` : ''}`,
+                        value: g.name,
+                      }))}
                       showSearch
                       optionFilterProp="label"
                     />
-                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAddToGroup} disabled={!addGroup}>
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={handleAddToGroup}
+                      disabled={!addGroup}
+                    >
                       添加
                     </Button>
                   </Space.Compact>
@@ -385,7 +429,7 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
                   )}
                 </div>
               </Spin>
-            )
+            ),
           },
           {
             key: 'perms',
@@ -420,8 +464,8 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
                   权限来源为 SMB 共享级别授权。NTFS 级别权限请在「共享管理」页对单个共享编辑。
                 </div>
               </Spin>
-            )
-          }
+            ),
+          },
         ]}
       />
     </Drawer>

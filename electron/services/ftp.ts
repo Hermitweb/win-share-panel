@@ -8,7 +8,7 @@ import type { ServiceStatus, FtpServerConfig } from '../types'
 export async function getServiceStatus(): Promise<ServiceStatus> {
   try {
     const raw = await runPowerShell<any>(
-      'Get-Service ftpsvc -ErrorAction SilentlyContinue | Select-Object Name, Status, StartType'
+      'Get-Service ftpsvc -ErrorAction SilentlyContinue | Select-Object Name, Status, StartType',
     )
     if (!raw || !raw.Name) {
       return { name: 'ftpsvc', status: 'Unknown', startType: 'Unknown' }
@@ -39,7 +39,7 @@ async function serviceExists(name: string): Promise<boolean> {
   try {
     const raw = await runPowerShell<any>(
       `Get-Service ${name} -ErrorAction SilentlyContinue | Select-Object Name`,
-      { retries: 0 }
+      { retries: 0 },
     )
     return !!(raw && raw.Name)
   } catch {
@@ -52,22 +52,26 @@ export async function restartService(): Promise<void> {
   const exists = await serviceExists('ftpsvc')
   if (!exists) {
     throw Errors.commandFailed(
-      'ftpsvc 服务未安装。FTP 依赖 IIS 角色，请在「共享管理」页 FTP Tab 按引导安装 FTP 角色服务后重试'
+      'ftpsvc 服务未安装。FTP 依赖 IIS 角色，请在「共享管理」页 FTP Tab 按引导安装 FTP 角色服务后重试',
     )
   }
   // 使用 try/catch 包装 Restart-Service，捕获真实失败原因（依赖服务未启动、权限不足等）
   try {
     await runPowerShellVoid(
       `try { Restart-Service -Name ftpsvc -Force -ErrorAction Stop } catch { if ($_.Exception.Message -match 'Cannot stop|无法停止|dependent|依赖') { Start-Service -Name ftpsvc -ErrorAction SilentlyContinue; if ((Get-Service ftpsvc).Status -ne 'Running') { throw } } else { throw } }`,
-      { retries: 0 }
+      { retries: 0 },
     )
   } catch (e) {
     const msg = (e as Error).message || ''
     if (/access is denied|拒绝访问|administrator|权限/i.test(msg)) {
-      throw Errors.commandFailed('重启 ftpsvc 服务需要管理员权限，请以管理员身份运行 WinShare Panel')
+      throw Errors.commandFailed(
+        '重启 ftpsvc 服务需要管理员权限，请以管理员身份运行 WinShare Panel',
+      )
     }
     if (/Cannot stop|无法停止|dependent|依赖/i.test(msg)) {
-      throw Errors.commandFailed('ftpsvc 服务存在依赖服务无法重启，请手动停止依赖服务后重试，或重启计算机')
+      throw Errors.commandFailed(
+        'ftpsvc 服务存在依赖服务无法重启，请手动停止依赖服务后重试，或重启计算机',
+      )
     }
     throw Errors.commandFailed(`重启 ftpsvc 服务失败：${msg.slice(0, 200)}`)
   }
@@ -110,30 +114,125 @@ interface FtpConfigField {
 }
 
 const FTP_FIELDS: FtpConfigField[] = [
-  { tsField: 'sslControlChannelPolicy', filter: 'ftpServer/security/ssl', psName: 'controlChannelPolicy', type: 'enum' },
-  { tsField: 'sslDataChannelPolicy', filter: 'ftpServer/security/ssl', psName: 'dataChannelPolicy', type: 'enum' },
-  { tsField: 'sslServerCertHash', filter: 'ftpServer/security/ssl', psName: 'serverCertHash', type: 'string' },
-  { tsField: 'sslClientCertRequired', filter: 'ftpServer/security/ssl', psName: 'clientCertRequired', type: 'boolean' },
+  {
+    tsField: 'sslControlChannelPolicy',
+    filter: 'ftpServer/security/ssl',
+    psName: 'controlChannelPolicy',
+    type: 'enum',
+  },
+  {
+    tsField: 'sslDataChannelPolicy',
+    filter: 'ftpServer/security/ssl',
+    psName: 'dataChannelPolicy',
+    type: 'enum',
+  },
+  {
+    tsField: 'sslServerCertHash',
+    filter: 'ftpServer/security/ssl',
+    psName: 'serverCertHash',
+    type: 'string',
+  },
+  {
+    tsField: 'sslClientCertRequired',
+    filter: 'ftpServer/security/ssl',
+    psName: 'clientCertRequired',
+    type: 'boolean',
+  },
   { tsField: 'ssl128', filter: 'ftpServer/security/ssl', psName: 'ssl128', type: 'boolean' },
-  { tsField: 'anonymousEnabled', filter: 'ftpServer/security/authentication/anonymousAuthentication', psName: 'enabled', type: 'boolean' },
-  { tsField: 'anonymousUserName', filter: 'ftpServer/security/authentication/anonymousAuthentication', psName: 'userName', type: 'string' },
-  { tsField: 'basicEnabled', filter: 'ftpServer/security/authentication/basicAuthentication', psName: 'enabled', type: 'boolean' },
-  { tsField: 'firewallLowDataChannelPort', filter: 'ftpServer/firewallSupport', psName: 'lowDataChannelPort', type: 'number' },
-  { tsField: 'firewallHighDataChannelPort', filter: 'ftpServer/firewallSupport', psName: 'highDataChannelPort', type: 'number' },
-  { tsField: 'greetingMessage', filter: 'ftpServer/messages', psName: 'greetingMessage', type: 'string' },
-  { tsField: 'bannerMessage', filter: 'ftpServer/messages', psName: 'bannerMessage', type: 'string' },
+  {
+    tsField: 'anonymousEnabled',
+    filter: 'ftpServer/security/authentication/anonymousAuthentication',
+    psName: 'enabled',
+    type: 'boolean',
+  },
+  {
+    tsField: 'anonymousUserName',
+    filter: 'ftpServer/security/authentication/anonymousAuthentication',
+    psName: 'userName',
+    type: 'string',
+  },
+  {
+    tsField: 'basicEnabled',
+    filter: 'ftpServer/security/authentication/basicAuthentication',
+    psName: 'enabled',
+    type: 'boolean',
+  },
+  {
+    tsField: 'firewallLowDataChannelPort',
+    filter: 'ftpServer/firewallSupport',
+    psName: 'lowDataChannelPort',
+    type: 'number',
+  },
+  {
+    tsField: 'firewallHighDataChannelPort',
+    filter: 'ftpServer/firewallSupport',
+    psName: 'highDataChannelPort',
+    type: 'number',
+  },
+  {
+    tsField: 'greetingMessage',
+    filter: 'ftpServer/messages',
+    psName: 'greetingMessage',
+    type: 'string',
+  },
+  {
+    tsField: 'bannerMessage',
+    filter: 'ftpServer/messages',
+    psName: 'bannerMessage',
+    type: 'string',
+  },
   { tsField: 'exitMessage', filter: 'ftpServer/messages', psName: 'exitMessage', type: 'string' },
-  { tsField: 'maxClientsMessage', filter: 'ftpServer/messages', psName: 'maxClientsMessage', type: 'string' },
-  { tsField: 'suppressDefaultMessages', filter: 'ftpServer/messages', psName: 'suppressDefault', type: 'boolean' },
-  { tsField: 'showVirtualDirs', filter: 'ftpServer/directoryBrowse', psName: 'showVirtualDirs', type: 'boolean' },
+  {
+    tsField: 'maxClientsMessage',
+    filter: 'ftpServer/messages',
+    psName: 'maxClientsMessage',
+    type: 'string',
+  },
+  {
+    tsField: 'suppressDefaultMessages',
+    filter: 'ftpServer/messages',
+    psName: 'suppressDefault',
+    type: 'boolean',
+  },
+  {
+    tsField: 'showVirtualDirs',
+    filter: 'ftpServer/directoryBrowse',
+    psName: 'showVirtualDirs',
+    type: 'boolean',
+  },
   { tsField: 'userIsolationMode', filter: 'ftpServer/userIsolation', psName: 'mode', type: 'enum' },
-  { tsField: 'unauthenticatedTimeout', filter: 'ftpServer/connections', psName: 'unauthenticatedTimeout', type: 'number' },
-  { tsField: 'controlConnectionTimeout', filter: 'ftpServer/connections', psName: 'controlConnectionTimeout', type: 'number' },
-  { tsField: 'dataChannelConnectionTimeout', filter: 'ftpServer/connections', psName: 'dataChannelConnectionTimeout', type: 'number' },
-  { tsField: 'keepPartialUploads', filter: 'ftpServer/fileHandling', psName: 'keepPartialUploads', type: 'boolean' },
-  { tsField: 'allowReplaceOnRename', filter: 'ftpServer/fileHandling', psName: 'allowReplaceOnRename', type: 'boolean' },
+  {
+    tsField: 'unauthenticatedTimeout',
+    filter: 'ftpServer/connections',
+    psName: 'unauthenticatedTimeout',
+    type: 'number',
+  },
+  {
+    tsField: 'controlConnectionTimeout',
+    filter: 'ftpServer/connections',
+    psName: 'controlConnectionTimeout',
+    type: 'number',
+  },
+  {
+    tsField: 'dataChannelConnectionTimeout',
+    filter: 'ftpServer/connections',
+    psName: 'dataChannelConnectionTimeout',
+    type: 'number',
+  },
+  {
+    tsField: 'keepPartialUploads',
+    filter: 'ftpServer/fileHandling',
+    psName: 'keepPartialUploads',
+    type: 'boolean',
+  },
+  {
+    tsField: 'allowReplaceOnRename',
+    filter: 'ftpServer/fileHandling',
+    psName: 'allowReplaceOnRename',
+    type: 'boolean',
+  },
   { tsField: 'logFileDirectory', filter: 'ftpServer/logFile', psName: 'directory', type: 'string' },
-  { tsField: 'logFilePeriod', filter: 'ftpServer/logFile', psName: 'period', type: 'enum' }
+  { tsField: 'logFilePeriod', filter: 'ftpServer/logFile', psName: 'period', type: 'enum' },
 ]
 
 // IIS FTP 7.5+ 默认配置
@@ -162,7 +261,7 @@ export function defaultConfig(): FtpServerConfig {
     keepPartialUploads: false,
     allowReplaceOnRename: false,
     logFileDirectory: '%SystemDrive%\\inetpub\\logs\\LogFiles',
-    logFilePeriod: 'Daily'
+    logFilePeriod: 'Daily',
   }
 }
 
@@ -183,7 +282,7 @@ export async function ensureFtpSectionsUnlocked(): Promise<void> {
     "'ftpServer/connections'",
     "'ftpServer/fileHandling'",
     "'ftpServer/firewallSupport'",
-    "'ftpServer/logFile'"
+    "'ftpServer/logFile'",
   ]
   const cmd = sections
     .map((s) => `try { & ${appcmd} unlock config /section:${s} 2>&1 | Out-Null } catch {}`)
@@ -201,7 +300,7 @@ export async function getConfig(): Promise<FtpServerConfig> {
   try {
     const readParts = FTP_FIELDS.map(
       (f) =>
-        `try { $r | Add-Member -MemberType NoteProperty -Name ${f.tsField} -Value (Get-WebConfigurationProperty -Filter '${f.filter}' -PSPath 'MACHINE/WEBROOT/APPHOST' -Name ${f.psName} -ErrorAction Stop) } catch {}`
+        `try { $r | Add-Member -MemberType NoteProperty -Name ${f.tsField} -Value (Get-WebConfigurationProperty -Filter '${f.filter}' -PSPath 'MACHINE/WEBROOT/APPHOST' -Name ${f.psName} -ErrorAction Stop) } catch {}`,
     )
     const cmd = `Import-Module WebAdministration; $r = [PSCustomObject]@{}; ${readParts.join('; ')}; $r`
     const raw = await runPowerShell<any>(cmd, { retries: 0 })
@@ -244,7 +343,7 @@ export async function setConfig(config: Partial<FtpServerConfig>): Promise<void>
     }
     if (psVal === null) continue // 非法类型跳过，杜绝注入
     writeParts.push(
-      `try { Set-WebConfigurationProperty -Filter '${f.filter}' -PSPath 'MACHINE/WEBROOT/APPHOST' -Name ${f.psName} -Value ${psVal} -ErrorAction Stop } catch {}`
+      `try { Set-WebConfigurationProperty -Filter '${f.filter}' -PSPath 'MACHINE/WEBROOT/APPHOST' -Name ${f.psName} -Value ${psVal} -ErrorAction Stop } catch {}`,
     )
   }
   if (writeParts.length === 0) throw Errors.invalidParam('未提供任何配置项')

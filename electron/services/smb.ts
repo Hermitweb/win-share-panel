@@ -1,4 +1,11 @@
-import { runPowerShell, runPowerShellVoid, psBool, psNumber, psEnum, psQuote } from '../lib/powershell'
+import {
+  runPowerShell,
+  runPowerShellVoid,
+  psBool,
+  psNumber,
+  psEnum,
+  psQuote,
+} from '../lib/powershell'
 import { Errors } from '../lib/errors'
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs'
 import { join } from 'path'
@@ -56,7 +63,7 @@ export function defaultConfig(): SmbServerConfig {
     maxThreadsPerQueue: 100,
     multipleSessionsPerConnection: false,
     requestCompression: 'Off',
-    silentAU: false
+    silentAU: false,
   }
 }
 
@@ -75,12 +82,15 @@ export async function getConfig(): Promise<SmbServerConfig> {
     unauthenticatedUsersTimeLimit: raw.UnauthenticatedUsersTimeLimit || 0,
     // 扩展字段（某些旧版 Windows 可能无这些字段，降级为默认值）
     enableOplocks: raw.EnableOplocks !== undefined ? !!raw.EnableOplocks : true,
-    enableOplockDirectoryCache: raw.EnableOplockDirectoryCache !== undefined ? !!raw.EnableOplockDirectoryCache : true,
-    enableStrictNameChecking: raw.EnableStrictNameChecking !== undefined ? !!raw.EnableStrictNameChecking : true,
+    enableOplockDirectoryCache:
+      raw.EnableOplockDirectoryCache !== undefined ? !!raw.EnableOplockDirectoryCache : true,
+    enableStrictNameChecking:
+      raw.EnableStrictNameChecking !== undefined ? !!raw.EnableStrictNameChecking : true,
     enableLeasing: raw.EnableLeasing !== undefined ? !!raw.EnableLeasing : true,
     enableSMBQUIC: raw.EnableSMBQUIC !== undefined ? !!raw.EnableSMBQUIC : false,
     enableChannelChange: raw.EnableChannelChange !== undefined ? !!raw.EnableChannelChange : true,
-    enableSMBDirectoryCache: raw.EnableSMBDirectoryCache !== undefined ? !!raw.EnableSMBDirectoryCache : true,
+    enableSMBDirectoryCache:
+      raw.EnableSMBDirectoryCache !== undefined ? !!raw.EnableSMBDirectoryCache : true,
     sessionTimeoutSeconds: raw.SessionTimeoutSeconds || 60,
     maxSessionPerConnection: raw.MaxSessionPerConnection || 1024,
     maxMpxCount: raw.MaxMpxCount || 1000,
@@ -88,7 +98,7 @@ export async function getConfig(): Promise<SmbServerConfig> {
     maxThreadsPerQueue: raw.MaxThreadsPerQueue || 100,
     multipleSessionsPerConnection: !!raw.MultipleSessionsPerConnection,
     requestCompression: raw.RequestCompression || 'Off',
-    silentAU: !!raw.SilentAU
+    silentAU: !!raw.SilentAU,
   }
 }
 
@@ -111,7 +121,7 @@ const FIELD_MAP: Record<string, string> = {
   enableChannelChange: 'EnableChannelChange',
   enableSMBDirectoryCache: 'EnableSMBDirectoryCache',
   multipleSessionsPerConnection: 'MultipleSessionsPerConnection',
-  silentAU: 'SilentAU'
+  silentAU: 'SilentAU',
 }
 
 // RequestCompression 合法枚举值（Set-SmbServerConfiguration -RequestCompression）
@@ -260,7 +270,7 @@ function cleanupSnapshots(): void {
 export async function getServiceStatus(): Promise<ServiceStatus> {
   // Select-Object 精简输出，避免序列化整个依赖服务树（原命令输出超 100KB）
   const raw = await runPowerShell<any>(
-    'Get-Service LanmanServer | Select-Object Name, Status, StartType'
+    'Get-Service LanmanServer | Select-Object Name, Status, StartType',
   )
   // ConvertTo-Json 将 ServiceControllerStatus 枚举序列化为数值：
   //   1=Stopped, 2=StartPending, 3=StopPending, 4=Running, 5=ContinuePending, 6=PausePending, 7=Paused
@@ -270,7 +280,8 @@ export async function getServiceStatus(): Promise<ServiceStatus> {
   let status: 'Running' | 'Stopped' | 'Unknown'
   if (statusStr === 'Running' || statusNum === 4) status = 'Running'
   else if (statusStr === 'Stopped' || statusNum === 1) status = 'Stopped'
-  else if (statusStr === 'Paused' || statusNum === 7) status = 'Stopped' // Paused 视为非运行
+  else if (statusStr === 'Paused' || statusNum === 7)
+    status = 'Stopped' // Paused 视为非运行
   else status = 'Unknown'
 
   const startNum = typeof raw.StartType === 'number' ? raw.StartType : Number(raw.StartType)
@@ -286,7 +297,7 @@ export async function getServiceStatus(): Promise<ServiceStatus> {
   return {
     name: raw.Name || 'LanmanServer',
     status,
-    startType
+    startType,
   }
 }
 

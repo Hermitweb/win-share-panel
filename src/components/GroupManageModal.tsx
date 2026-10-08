@@ -1,6 +1,26 @@
 import { useEffect, useState } from 'react'
-import { Modal, Form, Input, Table, Button, Space, Tag, App, Popconfirm, Tooltip, Empty, Select } from 'antd'
-import { PlusOutlined, DeleteOutlined, ReloadOutlined, EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
+import {
+  Modal,
+  Form,
+  Input,
+  Table,
+  Button,
+  Space,
+  Tag,
+  App,
+  Popconfirm,
+  Tooltip,
+  Empty,
+  Select,
+} from 'antd'
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  ReloadOutlined,
+  EditOutlined,
+  CheckOutlined,
+  CloseOutlined,
+} from '@ant-design/icons'
 import { api, call } from '../api'
 import type { LocalGroup, GroupMember, LocalUser } from '../types'
 
@@ -27,6 +47,16 @@ export default function GroupManageModal({ open, group, onClose, onSuccess }: Pr
   const [allUsers, setAllUsers] = useState<LocalUser[]>([])
   const [batchMembers, setBatchMembers] = useState<string[]>([])
 
+  const loadUsers = async () => {
+    try {
+      const u = await call(api.user.list)
+      setAllUsers(u)
+    } catch {
+      // 加载失败不影响主功能
+    }
+  }
+
+  // 有意仅在 open/group 变化时同步：loadUsers/form 引用稳定，加入依赖会重复触发
   useEffect(() => {
     if (open && group) {
       form.setFieldsValue({ description: group.description })
@@ -39,15 +69,6 @@ export default function GroupManageModal({ open, group, onClose, onSuccess }: Pr
       loadUsers()
     }
   }, [open, group, form])
-
-  const loadUsers = async () => {
-    try {
-      const u = await call(api.user.list)
-      setAllUsers(u)
-    } catch {
-      // 加载失败不影响主功能
-    }
-  }
 
   const reloadMembers = async () => {
     if (!group) return
@@ -121,7 +142,9 @@ export default function GroupManageModal({ open, group, onClose, onSuccess }: Pr
         failed.push(m)
       }
     }
-    message.success(`已添加 ${batchMembers.length - failed.length} 个成员${failed.length ? `，${failed.length} 个失败` : ''}`)
+    message.success(
+      `已添加 ${batchMembers.length - failed.length} 个成员${failed.length ? `，${failed.length} 个失败` : ''}`,
+    )
     setBatchMembers([])
     reloadMembers()
     onSuccess()
@@ -151,28 +174,25 @@ export default function GroupManageModal({ open, group, onClose, onSuccess }: Pr
       width: 80,
       render: (v: 'User' | 'Group') => (
         <Tag color={v === 'User' ? 'blue' : 'purple'}>{v === 'User' ? '用户' : '组'}</Tag>
-      )
+      ),
     },
     {
       title: '来源',
       dataIndex: 'principalSource',
       width: 110,
-      render: (v: string) => <span className="text-fog text-sm">{v || 'Local'}</span>
+      render: (v: string) => <span className="text-fog text-sm">{v || 'Local'}</span>,
     },
     {
       title: '操作',
       width: 80,
       render: (_: unknown, r: GroupMember) => (
-        <Popconfirm
-          title={`从组中移除 ${r.name}？`}
-          onConfirm={() => handleRemoveMember(r.name)}
-        >
+        <Popconfirm title={`从组中移除 ${r.name}？`} onConfirm={() => handleRemoveMember(r.name)}>
           <Tooltip title="移除">
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Tooltip>
         </Popconfirm>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -200,7 +220,13 @@ export default function GroupManageModal({ open, group, onClose, onSuccess }: Pr
             <Space style={{ width: '100%' }}>
               <Input value={group?.name ?? ''} disabled style={{ flex: 1 }} />
               <Tooltip title="重命名组">
-                <Button icon={<EditOutlined />} onClick={() => { setNewGroupName(group?.name || ''); setRenaming(true) }} />
+                <Button
+                  icon={<EditOutlined />}
+                  onClick={() => {
+                    setNewGroupName(group?.name || '')
+                    setRenaming(true)
+                  }}
+                />
               </Tooltip>
             </Space>
           )}
@@ -233,7 +259,7 @@ export default function GroupManageModal({ open, group, onClose, onSuccess }: Pr
               onChange={setBatchMembers}
               options={availableUsers.map((u) => ({
                 label: `${u.name}${u.fullName ? ` (${u.fullName})` : ''}`,
-                value: u.name
+                value: u.name,
               }))}
               optionFilterProp="label"
               maxTagCount={3}

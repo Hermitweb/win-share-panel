@@ -74,11 +74,11 @@ function buildServerScript(
   okMarker: string,
   errMarker: string,
   errEndMarker: string,
-  quitMarker: string
+  quitMarker: string,
 ): string {
   return [
-    "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8",
-    "$OutputEncoding=[System.Text.Encoding]::UTF8",
+    '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8',
+    '$OutputEncoding=[System.Text.Encoding]::UTF8',
     "$ProgressPreference='SilentlyContinue'",
     'while ($true) {',
     '  $line = [Console]::In.ReadLine()',
@@ -99,10 +99,10 @@ function buildServerScript(
     `    [Console]::Out.WriteLine('${okMarker}'); [Console]::Out.Flush()`,
     '  } catch {',
     `    [Console]::Out.WriteLine('${errMarker}')`,
-    "    [Console]::Out.WriteLine($_.Exception.Message)",
+    '    [Console]::Out.WriteLine($_.Exception.Message)',
     `    [Console]::Out.WriteLine('${errEndMarker}'); [Console]::Out.Flush()`,
     '  }',
-    '}'
+    '}',
   ].join('\n')
 }
 
@@ -110,8 +110,15 @@ function buildServerScript(
 export function defaultWorkerFactory(serverEncoded: string): WorkerHandle {
   const child = spawn(
     'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', serverEncoded],
-    { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-EncodedCommand',
+      serverEncoded,
+    ],
+    { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true },
   )
   return {
     // stdio:'pipe' 下三者非 null
@@ -123,7 +130,7 @@ export function defaultWorkerFactory(serverEncoded: string): WorkerHandle {
     },
     kill(signal) {
       return child.kill(signal as NodeJS.Signals | undefined)
-    }
+    },
   }
 }
 
@@ -211,7 +218,12 @@ export class PowerShellPool {
   }
 
   private spawnWorker(): Worker {
-    const script = buildServerScript(this.okMarker, this.errMarker, this.errEndMarker, this.quitMarker)
+    const script = buildServerScript(
+      this.okMarker,
+      this.errMarker,
+      this.errEndMarker,
+      this.quitMarker,
+    )
     const handle = this.factory(encodeCommand(script))
     if (typeof handle.stdout.setEncoding === 'function') {
       handle.stdout.setEncoding('utf8')

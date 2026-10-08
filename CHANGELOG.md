@@ -2,6 +2,24 @@
 
 本文件记录 WinShare Panel 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [未发布] - 2026-06
+
+全面审计（docs/audit/）与工程化规范化落地。
+
+### ⚙️ 工程化 / Engineering
+
+- **E1 pnpm 工具链修复**：删除非法 `pnpm-workspace.yaml`（缺 `packages` 字段导致全部 pnpm 脚本不可用），`onlyBuiltDependencies` 迁移至 package.json `pnpm` 字段；新增 `packageManager: pnpm@9.12.0` 与 `engines` 声明
+- **E2 静态检查与格式化门禁**：引入 ESLint（flat config：typescript-eslint + react + react-hooks 7）与 Prettier，新增 `lint` / `format` / `format:check` 脚本；全库 57 项违规归零；`typescript` 7.0.2→6.0.3（typescript-eslint@8 不支持 TS7 的必要取舍，typecheck/build 无回归）
+- **E3 CI 质量门禁**：新增 `.github/workflows/ci.yml`（push/PR：frozen 安装 → typecheck → lint → format:check → test:coverage）；`release.yml` 对齐 packageManager 单一真相源与 `--frozen-lockfile`，根除工具链版本漂移
+- **E4 测试基础设施**：`@vitest/coverage-v8` + 棘轮覆盖率阈值（30/25/19/32 = 实测水位取整）；渲染层首批单测（password/uiStore/api），总用例 191→212
+- **E5 类型检查收紧与 P2 修复**：electron 测试纳入 typecheck 并修复暴露的 77 处类型问题（可选适配器方法调用等）；双 tsconfig 开启 `noUnusedLocals`/`noUnusedParameters`；导入 JSON 增加 2MB/500 条护栏并附单测（R-1）；NFS 只读字段语义注释留档（M-1 复核：UI 已是 disabled 只读分区，非缺陷）
+
+### 🐛 修复 / Fixed
+
+- `dev` 脚本 `chcp 65001 >nul 2>&1 &` 的位运算符改为 `&&`（E-10）
+- 全库未使用导入/只写不读死状态清理（lint 归零过程，行为不变；R-2/E-7）
+- `.gitignore` 补充 `.agent-teams/`（E-8）
+
 ## [v1.0.0] - 2026-08-08
 
 首个正式发布版本：多协议共享管理 + 生产级安全加固 + 性能优化 + 全面测试。

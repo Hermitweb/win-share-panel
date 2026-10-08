@@ -38,7 +38,7 @@ const BUILTIN: PermissionPreset[] = [
     description: '所有人只读',
     builtIn: true,
     category: '基础',
-    entries: [{ account: '{Everyone}', accountType: 'Group', access: 'Read', deny: false }]
+    entries: [{ account: '{Everyone}', accountType: 'Group', access: 'Read', deny: false }],
   },
   {
     id: 'builtin-rw',
@@ -48,8 +48,8 @@ const BUILTIN: PermissionPreset[] = [
     category: '基础',
     entries: [
       { account: '{CurrentUser}', accountType: 'User', access: 'Change', deny: false },
-      { account: '{Everyone}', accountType: 'Group', access: 'Read', deny: false }
-    ]
+      { account: '{Everyone}', accountType: 'Group', access: 'Read', deny: false },
+    ],
   },
   {
     id: 'builtin-admin',
@@ -59,8 +59,8 @@ const BUILTIN: PermissionPreset[] = [
     category: '安全',
     entries: [
       { account: '{Administrators}', accountType: 'Group', access: 'Full', deny: false },
-      { account: '{CurrentUser}', accountType: 'User', access: 'Full', deny: false }
-    ]
+      { account: '{CurrentUser}', accountType: 'User', access: 'Full', deny: false },
+    ],
   },
   {
     id: 'builtin-private',
@@ -70,8 +70,8 @@ const BUILTIN: PermissionPreset[] = [
     category: '安全',
     entries: [
       { account: '{CurrentUser}', accountType: 'User', access: 'Full', deny: false },
-      { account: '{Everyone}', accountType: 'Group', access: 'Read', deny: true }
-    ]
+      { account: '{Everyone}', accountType: 'Group', access: 'Read', deny: true },
+    ],
   },
   {
     id: 'builtin-exchange',
@@ -81,9 +81,9 @@ const BUILTIN: PermissionPreset[] = [
     category: '协作',
     entries: [
       { account: '{Administrators}', accountType: 'Group', access: 'Full', deny: false },
-      { account: '{Everyone}', accountType: 'Group', access: 'Change', deny: false }
-    ]
-  }
+      { account: '{Everyone}', accountType: 'Group', access: 'Change', deny: false },
+    ],
+  },
 ]
 
 function readCustom(): PermissionPreset[] {
@@ -145,7 +145,7 @@ export async function savePreset(preset: PermissionPreset): Promise<void> {
     entries: preset.entries || [],
     category: preset.category || '自定义',
     updatedAt: now,
-    createdAt: idx >= 0 ? list[idx].createdAt || now : now
+    createdAt: idx >= 0 ? list[idx].createdAt || now : now,
   }
   if (idx >= 0) list[idx] = item
   else list.push(item)
@@ -166,7 +166,7 @@ export async function updatePreset(id: string, updates: Partial<PermissionPreset
     ...updates,
     id, // 不允许改 ID
     builtIn: false,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   }
   if (merged.name !== undefined && !validateName(merged.name)) {
     throw Errors.invalidParam('模板名非法')
@@ -200,7 +200,7 @@ export async function duplicatePreset(id: string, newName?: string): Promise<Per
     category: '自定义',
     entries: src.entries.map((e) => ({ ...e })),
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   }
   const list = readCustom()
   list.push(newPreset)
@@ -211,7 +211,7 @@ export async function duplicatePreset(id: string, newName?: string): Promise<Per
 export async function applyPreset(
   shareName: string,
   presetId: string,
-  mode: 'overwrite' | 'merge'
+  mode: 'overwrite' | 'merge',
 ): Promise<void> {
   if (!validateName(shareName)) throw Errors.invalidParam('共享名非法')
   const all = await listPresets()
@@ -240,7 +240,7 @@ export async function applyPreset(
         account: acct,
         accountType: e.accountType,
         access: e.access,
-        deny: !!e.deny
+        deny: !!e.deny,
       })
     }
     targetPerms = Array.from(map.values())
@@ -255,7 +255,7 @@ export async function applyPreset(
           account: acct,
           accountType: e.accountType,
           access: e.access,
-          deny: !!e.deny
+          deny: !!e.deny,
         } as SharePermission
       })
       .filter((p): p is SharePermission => p !== null)
@@ -272,17 +272,21 @@ export async function exportPresets(): Promise<string> {
     {
       exportedAt: new Date().toISOString(),
       version: 1,
-      presets: list
+      presets: list,
     },
     null,
-    2
+    2,
   )
 }
 
 // 导入预设（合并模式：不覆盖同名）
 export async function importPresets(
-  json: string
+  json: string,
 ): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  // R-1 导入护栏：超大内容先行拒绝（V8 JSON.parse 无深栈风险，深度由总量上限兜底）
+  if (typeof json !== 'string' || json.length > 2 * 1024 * 1024) {
+    throw Errors.invalidParam('导入内容不合法或超过 2MB 上限')
+  }
   let data: { presets?: PermissionPreset[] }
   try {
     data = JSON.parse(json)
@@ -291,6 +295,9 @@ export async function importPresets(
   }
   if (!data.presets || !Array.isArray(data.presets)) {
     throw Errors.invalidParam('导入文件格式错误：缺少 presets 字段')
+  }
+  if (data.presets.length > 500) {
+    throw Errors.invalidParam('导入条目超过 500 上限，请拆分后分批导入')
   }
 
   const list = readCustom()
@@ -321,7 +328,7 @@ export async function importPresets(
         category: p.category || '导入',
         entries: p.entries || [],
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       }
       list.push(newPreset)
       existingIds.add(newPreset.id)

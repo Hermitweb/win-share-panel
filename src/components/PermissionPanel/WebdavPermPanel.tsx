@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Space, Select, Input, Popconfirm, App, Tag, Empty, Spin, Tooltip } from 'antd'
+import {
+  Table,
+  Button,
+  Space,
+  Select,
+  Input,
+  Popconfirm,
+  App,
+  Tag,
+  Empty,
+  Spin,
+  Tooltip,
+} from 'antd'
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { api, call } from '../../api'
 import type { Share, SharePermission } from '../../types'
@@ -21,7 +33,7 @@ interface WebdavRule {
 const PERM_OPTIONS: { label: string; value: WebdavPerm }[] = [
   { label: '只读 (Read)', value: 'ro' },
   { label: '读写 (Read, Write)', value: 'rw' },
-  { label: '完全 (Read, Write, Source)', value: 'full' }
+  { label: '完全 (Read, Write, Source)', value: 'full' },
 ]
 
 function toRule(p: SharePermission): WebdavRule {
@@ -32,7 +44,7 @@ function toRule(p: SharePermission): WebdavRule {
   return {
     account: p.account,
     accountType: p.accountType,
-    perm
+    perm,
   }
 }
 
@@ -42,7 +54,7 @@ function toSharePerm(share: Share, r: WebdavRule): SharePermission {
     account: r.account,
     accountType: r.accountType,
     access: r.perm === 'full' ? 'Full' : r.perm === 'rw' ? 'Change' : 'Read',
-    deny: false
+    deny: false,
   }
 }
 
@@ -69,6 +81,7 @@ export default function WebdavPermPanel({ share }: Props) {
 
   useEffect(() => {
     load()
+    // 仅在切换共享时重载权限：load 引用每轮渲染变化，纳入依赖会无限循环
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [share.name])
 
@@ -116,7 +129,7 @@ export default function WebdavPermPanel({ share }: Props) {
       width: 90,
       render: (v: 'User' | 'Group') => (
         <Tag color={v === 'User' ? 'blue' : 'purple'}>{v === 'User' ? '用户' : '组'}</Tag>
-      )
+      ),
     },
     {
       title: '权限',
@@ -130,24 +143,30 @@ export default function WebdavPermPanel({ share }: Props) {
           onChange={(next) => handlePermChange(r.account, next)}
           style={{ width: 200 }}
         />
-      )
+      ),
     },
     {
       title: '',
       width: 50,
       render: (_: unknown, r: WebdavRule) => (
         <Tooltip title="移除">
-          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleRemove(r.account)} />
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleRemove(r.account)}
+          />
         </Tooltip>
-      )
-    }
+      ),
+    },
   ]
 
   return (
     <Spin spinning={loading}>
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm text-fog">
-          WebDAV 作者规则基于用户/组授予 Read / Read+Write / Read+Write+Source，仅允许（无拒绝）。保存时覆盖现有规则。
+          WebDAV 作者规则基于用户/组授予 Read / Read+Write /
+          Read+Write+Source，仅允许（无拒绝）。保存时覆盖现有规则。
         </span>
         <Space>
           <Button size="small" icon={<ReloadOutlined />} onClick={load}>
@@ -182,11 +201,16 @@ export default function WebdavPermPanel({ share }: Props) {
             onChange={setNewType}
             options={[
               { label: '用户', value: 'User' },
-              { label: '组', value: 'Group' }
+              { label: '组', value: 'Group' },
             ]}
             style={{ width: 90 }}
           />
-          <Select value={newPerm} onChange={setNewPerm} options={PERM_OPTIONS} style={{ width: 200 }} />
+          <Select
+            value={newPerm}
+            onChange={setNewPerm}
+            options={PERM_OPTIONS}
+            style={{ width: 200 }}
+          />
           <Button icon={<PlusOutlined />} onClick={handleAdd}>
             添加
           </Button>

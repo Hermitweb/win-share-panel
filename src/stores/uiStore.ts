@@ -66,5 +66,5 @@ export const useUiStore = create<UiState>((set) => ({
   requestSessionClose: () => set((s) => ({ sessionCloseTick: s.sessionCloseTick + 1 })),
   setHealth: (h) => set({ health: h }),
   setActiveProtocol: (p) => set({ activeProtocol: p }),
-  setProtocolCaps: (c) => set({ protocolCaps: c })
+  setProtocolCaps: (c) => set({ protocolCaps: c }),
 }))

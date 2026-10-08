@@ -7,7 +7,7 @@ import type {
   ProtocolSession,
   SmbOpenFile,
   CreateShareInput,
-  UpdateShareInput
+  UpdateShareInput,
 } from '../../types'
 
 // 协议适配器接口：每个协议实现此接口，registry 路由调用

@@ -16,7 +16,7 @@ import {
   Switch,
   Empty,
   Spin,
-  Divider
+  Divider,
 } from 'antd'
 import { ReloadOutlined, CloseCircleOutlined, SaveOutlined } from '@ant-design/icons'
 import type React from 'react'
@@ -47,7 +47,10 @@ interface ClientConn {
 export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: Props) {
   const { message } = App.useApp()
   const [tab, setTab] = useState('info')
-  const [connections, setConnections] = useState<{ concurrentUsers: number; clientConnections: ClientConn[] } | null>(null)
+  const [connections, setConnections] = useState<{
+    concurrentUsers: number
+    clientConnections: ClientConn[]
+  } | null>(null)
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -55,20 +58,6 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
 
   // 仅 SMB 支持详细操作（连接/打开文件/高级属性）
   const isSmb = share?.protocol === 'smb'
-
-  useEffect(() => {
-    if (!open || !share) return
-    setTab('info')
-    if (isSmb) {
-      loadConnections()
-      loadOpenFiles()
-      // 初始化表单
-      form.setFieldsValue({
-        description: share.description
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, share])
 
   const loadConnections = async () => {
     if (!share) return
@@ -92,6 +81,21 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
       setOpenFiles([])
     }
   }
+
+  useEffect(() => {
+    if (!open || !share) return
+    setTab('info')
+    if (isSmb) {
+      loadConnections()
+      loadOpenFiles()
+      // 初始化表单
+      form.setFieldsValue({
+        description: share.description,
+      })
+    }
+    // 仅在打开抽屉/切换共享时同步并加载；loadConnections/loadOpenFiles 引用每轮渲染变化，有意省略以免无限循环
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, share])
 
   const handleCloseAllFiles = async () => {
     if (!share) return
@@ -120,8 +124,8 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
           concurrentUserLimit: v.concurrentUserLimit,
           cachingMode: v.cachingMode,
           folderEnumerationMode: v.folderEnumerationMode,
-          encryptData: v.encryptData
-        })
+          encryptData: v.encryptData,
+        }),
       )
       message.success('已保存')
       onSuccess()
@@ -136,13 +140,13 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
     { title: '路径', dataIndex: 'path', ellipsis: true },
     { title: '用户', dataIndex: 'clientUserName', width: 140, ellipsis: true },
     { title: '客户端', dataIndex: 'clientComputerName', width: 140, ellipsis: true },
-    { title: '锁', dataIndex: 'lockCount', width: 60 }
+    { title: '锁', dataIndex: 'lockCount', width: 60 },
   ]
 
   const connColumns = [
     { title: '用户', dataIndex: 'clientUserName', ellipsis: true },
     { title: '客户端', dataIndex: 'clientComputerName', ellipsis: true },
-    { title: '打开文件数', dataIndex: 'openFiles', width: 100 }
+    { title: '打开文件数', dataIndex: 'openFiles', width: 100 },
   ]
 
   const items: Array<{ key: string; label: React.ReactNode; children: React.ReactNode }> = [
@@ -159,19 +163,51 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
               { key: 'n', label: '共享名', children: share?.name || '-' },
               { key: 'p', label: '本地路径', children: share?.path || '-' },
               { key: 'd', label: '描述', children: share?.description || '-' },
-              { key: 'proto', label: '协议', children: <Tag color="blue">{share?.protocol?.toUpperCase()}</Tag> as unknown as string },
+              {
+                key: 'proto',
+                label: '协议',
+                children: (
+                  <Tag color="blue">{share?.protocol?.toUpperCase()}</Tag>
+                ) as unknown as string,
+              },
               { key: 't', label: '类型', children: share?.type || '-' },
-              { key: 's', label: '状态', children: <Tag color={share?.status === 'Enabled' ? 'green' : 'default'}>{share?.status}</Tag> as unknown as string },
+              {
+                key: 's',
+                label: '状态',
+                children: (
+                  <Tag color={share?.status === 'Enabled' ? 'green' : 'default'}>
+                    {share?.status}
+                  </Tag>
+                ) as unknown as string,
+              },
               { key: 'u', label: '当前连接', children: String(share?.concurrentUsers ?? 0) },
-              ...(share?.protocol === 'smb' ? [
-                { key: 'e', label: '加密', children: (share?.encrypted ? <Tag color="blue">是</Tag> : <span className="text-fog">否</span>) as unknown as string },
-                { key: 'c', label: '缓存', children: (share?.cached ? <Tag>是</Tag> : <span className="text-fog">否</span>) as unknown as string }
-              ] : [])
+              ...(share?.protocol === 'smb'
+                ? [
+                    {
+                      key: 'e',
+                      label: '加密',
+                      children: (share?.encrypted ? (
+                        <Tag color="blue">是</Tag>
+                      ) : (
+                        <span className="text-fog">否</span>
+                      )) as unknown as string,
+                    },
+                    {
+                      key: 'c',
+                      label: '缓存',
+                      children: (share?.cached ? (
+                        <Tag>是</Tag>
+                      ) : (
+                        <span className="text-fog">否</span>
+                      )) as unknown as string,
+                    },
+                  ]
+                : []),
             ]}
           />
         </div>
-      )
-    }
+      ),
+    },
   ]
 
   // SMB 专属：属性编辑 + 连接 + 打开文件
@@ -191,7 +227,7 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
             <Select
               options={[
                 { label: '基于访问（仅可见有权限的子项）', value: 'AccessBased' },
-                { label: '无限制（可见全部子项）', value: 'Unrestricted' }
+                { label: '无限制（可见全部子项）', value: 'Unrestricted' },
               ]}
               style={{ width: '100%' }}
             />
@@ -203,7 +239,7 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
                 { label: '手动', value: 'Manual' },
                 { label: '文档', value: 'Documents' },
                 { label: '程序', value: 'Programs' },
-                { label: 'BranchCache', value: 'BranchCache' }
+                { label: 'BranchCache', value: 'BranchCache' },
               ]}
               style={{ width: '100%' }}
             />
@@ -215,7 +251,7 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
             保存属性
           </Button>
         </Form>
-      )
+      ),
     })
     items.push({
       key: 'conns',
@@ -249,14 +285,18 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
             scroll={{ y: 320 }}
           />
         </Spin>
-      )
+      ),
     })
     items.push({
       key: 'files',
       label: (
         <span>
           打开文件
-          {openFiles.length > 0 && <Tag color="orange" className="ml-1">{openFiles.length}</Tag>}
+          {openFiles.length > 0 && (
+            <Tag color="orange" className="ml-1">
+              {openFiles.length}
+            </Tag>
+          )}
         </span>
       ),
       children: (
@@ -293,23 +333,19 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
             scroll={{ y: 320 }}
           />
         </div>
-      )
+      ),
     })
   }
 
   return (
-    <Drawer
-      open={open}
-      title={`共享详情：${share?.name ?? ''}`}
-      onClose={onClose}
-      width={640}
-    >
+    <Drawer open={open} title={`共享详情：${share?.name ?? ''}`} onClose={onClose} width={640}>
       <Tabs activeKey={tab} onChange={setTab} items={items} size="small" />
       {!isSmb && share && (
         <>
           <Divider />
           <div className="text-xs text-fog">
-            {share.protocol.toUpperCase()} 协议的站点级配置（端口/SSL/认证/权限）请通过共享列表中的"权限"按钮编辑。
+            {share.protocol.toUpperCase()}{' '}
+            协议的站点级配置（端口/SSL/认证/权限）请通过共享列表中的"权限"按钮编辑。
           </div>
         </>
       )}

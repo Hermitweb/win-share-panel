@@ -9,9 +9,9 @@ export default defineConfig({
       rollupOptions: {
         input: { index: resolve(__dirname, 'electron/main.ts') },
         external: ['electron'],
-        output: { format: 'cjs', entryFileNames: '[name].js' }
-      }
-    }
+        output: { format: 'cjs', entryFileNames: '[name].js' },
+      },
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
@@ -19,19 +19,19 @@ export default defineConfig({
       rollupOptions: {
         input: { index: resolve(__dirname, 'electron/preload.ts') },
         external: ['electron'],
-        output: { format: 'cjs', entryFileNames: '[name].js' }
-      }
-    }
+        output: { format: 'cjs', entryFileNames: '[name].js' },
+      },
+    },
   },
   renderer: {
     root: 'src',
     publicDir: resolve(__dirname, 'resources'),
     build: {
-      rollupOptions: { input: { index: resolve(__dirname, 'src/index.html') } }
+      rollupOptions: { input: { index: resolve(__dirname, 'src/index.html') } },
     },
     resolve: {
-      alias: { '@': resolve(__dirname, 'src') }
+      alias: { '@': resolve(__dirname, 'src') },
     },
-    plugins: [react()]
-  }
+    plugins: [react()],
+  },
 })

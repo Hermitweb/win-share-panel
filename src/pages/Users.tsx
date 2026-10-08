@@ -1,5 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Table, Tabs, Tag, App, Button, Space, Tooltip, Popconfirm, Input, Switch, Select, Modal } from 'antd'
+import {
+  Table,
+  Tabs,
+  Tag,
+  App,
+  Button,
+  Space,
+  Tooltip,
+  Popconfirm,
+  Input,
+  Switch,
+  Select,
+  Modal,
+} from 'antd'
 import {
   ReloadOutlined,
   PlusOutlined,
@@ -10,7 +23,6 @@ import {
   LockOutlined,
   UnlockOutlined,
   KeyOutlined,
-  SettingOutlined
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { api, call } from '../api'
@@ -57,8 +69,10 @@ export default function Users() {
       setLoading(false)
     }
   }
+  // 有意仅在挂载时加载一次：load 身份每轮渲染变化，加入依赖会造成无限循环
   useEffect(() => {
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // hotkey F5 刷新
@@ -81,7 +95,7 @@ export default function Users() {
         } catch (e) {
           message.error((e as Error).message)
         }
-      }
+      },
     })
   }
 
@@ -115,7 +129,7 @@ export default function Users() {
         } catch (e) {
           message.error((e as Error).message)
         }
-      }
+      },
     })
   }
 
@@ -135,10 +149,12 @@ export default function Users() {
             failed.push(name)
           }
         }
-        message.success(`已启用 ${targets.length - failed.length} 个用户${failed.length ? `，${failed.length} 个失败` : ''}`)
+        message.success(
+          `已启用 ${targets.length - failed.length} 个用户${failed.length ? `，${failed.length} 个失败` : ''}`,
+        )
         setSelectedUsers([])
         load()
-      }
+      },
     })
   }
 
@@ -158,10 +174,12 @@ export default function Users() {
             failed.push(name)
           }
         }
-        message.success(`已禁用 ${targets.length - failed.length} 个用户${failed.length ? `，${failed.length} 个失败` : ''}`)
+        message.success(
+          `已禁用 ${targets.length - failed.length} 个用户${failed.length ? `，${failed.length} 个失败` : ''}`,
+        )
         setSelectedUsers([])
         load()
-      }
+      },
     })
   }
 
@@ -182,10 +200,12 @@ export default function Users() {
             failed.push(name)
           }
         }
-        message.success(`已删除 ${targets.length - failed.length} 个用户${failed.length ? `，${failed.length} 个失败` : ''}`)
+        message.success(
+          `已删除 ${targets.length - failed.length} 个用户${failed.length ? `，${failed.length} 个失败` : ''}`,
+        )
         setSelectedUsers([])
         load()
-      }
+      },
     })
   }
 
@@ -201,7 +221,9 @@ export default function Users() {
         failed.push(name)
       }
     }
-    message.success(`已分配 ${targets.length - failed.length} 个用户到组「${groupName}」${failed.length ? `，${failed.length} 个失败` : ''}`)
+    message.success(
+      `已分配 ${targets.length - failed.length} 个用户到组「${groupName}」${failed.length ? `，${failed.length} 个失败` : ''}`,
+    )
     setBatchGroupOpen(false)
     setBatchGroupName(null)
     setSelectedUsers([])
@@ -244,12 +266,12 @@ export default function Users() {
             {v ? '启用' : '禁用'}
           </Tag>
         </Tooltip>
-      )
+      ),
     },
     {
       title: '描述',
       dataIndex: 'description',
-      ellipsis: true
+      ellipsis: true,
     },
     {
       title: '所属组',
@@ -263,13 +285,13 @@ export default function Users() {
           {v && v.length > 3 && <Tag>+{v.length - 3}</Tag>}
           {(!v || v.length === 0) && <span className="text-fog">-</span>}
         </Space>
-      )
+      ),
     },
     {
       title: '上次登录',
       dataIndex: 'lastLogon',
       width: 130,
-      render: (v: string) => <span className="text-fog text-xs">{fmtTime(v)}</span>
+      render: (v: string) => <span className="text-fog text-xs">{fmtTime(v)}</span>,
     },
     {
       title: '操作',
@@ -277,11 +299,7 @@ export default function Users() {
       render: (_: unknown, r: LocalUser) => (
         <Space>
           <Tooltip title="编辑属性">
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => setEditUser(r)}
-            />
+            <Button size="small" icon={<EditOutlined />} onClick={() => setEditUser(r)} />
           </Tooltip>
           <Tooltip title={r.enabled ? '禁用账号' : '启用账号'}>
             <Button
@@ -301,8 +319,8 @@ export default function Users() {
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   const groupColumns = [
@@ -312,18 +330,21 @@ export default function Users() {
       title: '成员数',
       dataIndex: 'members',
       width: 80,
-      render: (v: { length: number } | undefined) => v?.length || 0
+      render: (v: { length: number } | undefined) => v?.length || 0,
     },
     {
       title: '成员预览',
       dataIndex: 'members',
       render: (v: { name: string }[] | undefined) => (
         <span className="text-fog text-sm">
-          {(v || []).slice(0, 5).map((m) => m.name).join(', ')}
+          {(v || [])
+            .slice(0, 5)
+            .map((m) => m.name)
+            .join(', ')}
           {v && v.length > 5 ? ` 等 ${v.length} 个` : ''}
           {(!v || v.length === 0) && '-'}
         </span>
-      )
+      ),
     },
     {
       title: '操作',
@@ -331,11 +352,7 @@ export default function Users() {
       render: (_: unknown, r: LocalGroup) => (
         <Space>
           <Tooltip title="管理成员">
-            <Button
-              size="small"
-              icon={<TeamOutlined />}
-              onClick={() => setManageGroup(r)}
-            />
+            <Button size="small" icon={<TeamOutlined />} onClick={() => setManageGroup(r)} />
           </Tooltip>
           <Popconfirm
             title={`删除组 ${r.name}？`}
@@ -348,8 +365,8 @@ export default function Users() {
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -410,7 +427,9 @@ export default function Users() {
                 <div className="mb-3 flex items-center gap-2">
                   <Input
                     allowClear
-                    placeholder={searchField === 'name' ? '搜索用户名' : '搜索用户名/全名/描述/所属组'}
+                    placeholder={
+                      searchField === 'name' ? '搜索用户名' : '搜索用户名/全名/描述/所属组'
+                    }
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
                     style={{ maxWidth: 280 }}
@@ -446,11 +465,11 @@ export default function Users() {
                   scroll={{ x: 1000 }}
                   rowSelection={{
                     selectedRowKeys: selectedUsers,
-                    onChange: (keys) => setSelectedUsers(keys as string[])
+                    onChange: (keys) => setSelectedUsers(keys as string[]),
                   }}
                 />
               </div>
-            )
+            ),
           },
           {
             key: 'groups',
@@ -482,7 +501,7 @@ export default function Users() {
                   columns={groupColumns}
                 />
               </div>
-            )
+            ),
           },
           {
             key: 'matrix',
@@ -491,8 +510,8 @@ export default function Users() {
                 <KeyOutlined /> 权限矩阵
               </span>
             ),
-            children: <PermissionMatrix />
-          }
+            children: <PermissionMatrix />,
+          },
         ]}
       />
       <UserCreateModal
@@ -545,7 +564,7 @@ export default function Users() {
             onChange={setBatchGroupName}
             options={groups.map((g) => ({
               label: `${g.name}${g.description ? ` (${g.description})` : ''}`,
-              value: g.name
+              value: g.name,
             }))}
             showSearch
             optionFilterProp="label"

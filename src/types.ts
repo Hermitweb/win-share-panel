@@ -27,7 +27,7 @@ import type {
   ProtocolFeatureState,
   ProtocolCapabilities,
   CreateShareInput,
-  UpdateShareInput
+  UpdateShareInput,
 } from '../electron/types'
 
 export type {
@@ -59,7 +59,7 @@ export type {
   ProtocolFeatureState,
   ProtocolCapabilities,
   CreateShareInput,
-  UpdateShareInput
+  UpdateShareInput,
 }
 
 // 共享连接信息

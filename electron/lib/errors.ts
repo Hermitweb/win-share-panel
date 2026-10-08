@@ -16,6 +16,7 @@ export const Errors = {
   invalidParam: (msg: string) => new AppError('INVALID_PARAM', msg, 'param'),
   shareNotFound: (name: string) => new AppError('SHARE_NOT_FOUND', `共享 ${name} 不存在`, 'param'),
   commandFailed: (msg: string) => new AppError('COMMAND_FAILED', msg, 'system'),
-  presetNotFound: (id: string) => new AppError('PRESET_NOT_FOUND', `预设模板 ${id} 不存在`, 'param'),
-  builtinProtected: () => new AppError('BUILTIN_PROTECTED', '内置模板不可删除', 'param')
+  presetNotFound: (id: string) =>
+    new AppError('PRESET_NOT_FOUND', `预设模板 ${id} 不存在`, 'param'),
+  builtinProtected: () => new AppError('BUILTIN_PROTECTED', '内置模板不可删除', 'param'),
 }

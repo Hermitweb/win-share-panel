@@ -13,7 +13,7 @@ export async function listSessions(): Promise<SmbSession[]> {
     clientOpenFiles: s.ClientOpenFiles || 0,
     clientIdleTime: s.ClientIdleTime || 0,
     bytesReceived: s.BytesReceived || 0,
-    bytesSent: s.BytesSent || 0
+    bytesSent: s.BytesSent || 0,
   }))
 }
 
@@ -26,7 +26,7 @@ export async function listOpenFiles(): Promise<SmbOpenFile[]> {
     clientUserName: f.ClientUserName || '',
     clientComputerName: f.ClientComputerName || '',
     lockCount: f.LockCount || 0,
-    relativeOpenTime: f.RelativeOpenTime || 0
+    relativeOpenTime: f.RelativeOpenTime || 0,
   }))
 }
 

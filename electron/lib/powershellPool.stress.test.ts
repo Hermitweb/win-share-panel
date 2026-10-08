@@ -50,7 +50,7 @@ class StressWorkerHandle extends EventEmitter implements WorkerHandle {
         }
         // delay === Infinity → 不响应，等待池超时 kill
         cb()
-      }
+      },
     })
   }
   get stdin(): Writable {
@@ -99,7 +99,9 @@ describe('PowerShellPool 压力模拟 - 100 并发', () => {
 
     const commands = Array.from({ length: N }, (_, i) => `c${i}`)
     const t0 = Date.now()
-    const results = await Promise.all(commands.map((cmd) => pool.execute(cmd, 'JSON', { timeout: 5000 })))
+    const results = await Promise.all(
+      commands.map((cmd) => pool.execute(cmd, 'JSON', { timeout: 5000 })),
+    )
     const elapsed = Date.now() - t0
 
     // 全部成功且结果唯一
@@ -122,7 +124,9 @@ describe('PowerShellPool 压力模拟 - 100 并发', () => {
     expect(activeCommands).toBe(0)
 
     // 总耗时合理：≈ ceil(100/3)*8ms ≈ 272ms（留宽松上下界）
-    console.log(`[stress1] 100 并发 size=3: 耗时 ${elapsed}ms, peak=${peakConcurrency}, workers=${handles.length}`)
+    console.log(
+      `[stress1] 100 并发 size=3: 耗时 ${elapsed}ms, peak=${peakConcurrency}, workers=${handles.length}`,
+    )
     expect(elapsed).toBeGreaterThan(150) // 至少排队等待
     expect(elapsed).toBeLessThan(2000)
   }, 15000)
@@ -140,11 +144,13 @@ describe('PowerShellPool 压力模拟 - 100 并发', () => {
     const commands = Array.from({ length: N }, (_, i) => `c${i}`)
     const t0 = Date.now()
     const settled = await Promise.allSettled(
-      commands.map((cmd) => pool.execute(cmd, 'JSON', { timeout: 25 }))
+      commands.map((cmd) => pool.execute(cmd, 'JSON', { timeout: 25 })),
     )
     const elapsed = Date.now() - t0
 
-    const fulfilled = settled.filter((s) => s.status === 'fulfilled') as PromiseFulfilledResult<string>[]
+    const fulfilled = settled.filter(
+      (s) => s.status === 'fulfilled',
+    ) as PromiseFulfilledResult<string>[]
     const rejected = settled.filter((s) => s.status === 'rejected') as PromiseRejectedResult[]
 
     // 10 条超时 reject，90 条成功
@@ -168,7 +174,9 @@ describe('PowerShellPool 压力模拟 - 100 并发', () => {
     const killedCount = handles.filter((h) => h.killed).length
     expect(killedCount).toBe(10)
 
-    console.log(`[stress2] 100 并发(10 超时) size=3: 耗时 ${elapsed}ms, peak=${peakConcurrency}, workers=${handles.length}, killed=${killedCount}`)
+    console.log(
+      `[stress2] 100 并发(10 超时) size=3: 耗时 ${elapsed}ms, peak=${peakConcurrency}, workers=${handles.length}, killed=${killedCount}`,
+    )
   }, 15000)
 
   it('场景3：100 并发全部卡死（极端），size=3 timeout=20 → 全部超时，无丢失/悬挂，池可恢复', async () => {
@@ -179,7 +187,7 @@ describe('PowerShellPool 压力模拟 - 100 并发', () => {
     const commands = Array.from({ length: N }, (_, i) => `c${i}`)
     const t0 = Date.now()
     const settled = await Promise.allSettled(
-      commands.map((cmd) => pool.execute(cmd, 'JSON', { timeout: 20 }))
+      commands.map((cmd) => pool.execute(cmd, 'JSON', { timeout: 20 })),
     )
     const elapsed = Date.now() - t0
 
@@ -198,7 +206,9 @@ describe('PowerShellPool 压力模拟 - 100 并发', () => {
     // 每条命令都 kill 了一个 worker
     expect(handles.filter((h) => h.killed).length).toBe(N)
 
-    console.log(`[stress3] 100 并发(全超时) size=3: 耗时 ${elapsed}ms, peak=${peakConcurrency}, workers=${handles.length}`)
+    console.log(
+      `[stress3] 100 并发(全超时) size=3: 耗时 ${elapsed}ms, peak=${peakConcurrency}, workers=${handles.length}`,
+    )
     expect(elapsed).toBeLessThan(5000)
 
     // 池仍可用：后续命令能正常执行（worker 已恢复）

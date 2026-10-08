@@ -4,7 +4,7 @@ import {
   ReloadOutlined,
   DisconnectOutlined,
   PauseOutlined,
-  PlayCircleOutlined
+  PlayCircleOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { api, call } from '../api'
@@ -16,7 +16,7 @@ const INTERVAL_OPTIONS = [
   { label: '1s', value: 1 },
   { label: '5s', value: 5 },
   { label: '10s', value: 10 },
-  { label: '30s', value: 30 }
+  { label: '30s', value: 30 },
 ]
 
 // SMB SmbSession → 统一 ProtocolSession（sessionId 复用 clientUserName，供断开调用）
@@ -30,7 +30,7 @@ function smbToSession(s: SmbSession): ProtocolSession {
     clientOpenFiles: s.clientOpenFiles,
     clientIdleTime: s.clientIdleTime,
     bytesReceived: s.bytesReceived,
-    bytesSent: s.bytesSent
+    bytesSent: s.bytesSent,
   }
 }
 
@@ -119,6 +119,7 @@ export default function Sessions() {
 
   useEffect(() => {
     load()
+    // 仅协议切换时重载：load 引用每轮渲染变化，有意省略以免无限循环
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProto])
 
@@ -135,6 +136,7 @@ export default function Sessions() {
       })
     }, 1000)
     return () => window.clearInterval(id)
+    // 定时器仅需在 paused/intervalSec/activeProto 变化时重建；load 引用每轮渲染变化，纳入依赖会导致每秒重建定时器，有意省略
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused, intervalSec, activeProto])
 
@@ -168,13 +170,15 @@ export default function Sessions() {
         const results = await Promise.allSettled(selectedSessions.map((id) => closeOne(id)))
         const failed = results.filter((r) => r.status === 'rejected')
         if (failed.length) {
-          message.error(`${selectedSessions.length - failed.length} 个成功，${failed.length} 个失败`)
+          message.error(
+            `${selectedSessions.length - failed.length} 个成功，${failed.length} 个失败`,
+          )
         } else {
           message.success(`已断开 ${selectedSessions.length} 个会话`)
         }
         setSelectedSessions([])
         load()
-      }
+      },
     })
   })
 
@@ -218,7 +222,7 @@ export default function Sessions() {
     {
       title: '开始时间',
       dataIndex: 'sessionStartTime',
-      render: (v: string) => fmtTime(v)
+      render: (v: string) => fmtTime(v),
     },
     { title: '打开文件', dataIndex: 'clientOpenFiles', width: 90 },
     { title: '空闲(秒)', dataIndex: 'clientIdleTime', width: 90 },
@@ -231,8 +235,8 @@ export default function Sessions() {
             断开
           </Button>
         </Popconfirm>
-      )
-    }
+      ),
+    },
   ]
 
   const fileColumns = [
@@ -249,8 +253,8 @@ export default function Sessions() {
             关闭
           </Button>
         </Popconfirm>
-      )
-    }
+      ),
+    },
   ]
 
   // 协议 Tab：SMB / NFS 有会话；FTP/WebDAV 无原生会话，显示 Empty 引导
@@ -258,7 +262,7 @@ export default function Sessions() {
     { key: 'smb', label: 'SMB' },
     { key: 'nfs', label: 'NFS' },
     { key: 'ftp', label: 'FTP' },
-    { key: 'webdav', label: 'WebDAV' }
+    { key: 'webdav', label: 'WebDAV' },
   ]
 
   return (
@@ -273,7 +277,10 @@ export default function Sessions() {
             options={INTERVAL_OPTIONS}
             style={{ width: 80 }}
           />
-          <Button icon={paused ? <PlayCircleOutlined /> : <PauseOutlined />} onClick={() => setPaused((p) => !p)}>
+          <Button
+            icon={paused ? <PlayCircleOutlined /> : <PauseOutlined />}
+            onClick={() => setPaused((p) => !p)}
+          >
             {paused ? '恢复' : '暂停'}
           </Button>
           {!paused && (
@@ -306,7 +313,10 @@ export default function Sessions() {
                         <div className="mb-3 flex items-center gap-2">
                           <span className="text-xs text-fog">已选 {selectedSessions.length}</span>
                           <Button onClick={() => setSelectedSessions([])}>清空</Button>
-                          <Popconfirm title={`批量断开 ${selectedSessions.length} 个会话？`} onConfirm={batchClose}>
+                          <Popconfirm
+                            title={`批量断开 ${selectedSessions.length} 个会话？`}
+                            onConfirm={batchClose}
+                          >
                             <Button danger>批量断开</Button>
                           </Popconfirm>
                         </div>
@@ -319,12 +329,12 @@ export default function Sessions() {
                         pagination={{ pageSize: 10 }}
                         rowSelection={{
                           selectedRowKeys: selectedSessions,
-                          onChange: (keys) => setSelectedSessions(keys as string[])
+                          onChange: (keys) => setSelectedSessions(keys as string[]),
                         }}
                         columns={sessionColumns}
                       />
                     </div>
-                  )
+                  ),
                 },
                 {
                   key: 'files',
@@ -340,53 +350,56 @@ export default function Sessions() {
                         columns={fileColumns}
                       />
                     </div>
-                  )
-                }
+                  ),
+                },
               ]
             : activeProto === 'nfs'
-            ? [
-                {
-                  key: 'sessions',
-                  label: `NFS 会话 (${sessions.length})`,
-                  children: (
-                    <div className="glass-card p-3">
-                      {selectedSessions.length > 0 && (
-                        <div className="mb-3 flex items-center gap-2">
-                          <span className="text-xs text-fog">已选 {selectedSessions.length}</span>
-                          <Button onClick={() => setSelectedSessions([])}>清空</Button>
-                          <Popconfirm title={`批量断开 ${selectedSessions.length} 个会话？`} onConfirm={batchClose}>
-                            <Button danger>批量断开</Button>
-                          </Popconfirm>
-                        </div>
-                      )}
-                      <Table
-                        dataSource={sessions}
-                        rowKey="sessionId"
-                        loading={loading}
-                        size="middle"
-                        pagination={{ pageSize: 10 }}
-                        rowSelection={{
-                          selectedRowKeys: selectedSessions,
-                          onChange: (keys) => setSelectedSessions(keys as string[])
-                        }}
-                        columns={sessionColumns}
-                        locale={{ emptyText: <Empty description="暂无 NFS 客户端会话" /> }}
-                      />
-                    </div>
-                  )
-                }
-              ]
-            : [
-                {
-                  key: 'empty',
-                  label: '提示',
-                  children: (
-                    <div className="glass-card p-3">
-                      <Empty description="FTP/WebDAV 无原生会话 API。可通过 IIS 日志（%SystemDrive%\inetpub\logs\LogFiles）查看连接记录。" />
-                    </div>
-                  )
-                }
-              ]
+              ? [
+                  {
+                    key: 'sessions',
+                    label: `NFS 会话 (${sessions.length})`,
+                    children: (
+                      <div className="glass-card p-3">
+                        {selectedSessions.length > 0 && (
+                          <div className="mb-3 flex items-center gap-2">
+                            <span className="text-xs text-fog">已选 {selectedSessions.length}</span>
+                            <Button onClick={() => setSelectedSessions([])}>清空</Button>
+                            <Popconfirm
+                              title={`批量断开 ${selectedSessions.length} 个会话？`}
+                              onConfirm={batchClose}
+                            >
+                              <Button danger>批量断开</Button>
+                            </Popconfirm>
+                          </div>
+                        )}
+                        <Table
+                          dataSource={sessions}
+                          rowKey="sessionId"
+                          loading={loading}
+                          size="middle"
+                          pagination={{ pageSize: 10 }}
+                          rowSelection={{
+                            selectedRowKeys: selectedSessions,
+                            onChange: (keys) => setSelectedSessions(keys as string[]),
+                          }}
+                          columns={sessionColumns}
+                          locale={{ emptyText: <Empty description="暂无 NFS 客户端会话" /> }}
+                        />
+                      </div>
+                    ),
+                  },
+                ]
+              : [
+                  {
+                    key: 'empty',
+                    label: '提示',
+                    children: (
+                      <div className="glass-card p-3">
+                        <Empty description="FTP/WebDAV 无原生会话 API。可通过 IIS 日志（%SystemDrive%\inetpub\logs\LogFiles）查看连接记录。" />
+                      </div>
+                    ),
+                  },
+                ]
         }
       />
     </div>

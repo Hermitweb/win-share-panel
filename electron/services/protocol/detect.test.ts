@@ -3,27 +3,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // vi.hoisted 确保 mock 变量在 vi.mock 工厂函数（被提升到文件顶部）执行时可用
 const { mockedRunPowerShell, mockedRunPowerShellVoid } = vi.hoisted(() => ({
   mockedRunPowerShell: vi.fn(),
-  mockedRunPowerShellVoid: vi.fn()
+  mockedRunPowerShellVoid: vi.fn(),
 }))
 
 vi.mock('../../lib/powershell', () => ({
   runPowerShell: mockedRunPowerShell,
-  runPowerShellVoid: mockedRunPowerShellVoid
+  runPowerShellVoid: mockedRunPowerShellVoid,
 }))
 
 import { detectProtocols, __resetInflightForTesting } from './detect'
-import type { ProtocolDetectionResult } from '../../types'
-
-// 构造一个最小合法的检测结果
-function makeDetectionResult(): ProtocolDetectionResult {
-  return {
-    smb: { protocol: 'smb', installed: true, installType: 'builtin', serviceName: 'LanmanServer', serviceStatus: 'Running', installCommand: '', installHint: '' },
-    nfs: { protocol: 'nfs', installed: false, installType: 'client-only', serviceName: 'NfsService', serviceStatus: 'Stopped', installCommand: 'cmd', installHint: 'hint' },
-    ftp: { protocol: 'ftp', installed: false, installType: 'iis-role', serviceName: 'ftpsvc', serviceStatus: 'Stopped', installCommand: 'cmd', installHint: 'hint' },
-    webdav: { protocol: 'webdav', installed: false, installType: 'iis-role', serviceName: 'W3SVC', serviceStatus: 'Stopped', installCommand: 'cmd', installHint: 'hint' }
-  }
-}
-
 // 设置 runPowerShell mock，使 doDetectProtocols 正常返回
 // doDetectProtocols 调用 4 次 runPowerShell（通过 3 组 Promise.all 并行）：
 //   1. isWindowsServer → 命令含 'Win32_OperatingSystem'
@@ -34,9 +22,12 @@ function makeDetectionResult(): ProtocolDetectionResult {
 function setupSuccessfulMock() {
   mockedRunPowerShell.mockImplementation((cmd: string) => {
     if (cmd.includes('Win32_OperatingSystem')) return Promise.resolve('Windows 10 Pro')
-    if (cmd.includes('FtpRoleInstalled')) return Promise.resolve({ Installed: false, IisInstalled: false, FtpRoleInstalled: false })
-    if (cmd.includes('Get-WebConfigurationProperty')) return Promise.resolve({ Nfs: false, Webdav: false })
-    if (cmd.includes('ForEach-Object')) return Promise.resolve([{ Name: 'LanmanServer', Status: 4, StartType: 2 }])
+    if (cmd.includes('FtpRoleInstalled'))
+      return Promise.resolve({ Installed: false, IisInstalled: false, FtpRoleInstalled: false })
+    if (cmd.includes('Get-WebConfigurationProperty'))
+      return Promise.resolve({ Nfs: false, Webdav: false })
+    if (cmd.includes('ForEach-Object'))
+      return Promise.resolve([{ Name: 'LanmanServer', Status: 4, StartType: 2 }])
     return Promise.resolve(null)
   })
 }
@@ -61,7 +52,7 @@ describe('detectProtocols - 并发去重与竞态条件', () => {
     const [r1, r2, r3] = await Promise.all([
       detectProtocols(),
       detectProtocols(),
-      detectProtocols()
+      detectProtocols(),
     ])
 
     // 三个调用返回相同结果
@@ -108,13 +99,18 @@ describe('detectProtocols - 并发去重与竞态条件', () => {
   it('并发调用中一个 await 另一个仍在飞行 → 共享同一个检测', async () => {
     // 用 deferred 控制检测完成时机
     let resolveBarrier!: (v: any) => void
-    const barrier = new Promise<any>((res) => { resolveBarrier = res })
+    const barrier = new Promise<any>((res) => {
+      resolveBarrier = res
+    })
 
     mockedRunPowerShell.mockImplementation((cmd: string) => {
       if (cmd.includes('Win32_OperatingSystem')) return Promise.resolve('Windows 10 Pro')
-      if (cmd.includes('FtpRoleInstalled')) return Promise.resolve({ Installed: false, IisInstalled: false, FtpRoleInstalled: false })
-      if (cmd.includes('Get-WebConfigurationProperty')) return Promise.resolve({ Nfs: false, Webdav: false })
-      if (cmd.includes('ForEach-Object')) return barrier.then(() => [{ Name: 'LanmanServer', Status: 4, StartType: 2 }])
+      if (cmd.includes('FtpRoleInstalled'))
+        return Promise.resolve({ Installed: false, IisInstalled: false, FtpRoleInstalled: false })
+      if (cmd.includes('Get-WebConfigurationProperty'))
+        return Promise.resolve({ Nfs: false, Webdav: false })
+      if (cmd.includes('ForEach-Object'))
+        return barrier.then(() => [{ Name: 'LanmanServer', Status: 4, StartType: 2 }])
       return Promise.resolve(null)
     })
 
@@ -164,9 +160,12 @@ describe('detectProtocols - 并发去重与竞态条件', () => {
     mockedRunPowerShell.mockImplementation((cmd: string) => {
       callTimes.push(Date.now())
       if (cmd.includes('Win32_OperatingSystem')) return Promise.resolve('Windows 10 Pro')
-      if (cmd.includes('FtpRoleInstalled')) return Promise.resolve({ Installed: false, IisInstalled: false, FtpRoleInstalled: false })
-      if (cmd.includes('Get-WebConfigurationProperty')) return Promise.resolve({ Nfs: false, Webdav: false })
-      if (cmd.includes('ForEach-Object')) return Promise.resolve([{ Name: 'LanmanServer', Status: 4, StartType: 2 }])
+      if (cmd.includes('FtpRoleInstalled'))
+        return Promise.resolve({ Installed: false, IisInstalled: false, FtpRoleInstalled: false })
+      if (cmd.includes('Get-WebConfigurationProperty'))
+        return Promise.resolve({ Nfs: false, Webdav: false })
+      if (cmd.includes('ForEach-Object'))
+        return Promise.resolve([{ Name: 'LanmanServer', Status: 4, StartType: 2 }])
       return Promise.resolve(null)
     })
 
@@ -186,7 +185,7 @@ describe('detectProtocols - 并发去重与竞态条件', () => {
       detectProtocols(),
       detectProtocols(),
       detectProtocols(),
-      detectProtocols()
+      detectProtocols(),
     ])
 
     // 所有结果一致，SMB 恒为已安装

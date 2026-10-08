@@ -9,9 +9,10 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["electron", "electron.vite.config.ts"],
-  "exclude": ["electron/**/*.test.ts"]
+  "include": ["electron", "electron.vite.config.ts"]
 }

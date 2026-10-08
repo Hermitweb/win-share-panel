@@ -5,9 +5,17 @@ import type {
   ServiceStatus,
   WebdavServerConfig,
   CreateShareInput,
-  UpdateShareInput
+  UpdateShareInput,
 } from '../../../types'
-import { runPowerShell, runPowerShellVoid, psQuote, psEscapeSingle, psBool, validateName, validatePath } from '../../../lib/powershell'
+import {
+  runPowerShell,
+  runPowerShellVoid,
+  psQuote,
+  psEscapeSingle,
+  psBool,
+  validateName,
+  validatePath,
+} from '../../../lib/powershell'
 import { Errors } from '../../../lib/errors'
 import * as webdav from '../../webdav'
 
@@ -73,7 +81,7 @@ function mapWebdavSite(r: RawWebdavSite): Share {
     port: r.Port || 80,
     siteName: r.Name,
     anonymousEnabled: !!r.AnonymousEnabled,
-    authoringEnabled: !!r.AuthoringEnabled
+    authoringEnabled: !!r.AuthoringEnabled,
   }
 }
 
@@ -93,15 +101,12 @@ export const webdavAdapter: ProtocolAdapter = {
     supportsOpenFiles: false,
     supportsServerConfig: true,
     supportsRestart: true,
-    permissionModel: 'webdav-rules'
+    permissionModel: 'webdav-rules',
   },
 
   async listShares(): Promise<Share[]> {
     // retries:0 避免未装 IIS 时无谓重试 2 次造成切 Tab 延迟
-    const raw = await runPowerShell<RawWebdavSite | RawWebdavSite[]>(
-      LIST_SCRIPT,
-      { retries: 0 }
-    )
+    const raw = await runPowerShell<RawWebdavSite | RawWebdavSite[]>(LIST_SCRIPT, { retries: 0 })
     const arr = Array.isArray(raw) ? raw : [raw]
     return arr.filter((r) => r && r.Name).map(mapWebdavSite)
   },
@@ -111,7 +116,7 @@ export const webdavAdapter: ProtocolAdapter = {
       name: input.name,
       path: input.path,
       port: input.port,
-      anonymousEnabled: input.anonymousEnabled
+      anonymousEnabled: input.anonymousEnabled,
     })
     if (!validateName(input.name)) throw Errors.invalidParam('站点名非法')
     if (!validatePath(input.path)) throw Errors.invalidParam('路径非法')
@@ -137,24 +142,27 @@ export const webdavAdapter: ProtocolAdapter = {
       // 而非 Remove-Item 'IIS:\Sites\...'（依赖 IIS: PSDrive，-NoProfile 下未 Import 时不存在）
       await runPowerShellVoid(
         `try { Remove-Website -Name ${psQuote(input.name)} -ErrorAction Stop } catch {}`,
-        { retries: 0 }
+        { retries: 0 },
       )
       throw Errors.commandFailed(
-        'WebDAV authoring 启用失败。可能原因：1) WebDAV 发布功能未安装（服务器：Web-WebDAV；客户端：IIS-WebDAV）；2) 配置节锁定且解锁失败（需管理员权限）。请确认后重试'
+        'WebDAV authoring 启用失败。可能原因：1) WebDAV 发布功能未安装（服务器：Web-WebDAV；客户端：IIS-WebDAV）；2) 配置节锁定且解锁失败（需管理员权限）。请确认后重试',
       )
     }
     console.log('[createShare:webdav] 步骤 2/4 authoring 启用成功')
     if (input.anonymousEnabled !== undefined) {
       const anon = psBool(input.anonymousEnabled)
       if (anon) {
-        console.log('[createShare:webdav] 步骤 3/4 配置匿名访问, anonymousEnabled:', input.anonymousEnabled)
+        console.log(
+          '[createShare:webdav] 步骤 3/4 配置匿名访问, anonymousEnabled:',
+          input.anonymousEnabled,
+        )
         // 写站点级 anonymousAuthentication 前需解锁配置节（overrideModeDefault=Deny）
         await webdav.ensureWebdavSectionsUnlocked()
         await runPowerShellVoid(
           `try { Set-WebConfigurationProperty -Filter '${ANON_AUTH_FILTER}' -PSPath ${iisPath(
-            input.name
+            input.name,
           )} -Name enabled -Value ${anon} -ErrorAction Stop } catch {}`,
-          { retries: 0 }
+          { retries: 0 },
         )
         console.log('[createShare:webdav] 步骤 3/4 匿名访问配置完成')
       } else {
@@ -171,12 +179,12 @@ export const webdavAdapter: ProtocolAdapter = {
       console.log('[createShare:webdav] 清理孤儿站点...')
       await runPowerShellVoid(
         `try { Remove-Website -Name ${psQuote(input.name)} -ErrorAction Stop } catch {}`,
-        { retries: 0 }
+        { retries: 0 },
       )
       // 验证清理结果
       const stillExists = await runPowerShell<string>(
         `Get-Website | Where-Object { $_.Name -eq ${psQuote(input.name)} } | Select-Object -First 1 -ExpandProperty Name -ErrorAction SilentlyContinue`,
-        { retries: 0 }
+        { retries: 0 },
       ).catch(() => null)
       if (stillExists) {
         console.error('[createShare:webdav] 孤儿站点清理失败！站点仍存在:', input.name)
@@ -208,21 +216,24 @@ export const webdavAdapter: ProtocolAdapter = {
 
   async updateShare(name: string, input: UpdateShareInput): Promise<Share> {
     console.log('[updateShare:webdav] 更新站点:', name, {
-      anonymousEnabled: input.anonymousEnabled
+      anonymousEnabled: input.anonymousEnabled,
     })
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     try {
       if (input.anonymousEnabled !== undefined) {
         const anon = psBool(input.anonymousEnabled)
         if (anon) {
-          console.log('[updateShare:webdav] 配置匿名访问, anonymousEnabled:', input.anonymousEnabled)
+          console.log(
+            '[updateShare:webdav] 配置匿名访问, anonymousEnabled:',
+            input.anonymousEnabled,
+          )
           // 写站点级 anonymousAuthentication 前需解锁配置节（overrideModeDefault=Deny）
           await webdav.ensureWebdavSectionsUnlocked()
           await runPowerShellVoid(
             `try { Set-WebConfigurationProperty -Filter '${ANON_AUTH_FILTER}' -PSPath ${iisPath(
-              name
+              name,
             )} -Name enabled -Value ${anon} -ErrorAction Stop } catch {}`,
-            { retries: 0 }
+            { retries: 0 },
           )
           console.log('[updateShare:webdav] 匿名访问配置完成')
         }
@@ -247,7 +258,7 @@ export const webdavAdapter: ProtocolAdapter = {
     // 先检查站点是否存在，不存在则抛错（不再静默吞错返回假成功）
     const exists = await runPowerShell<string>(
       `Get-Website | Where-Object { $_.Name -eq ${psQuote(name)} } | Select-Object -First 1 -ExpandProperty Name -ErrorAction SilentlyContinue`,
-      { retries: 0 }
+      { retries: 0 },
     ).catch(() => null)
     if (!exists) {
       console.error('[toggleShare:webdav] 站点不存在:', name)
@@ -272,9 +283,9 @@ export const webdavAdapter: ProtocolAdapter = {
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     const raw = await runPowerShell<RawWebdavRule | RawWebdavRule[]>(
       `Get-WebConfiguration -Filter '${AUTHORING_RULES_FILTER}/*' -PSPath ${iisPath(
-        name
+        name,
       )} -ErrorAction SilentlyContinue`,
-      { retries: 0 }
+      { retries: 0 },
     )
     const arr = (Array.isArray(raw) ? raw : [raw]).filter((r) => r && (r.Users || r.Roles))
     return arr.map((r) => {
@@ -289,25 +300,35 @@ export const webdavAdapter: ProtocolAdapter = {
         account: r.Users || r.Roles || '*',
         accountType: isGroup ? 'Group' : 'User',
         access: mapped,
-        deny: false
+        deny: false,
       }
     })
   },
 
   async setPermissions(name: string, perms: SharePermission[]): Promise<void> {
-    console.log('[setPermissions:webdav] 设置权限:', name, { 权限条数: perms.length, 权限: perms.map(p => `${p.account}=${p.access}`) })
+    console.log('[setPermissions:webdav] 设置权限:', name, {
+      权限条数: perms.length,
+      权限: perms.map((p) => `${p.account}=${p.access}`),
+    })
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     // authoringRules 配置节默认锁定，需先解锁（复用 webdav.ts 的统一解锁）
     await webdav.ensureWebdavSectionsUnlocked()
     // 事务补偿：先备份当前权限，若后续授予中途失败则回滚到原状态
-    const backup = this.getPermissions ? await this.getPermissions(name).catch(() => [] as SharePermission[]) : []
-    console.log('[setPermissions:webdav] 已备份当前权限:', backup.length, '条 →', backup.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+    const backup = this.getPermissions
+      ? await this.getPermissions(name).catch(() => [] as SharePermission[])
+      : []
+    console.log(
+      '[setPermissions:webdav] 已备份当前权限:',
+      backup.length,
+      '条 →',
+      backup.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)',
+    )
     console.log('[setPermissions:webdav] 清空已有授权规则...')
     await runPowerShellVoid(
       `Clear-WebConfiguration -Filter '${AUTHORING_RULES_FILTER}' -PSPath ${iisPath(
-        name
+        name,
       )} -ErrorAction SilentlyContinue`,
-      { retries: 0 }
+      { retries: 0 },
     )
     // 逐个授予，收集失败项（不再静默吞错）
     const failed: string[] = []
@@ -318,7 +339,8 @@ export const webdavAdapter: ProtocolAdapter = {
       if (p.access === 'Full') bits.push('Source')
       const access = bits.join(',')
       // 用户授权用 users，组授权用 roles
-      const userField = p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
+      const userField =
+        p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
       const cmd = `Add-WebConfiguration -Filter '${AUTHORING_RULES_FILTER}' -PSPath ${iisPath(name)} -Value @{${userField};path='*';access='${access}'} -ErrorAction Stop`
       console.log('[setPermissions:webdav] 授予权限, PowerShell 命令:', cmd)
       try {
@@ -332,13 +354,21 @@ export const webdavAdapter: ProtocolAdapter = {
     if (failed.length > 0) {
       console.error('[setPermissions:webdav] 回滚触发！失败账号:', failed.join(', '))
       // 查询回滚前的当前权限状态（部分授予后的残留状态）
-      const beforeRollback = this.getPermissions ? await this.getPermissions(name).catch(() => [] as SharePermission[]) : []
-      console.log('[setPermissions:webdav] 回滚前权限状态:', beforeRollback.length, '条 →', beforeRollback.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+      const beforeRollback = this.getPermissions
+        ? await this.getPermissions(name).catch(() => [] as SharePermission[])
+        : []
+      console.log(
+        '[setPermissions:webdav] 回滚前权限状态:',
+        beforeRollback.length,
+        '条 →',
+        beforeRollback.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') ||
+          '(空)',
+      )
       await runPowerShellVoid(
         `Clear-WebConfiguration -Filter '${AUTHORING_RULES_FILTER}' -PSPath ${iisPath(
-          name
+          name,
         )} -ErrorAction SilentlyContinue`,
-        { retries: 0 }
+        { retries: 0 },
       )
       for (const p of backup) {
         const bits: string[] = []
@@ -346,15 +376,24 @@ export const webdavAdapter: ProtocolAdapter = {
         if (p.access === 'Change' || p.access === 'Full') bits.push('Write')
         if (p.access === 'Full') bits.push('Source')
         const access = bits.join(',')
-        const userField = p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
+        const userField =
+          p.accountType === 'Group' ? `roles=${psQuote(p.account)}` : `users=${psQuote(p.account)}`
         await runPowerShellVoid(
           `Add-WebConfiguration -Filter '${AUTHORING_RULES_FILTER}' -PSPath ${iisPath(name)} -Value @{${userField};path='*';access='${access}'} -ErrorAction SilentlyContinue`,
-          { retries: 0 }
+          { retries: 0 },
         ).catch(() => {})
       }
       // 查询回滚后的权限状态，验证是否恢复成功
-      const afterRollback = this.getPermissions ? await this.getPermissions(name).catch(() => [] as SharePermission[]) : []
-      console.log('[setPermissions:webdav] 回滚后权限状态:', afterRollback.length, '条 →', afterRollback.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+      const afterRollback = this.getPermissions
+        ? await this.getPermissions(name).catch(() => [] as SharePermission[])
+        : []
+      console.log(
+        '[setPermissions:webdav] 回滚后权限状态:',
+        afterRollback.length,
+        '条 →',
+        afterRollback.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') ||
+          '(空)',
+      )
       throw Errors.commandFailed(`部分权限授予失败（${failed.join(', ')}），已回滚到原始状态`)
     }
     console.log('[setPermissions:webdav] 权限设置成功:', name)
@@ -397,7 +436,7 @@ export const webdavAdapter: ProtocolAdapter = {
 
   async restoreDefault(): Promise<WebdavServerConfig> {
     return webdav.restoreDefault()
-  }
+  },
 }
 
 // 启用 WebDAV authoring 并验证是否真正生效
@@ -407,7 +446,7 @@ async function enableAuthoring(name: string): Promise<boolean> {
   await webdav.ensureWebdavSectionsUnlocked()
   try {
     const ok = await runPowerShell<boolean>(
-      `try { Set-WebConfigurationProperty -Filter '${AUTHORING_FILTER}' -PSPath ${iisPath(name)} -Name enabled -Value $true -ErrorAction Stop } catch {}; $v = $false; try { $ae = Get-WebConfiguration -Filter '${AUTHORING_FILTER}' -PSPath ${iisPath(name)} -ErrorAction SilentlyContinue; if ($ae) { $v = [bool]$ae.enabled } } catch {}; $v`
+      `try { Set-WebConfigurationProperty -Filter '${AUTHORING_FILTER}' -PSPath ${iisPath(name)} -Name enabled -Value $true -ErrorAction Stop } catch {}; $v = $false; try { $ae = Get-WebConfiguration -Filter '${AUTHORING_FILTER}' -PSPath ${iisPath(name)} -ErrorAction SilentlyContinue; if ($ae) { $v = [bool]$ae.enabled } } catch {}; $v`,
     )
     return !!ok
   } catch {
@@ -430,7 +469,7 @@ async function fetchSite(name: string): Promise<Share | null> {
         try { $an = Get-WebConfiguration -Filter '${ANON_AUTH_FILTER}' -PSPath "IIS:\\Sites\\$n" -ErrorAction SilentlyContinue; if ($an) { $anon = [bool]$an.enabled } } catch {}
         [PSCustomObject]@{ Name=$n; State=$_.State; PhysicalPath=$_.physicalPath; Port=$port; AuthoringEnabled=$authoring; AnonymousEnabled=$anon }
       }`,
-      { retries: 0 }
+      { retries: 0 },
     )
     const arr = Array.isArray(raw) ? raw : [raw]
     const r = arr.find((x) => x && x.Name)

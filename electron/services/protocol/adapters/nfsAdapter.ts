@@ -6,9 +6,18 @@ import type {
   ProtocolSession,
   NfsServerConfig,
   CreateShareInput,
-  UpdateShareInput
+  UpdateShareInput,
 } from '../../../types'
-import { runPowerShell, runPowerShellVoid, psQuote, psBool, psNumber, psEnum, validateName, validatePath } from '../../../lib/powershell'
+import {
+  runPowerShell,
+  runPowerShellVoid,
+  psQuote,
+  psBool,
+  psNumber,
+  psEnum,
+  validateName,
+  validatePath,
+} from '../../../lib/powershell'
 import { Errors } from '../../../lib/errors'
 import * as nfs from '../../nfs'
 
@@ -70,7 +79,7 @@ function mapNfsShare(r: RawNfsShare): Share {
     anonymousUid: r.AnonymousUid,
     anonymousGid: r.AnonymousGid,
     enableUnmappedAccess: !!r.EnableUnmappedAccess,
-    allowRootAccess: !!r.AllowRootAccess
+    allowRootAccess: !!r.AllowRootAccess,
   }
 }
 
@@ -86,15 +95,12 @@ export const nfsAdapter: ProtocolAdapter = {
     supportsOpenFiles: false,
     supportsServerConfig: true,
     supportsRestart: true,
-    permissionModel: 'nfs-krb'
+    permissionModel: 'nfs-krb',
   },
 
   async listShares(): Promise<Share[]> {
     // retries:0 避免未装 NFS 角色时无谓重试 2 次造成切 Tab 延迟
-    const raw = await runPowerShell<RawNfsShare | RawNfsShare[]>(
-      'Get-NfsShare',
-      { retries: 0 }
-    )
+    const raw = await runPowerShell<RawNfsShare | RawNfsShare[]>('Get-NfsShare', { retries: 0 })
     const arr = Array.isArray(raw) ? raw : [raw]
     return arr.map(mapNfsShare)
   },
@@ -108,7 +114,7 @@ export const nfsAdapter: ProtocolAdapter = {
       enableUnmappedAccess: input.enableUnmappedAccess,
       allowRootAccess: input.allowRootAccess,
       anonymousUid: input.anonymousUid,
-      anonymousGid: input.anonymousGid
+      anonymousGid: input.anonymousGid,
     })
     if (!validateName(input.name)) throw Errors.invalidParam('共享名非法')
     if (!validatePath(input.path)) throw Errors.invalidParam('路径非法')
@@ -141,12 +147,12 @@ export const nfsAdapter: ProtocolAdapter = {
       console.log('[createShare:nfs] 尝试清理可能的孤儿共享...')
       await runPowerShellVoid(
         `try { Remove-NfsShare -Name ${psQuote(input.name)} -Force -ErrorAction Stop } catch {}`,
-        { retries: 0 }
+        { retries: 0 },
       )
       // 验证清理结果
       const stillExists = await runPowerShell<string>(
         `try { Get-NfsShare -Name ${psQuote(input.name)} -ErrorAction Stop | Select-Object -First 1 -ExpandProperty Name } catch {}`,
-        { retries: 0 }
+        { retries: 0 },
       ).catch(() => null)
       if (stillExists) {
         console.error('[createShare:nfs] 孤儿共享清理失败！共享仍存在:', input.name)
@@ -175,7 +181,7 @@ export const nfsAdapter: ProtocolAdapter = {
     console.log('[updateShare:nfs] 更新共享:', name, {
       nfsPermission: input.nfsPermission,
       allowRootAccess: input.allowRootAccess,
-      enableUnmappedAccess: input.enableUnmappedAccess
+      enableUnmappedAccess: input.enableUnmappedAccess,
     })
     if (!validateName(name)) throw Errors.invalidParam('共享名非法')
     const parts = ['Set-NfsShare', `-Name ${psQuote(name)}`]
@@ -205,7 +211,7 @@ export const nfsAdapter: ProtocolAdapter = {
     // retries:0 避免未装 NFS 时无谓重试
     const r = await runPowerShell<RawNfsPermission | RawNfsPermission[]>(
       `Get-NfsSharePermission -Name ${psQuote(name)}`,
-      { retries: 0 }
+      { retries: 0 },
     )
     const arr = Array.isArray(r) ? r : [r]
     return arr.map((x) => ({
@@ -213,26 +219,36 @@ export const nfsAdapter: ProtocolAdapter = {
       account: x.ClientName,
       accountType: 'Group' as const,
       access: x.Permission === 'rw' ? 'Change' : 'Read',
-      deny: String(x.Type).toLowerCase() === 'deny'
+      deny: String(x.Type).toLowerCase() === 'deny',
     }))
   },
 
   async setPermissions(name: string, perms: SharePermission[]): Promise<void> {
-    console.log('[setPermissions:nfs] 设置权限:', name, { 权限条数: perms.length, 权限: perms.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`) })
+    console.log('[setPermissions:nfs] 设置权限:', name, {
+      权限条数: perms.length,
+      权限: perms.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`),
+    })
     if (!validateName(name)) throw Errors.invalidParam('共享名非法')
     // 事务补偿：先备份当前权限，若后续授予中途失败则回滚到原状态
-    const backup = this.getPermissions ? await this.getPermissions(name).catch(() => [] as SharePermission[]) : []
-    console.log('[setPermissions:nfs] 已备份当前权限:', backup.length, '条 →', backup.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+    const backup = this.getPermissions
+      ? await this.getPermissions(name).catch(() => [] as SharePermission[])
+      : []
+    console.log(
+      '[setPermissions:nfs] 已备份当前权限:',
+      backup.length,
+      '条 →',
+      backup.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)',
+    )
     // 先清空所有已配置权限
     try {
       const existing = await runPowerShell<RawNfsPermission | RawNfsPermission[]>(
-        `Get-NfsSharePermission -Name ${psQuote(name)}`
+        `Get-NfsSharePermission -Name ${psQuote(name)}`,
       )
       const arr = Array.isArray(existing) ? existing : [existing]
       console.log('[setPermissions:nfs] 清空已有权限:', arr.length, '条')
       for (const e of arr) {
         await runPowerShellVoid(
-          `Revoke-NfsSharePermission -Name ${psQuote(name)} -ClientName ${psQuote(e.ClientName)} -Confirm:$false`
+          `Revoke-NfsSharePermission -Name ${psQuote(name)} -ClientName ${psQuote(e.ClientName)} -Confirm:$false`,
         )
       }
     } catch {
@@ -257,32 +273,50 @@ export const nfsAdapter: ProtocolAdapter = {
     if (failed.length > 0) {
       console.error('[setPermissions:nfs] 回滚触发！失败账号:', failed.join(', '))
       // 查询回滚前的当前权限状态（部分授予后的残留状态）
-      const beforeRollback = this.getPermissions ? await this.getPermissions(name).catch(() => [] as SharePermission[]) : []
-      console.log('[setPermissions:nfs] 回滚前权限状态:', beforeRollback.length, '条 →', beforeRollback.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+      const beforeRollback = this.getPermissions
+        ? await this.getPermissions(name).catch(() => [] as SharePermission[])
+        : []
+      console.log(
+        '[setPermissions:nfs] 回滚前权限状态:',
+        beforeRollback.length,
+        '条 →',
+        beforeRollback.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') ||
+          '(空)',
+      )
       // 清空当前（可能部分已授予）
       try {
         const current = await runPowerShell<RawNfsPermission | RawNfsPermission[]>(
-          `Get-NfsSharePermission -Name ${psQuote(name)}`
+          `Get-NfsSharePermission -Name ${psQuote(name)}`,
         )
         const arr = Array.isArray(current) ? current : [current]
         for (const c of arr) {
           await runPowerShellVoid(
-            `Revoke-NfsSharePermission -Name ${psQuote(name)} -ClientName ${psQuote(c.ClientName)} -Confirm:$false`
+            `Revoke-NfsSharePermission -Name ${psQuote(name)} -ClientName ${psQuote(c.ClientName)} -Confirm:$false`,
           )
         }
-      } catch {}
+      } catch {
+        // best-effort：回滚清空权限失败不阻断恢复备份授权
+      }
       // 恢复备份权限
       for (const p of backup) {
         if (p.access === 'NoAccess') continue
         const perm = p.access === 'Full' || p.access === 'Change' ? 'rw' : 'ro'
         const denyFlag = p.deny ? 'Deny' : 'Allow'
         await runPowerShellVoid(
-          `Grant-NfsSharePermission -Name ${psQuote(name)} -ClientName ${psQuote(p.account)} -Permission ${perm} -Type ${denyFlag} -Confirm:$false`
+          `Grant-NfsSharePermission -Name ${psQuote(name)} -ClientName ${psQuote(p.account)} -Permission ${perm} -Type ${denyFlag} -Confirm:$false`,
         ).catch(() => {})
       }
       // 查询回滚后的权限状态，验证是否恢复成功
-      const afterRollback = this.getPermissions ? await this.getPermissions(name).catch(() => [] as SharePermission[]) : []
-      console.log('[setPermissions:nfs] 回滚后权限状态:', afterRollback.length, '条 →', afterRollback.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+      const afterRollback = this.getPermissions
+        ? await this.getPermissions(name).catch(() => [] as SharePermission[])
+        : []
+      console.log(
+        '[setPermissions:nfs] 回滚后权限状态:',
+        afterRollback.length,
+        '条 →',
+        afterRollback.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') ||
+          '(空)',
+      )
       throw Errors.commandFailed(`部分权限授予失败（${failed.join(', ')}），已回滚到原始状态`)
     }
     console.log('[setPermissions:nfs] 权限设置成功:', name)
@@ -290,10 +324,7 @@ export const nfsAdapter: ProtocolAdapter = {
 
   async listSessions(): Promise<ProtocolSession[]> {
     // retries:0 避免未装 NFS 时无谓重试
-    const raw = await runPowerShell<RawNfsClient | RawNfsClient[]>(
-      'Get-NfsClient',
-      { retries: 0 }
-    )
+    const raw = await runPowerShell<RawNfsClient | RawNfsClient[]>('Get-NfsClient', { retries: 0 })
     const arr = Array.isArray(raw) ? raw : [raw]
     return arr.map((c) => ({
       protocol: 'nfs' as const,
@@ -304,7 +335,7 @@ export const nfsAdapter: ProtocolAdapter = {
       clientOpenFiles: c.OpenFileCount || 0,
       clientIdleTime: c.IdleTime || 0,
       bytesReceived: c.BytesReceived || 0,
-      bytesSent: c.BytesSent || 0
+      bytesSent: c.BytesSent || 0,
     }))
   },
 
@@ -358,5 +389,5 @@ export const nfsAdapter: ProtocolAdapter = {
 
   async restoreDefault(): Promise<NfsServerConfig> {
     return nfs.restoreDefault()
-  }
+  },
 }

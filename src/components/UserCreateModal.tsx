@@ -3,7 +3,12 @@ import { Modal, Form, Input, Switch, App, Select, Progress, Tag, Tooltip, Space 
 import { ThunderboltOutlined } from '@ant-design/icons'
 import { api, call } from '../api'
 import type { LocalGroup } from '../types'
-import { generatePassword, evaluateStrength, STRENGTH_LABEL, STRENGTH_COLOR } from '../utils/password'
+import {
+  generatePassword,
+  evaluateStrength,
+  STRENGTH_LABEL,
+  STRENGTH_COLOR,
+} from '../utils/password'
 
 interface Props {
   open: boolean
@@ -19,20 +24,6 @@ export default function UserCreateModal({ open, onClose, onSuccess }: Props) {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   const [pwdStrength, setPwdStrength] = useState<'weak' | 'medium' | 'strong' | null>(null)
 
-  useEffect(() => {
-    if (open) {
-      form.resetFields()
-      form.setFieldsValue({
-        enabled: true,
-        userMayChangePassword: true,
-        passwordNeverExpires: true
-      })
-      setSelectedGroups([])
-      setPwdStrength(null)
-      loadGroups()
-    }
-  }, [open, form])
-
   const loadGroups = async () => {
     try {
       const g = await call(api.user.groups)
@@ -41,6 +32,21 @@ export default function UserCreateModal({ open, onClose, onSuccess }: Props) {
       // 加载失败不影响创建
     }
   }
+
+  // 有意仅在 open 变化时初始化：loadGroups/form 引用稳定，加入依赖会重复触发
+  useEffect(() => {
+    if (open) {
+      form.resetFields()
+      form.setFieldsValue({
+        enabled: true,
+        userMayChangePassword: true,
+        passwordNeverExpires: true,
+      })
+      setSelectedGroups([])
+      setPwdStrength(null)
+      loadGroups()
+    }
+  }, [open, form])
 
   const handleGeneratePwd = () => {
     const pwd = generatePassword(12)
@@ -71,8 +77,8 @@ export default function UserCreateModal({ open, onClose, onSuccess }: Props) {
           description: v.description || '',
           enabled: v.enabled,
           passwordChangeable: v.userMayChangePassword,
-          passwordExpires: !v.passwordNeverExpires
-        })
+          passwordExpires: !v.passwordNeverExpires,
+        }),
       )
       // 创建后分配到所选组
       if (selectedGroups.length > 0) {
@@ -119,7 +125,7 @@ export default function UserCreateModal({ open, onClose, onSuccess }: Props) {
           rules={[
             { required: true, message: '请输入用户名' },
             { max: 20, message: '用户名不能超过 20 字符' },
-            { pattern: /^[A-Za-z0-9._-]+$/, message: '仅支持字母、数字、点、下划线、连字符' }
+            { pattern: /^[A-Za-z0-9._-]+$/, message: '仅支持字母、数字、点、下划线、连字符' },
           ]}
         >
           <Input placeholder="如 john.doe" />
@@ -130,11 +136,7 @@ export default function UserCreateModal({ open, onClose, onSuccess }: Props) {
             <Space>
               <span>密码</span>
               <Tooltip title="生成 12 位随机强密码">
-                <Tag
-                  color="blue"
-                  style={{ cursor: 'pointer' }}
-                  onClick={handleGeneratePwd}
-                >
+                <Tag color="blue" style={{ cursor: 'pointer' }} onClick={handleGeneratePwd}>
                   <ThunderboltOutlined /> 生成密码
                 </Tag>
               </Tooltip>
@@ -142,7 +144,7 @@ export default function UserCreateModal({ open, onClose, onSuccess }: Props) {
           }
           rules={[
             { required: true, message: '请输入密码' },
-            { min: 1, message: '密码不能为空' }
+            { min: 1, message: '密码不能为空' },
           ]}
         >
           <Input.Password
@@ -193,7 +195,7 @@ export default function UserCreateModal({ open, onClose, onSuccess }: Props) {
             onChange={setSelectedGroups}
             options={groups.map((g) => ({
               label: `${g.name}${g.description ? ` (${g.description})` : ''}`,
-              value: g.name
+              value: g.name,
             }))}
             optionFilterProp="label"
             allowClear

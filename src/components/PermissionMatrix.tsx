@@ -11,7 +11,7 @@ const ACCESS_TAG_COLOR: Record<Access, string> = {
   Change: 'purple',
   Read: 'default',
   Deny: 'red',
-  '-': ''
+  '-': '',
 }
 
 const ACCESS_LABEL: Record<Access, string> = {
@@ -19,7 +19,7 @@ const ACCESS_LABEL: Record<Access, string> = {
   Change: '更改',
   Read: '只读',
   Deny: '拒绝',
-  '-': '-'
+  '-': '-',
 }
 
 // 同一账号在多个权限条目中时，按安全语义取最严格：Deny > Full > Change > Read
@@ -27,13 +27,21 @@ const PRIORITY: Record<Exclude<Access, '-'>, number> = { Deny: 0, Full: 1, Chang
 function pickAccess(perms: SharePermission[]): Access {
   if (!perms.length) return '-'
   const sorted = perms
-    .map((p) => (p.deny || p.access === 'NoAccess' ? 'Deny' : (p.access as Access)) as Exclude<Access, '-'>)
+    .map(
+      (p) =>
+        (p.deny || p.access === 'NoAccess' ? 'Deny' : (p.access as Access)) as Exclude<Access, '-'>,
+    )
     .sort((a, b) => PRIORITY[a] - PRIORITY[b])
   return sorted[0]
 }
 
 // 并发上限的 Promise 池
-async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>, shouldCancel: () => boolean): Promise<R[]> {
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+  shouldCancel: () => boolean,
+): Promise<R[]> {
   const results: R[] = new Array(items.length)
   let cursor = 0
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
@@ -62,13 +70,13 @@ export default function PermissionMatrix() {
       const [shareList, users, groups] = await Promise.all([
         call(api.share.list).catch(() => [] as Share[]),
         call(api.user.list).catch(() => [] as LocalUser[]),
-        call(api.user.groups).catch(() => [] as LocalGroup[])
+        call(api.user.groups).catch(() => [] as LocalGroup[]),
       ])
       // 仅展示普通共享，过滤 IPC/Special
       const normalShares = (shareList || []).filter((s) => s.type !== 'Special' && s.type !== 'IPC')
       const acctList = [
         ...(users || []).map((u) => ({ name: u.name, type: 'User' as const })),
-        ...(groups || []).map((g) => ({ name: g.name, type: 'Group' as const }))
+        ...(groups || []).map((g) => ({ name: g.name, type: 'Group' as const })),
       ]
       setShares(normalShares)
       setAccounts(acctList)
@@ -78,7 +86,7 @@ export default function PermissionMatrix() {
         normalShares,
         4,
         (s) => call(() => api.share.permissions(s.name)).catch(() => [] as SharePermission[]),
-        () => cancelRef.current
+        () => cancelRef.current,
       )
       if (cancelRef.current) return
 
@@ -110,6 +118,7 @@ export default function PermissionMatrix() {
     return () => {
       cancelRef.current = true
     }
+    // 有意仅挂载时加载一次：load 引用每轮渲染变化，加入依赖会无限循环；迟到响应由 cancelRef 机制作废
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -135,7 +144,9 @@ export default function PermissionMatrix() {
       const row = matrix[s.name] || {}
       return [s.name, ...accounts.map((a) => ACCESS_LABEL[row[a.name] || '-'])]
     })
-    const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
     download('\uFEFF' + csv, `permission-matrix-${Date.now()}.csv`, 'text/csv;charset=utf-8')
     message.success('CSV 已导出')
   }
@@ -149,11 +160,15 @@ export default function PermissionMatrix() {
         permissions: accounts.map((a) => ({
           account: a.name,
           accountType: a.type,
-          access: matrix[s.name]?.[a.name] || '-'
-        }))
-      }))
+          access: matrix[s.name]?.[a.name] || '-',
+        })),
+      })),
     }
-    download(JSON.stringify(data, null, 2), `permission-matrix-${Date.now()}.json`, 'application/json')
+    download(
+      JSON.stringify(data, null, 2),
+      `permission-matrix-${Date.now()}.json`,
+      'application/json',
+    )
     message.success('JSON 已导出')
   }
 
@@ -163,8 +178,13 @@ export default function PermissionMatrix() {
       title: a.name,
       dataIndex: `acct_${a.name}`,
       width: 90,
-      render: (v: Access) => (v && v !== '-' ? <Tag color={ACCESS_TAG_COLOR[v]}>{ACCESS_LABEL[v]}</Tag> : <span className="text-fog">-</span>)
-    }))
+      render: (v: Access) =>
+        v && v !== '-' ? (
+          <Tag color={ACCESS_TAG_COLOR[v]}>{ACCESS_LABEL[v]}</Tag>
+        ) : (
+          <span className="text-fog">-</span>
+        ),
+    })),
   ]
 
   const dataSource = shares.map((s) => {
@@ -192,10 +212,18 @@ export default function PermissionMatrix() {
               重新加载
             </Button>
           )}
-          <Button icon={<ExportOutlined />} onClick={exportCsv} disabled={loading || !shares.length}>
+          <Button
+            icon={<ExportOutlined />}
+            onClick={exportCsv}
+            disabled={loading || !shares.length}
+          >
             导出 CSV
           </Button>
-          <Button icon={<ExportOutlined />} onClick={exportJson} disabled={loading || !shares.length}>
+          <Button
+            icon={<ExportOutlined />}
+            onClick={exportJson}
+            disabled={loading || !shares.length}
+          >
             导出 JSON
           </Button>
         </Space>

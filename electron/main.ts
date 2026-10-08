@@ -53,13 +53,15 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
-    }
+      sandbox: true,
+    },
   })
 
   if (win11) {
     // Win11 亚克力材质
-    ;(mainWindow as unknown as { setBackgroundMaterial?: (m: string) => void }).setBackgroundMaterial?.('acrylic')
+    ;(
+      mainWindow as unknown as { setBackgroundMaterial?: (m: string) => void }
+    ).setBackgroundMaterial?.('acrylic')
   }
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
@@ -82,13 +84,15 @@ function createWindow(): void {
 
 function createTray(): void {
   const iconPath = resolveResource('logo.png')
-  const image = existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty()
+  const image = existsSync(iconPath)
+    ? nativeImage.createFromPath(iconPath)
+    : nativeImage.createEmpty()
   if (!image.isEmpty()) image.resize({ width: 16, height: 16 })
   tray = new Tray(image)
   const menu = Menu.buildFromTemplate([
     { label: '显示主窗口', click: () => mainWindow?.show() },
     { type: 'separator' },
-    { label: '退出', click: () => app.quit() }
+    { label: '退出', click: () => app.quit() },
   ])
   tray.setToolTip('WinShare Panel')
   tray.setContextMenu(menu)

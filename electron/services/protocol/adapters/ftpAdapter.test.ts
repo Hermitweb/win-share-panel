@@ -5,7 +5,7 @@ vi.mock('../../../lib/powershell', async (importOriginal) => {
   return {
     ...actual,
     runPowerShell: vi.fn(),
-    runPowerShellVoid: vi.fn()
+    runPowerShellVoid: vi.fn(),
   }
 })
 vi.mock('../../ftp', () => ({
@@ -15,7 +15,7 @@ vi.mock('../../ftp', () => ({
   getConfig: vi.fn(),
   setConfig: vi.fn(),
   defaultConfig: vi.fn(),
-  restoreDefault: vi.fn()
+  restoreDefault: vi.fn(),
 }))
 
 import { ftpAdapter } from './ftpAdapter'
@@ -41,34 +41,40 @@ describe('ftpAdapter', () => {
       // 验证清理 Get-Website
       mockedRunPowerShell.mockResolvedValueOnce(null as any)
 
-      await expect(ftpAdapter.createShare({
-        name: 'testftp',
-        path: 'C:\\ftp',
-        protocol: 'ftp',
-        port: 21
-      } as any)).rejects.toThrow('已自动清理孤儿站点')
+      await expect(
+        ftpAdapter.createShare({
+          name: 'testftp',
+          path: 'C:\\ftp',
+          protocol: 'ftp',
+          port: 21,
+        } as any),
+      ).rejects.toThrow('已自动清理孤儿站点')
 
       // 验证清理命令被调用
-      const cleanupCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('Remove-Item')
+      const cleanupCalls = mockedRunPowerShellVoid.mock.calls.filter(([cmd]) =>
+        cmd.includes('Remove-Item'),
       )
       expect(cleanupCalls.length).toBeGreaterThan(0)
     })
 
     it('无效站点名 → 抛出参数错误', async () => {
-      await expect(ftpAdapter.createShare({
-        name: 'test;rm',
-        path: 'C:\\ftp',
-        protocol: 'ftp'
-      } as any)).rejects.toThrow('站点名非法')
+      await expect(
+        ftpAdapter.createShare({
+          name: 'test;rm',
+          path: 'C:\\ftp',
+          protocol: 'ftp',
+        } as any),
+      ).rejects.toThrow('站点名非法')
     })
 
     it('无效路径 → 抛出参数错误', async () => {
-      await expect(ftpAdapter.createShare({
-        name: 'test',
-        path: 'relative',
-        protocol: 'ftp'
-      } as any)).rejects.toThrow('路径非法')
+      await expect(
+        ftpAdapter.createShare({
+          name: 'test',
+          path: 'relative',
+          protocol: 'ftp',
+        } as any),
+      ).rejects.toThrow('路径非法')
     })
   })
 
@@ -77,7 +83,7 @@ describe('ftpAdapter', () => {
       // Get-Website 返回 null（站点不存在）
       mockedRunPowerShell.mockResolvedValueOnce(null as any)
 
-      await expect(ftpAdapter.toggleShare('nonexistent', true)).rejects.toThrow('不存在')
+      await expect(ftpAdapter.toggleShare!('nonexistent', true)).rejects.toThrow('不存在')
     })
 
     it('站点存在 → 执行 Start/Stop-Website', async () => {
@@ -86,7 +92,7 @@ describe('ftpAdapter', () => {
       // Start-Website
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
 
-      await ftpAdapter.toggleShare('testftp', true)
+      await ftpAdapter.toggleShare!('testftp', true)
 
       const cmd = mockedRunPowerShellVoid.mock.calls[0][0]
       expect(cmd).toContain('Start-Website')
@@ -97,14 +103,14 @@ describe('ftpAdapter', () => {
       mockedRunPowerShell.mockResolvedValueOnce('testftp' as any)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
 
-      await ftpAdapter.toggleShare('testftp', false)
+      await ftpAdapter.toggleShare!('testftp', false)
 
       const cmd = mockedRunPowerShellVoid.mock.calls[0][0]
       expect(cmd).toContain('Stop-Website')
     })
 
     it('无效站点名 → 抛出参数错误', async () => {
-      await expect(ftpAdapter.toggleShare('test;rm', true)).rejects.toThrow('站点名非法')
+      await expect(ftpAdapter.toggleShare!('test;rm', true)).rejects.toThrow('站点名非法')
     })
   })
 
@@ -127,7 +133,7 @@ describe('ftpAdapter', () => {
     it('部分授予失败 → 回滚到备份权限', async () => {
       // getPermissions (备份) → 1 条已有
       mockedRunPowerShell.mockResolvedValueOnce([
-        { Users: 'olduser', Roles: '', AccessType: 'Allow', Permissions: 'Read' }
+        { Users: 'olduser', Roles: '', AccessType: 'Allow', Permissions: 'Read' },
       ] as any)
       // Clear-WebConfiguration
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
@@ -136,18 +142,36 @@ describe('ftpAdapter', () => {
       // Add baduser (失败)
       mockedRunPowerShellVoid.mockRejectedValueOnce(new Error('配置节锁定'))
       // getPermissions (回滚前)
-      mockedRunPowerShell.mockResolvedValueOnce([{ Users: 'user1', Roles: '', AccessType: 'Allow', Permissions: 'Read' }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        { Users: 'user1', Roles: '', AccessType: 'Allow', Permissions: 'Read' },
+      ] as any)
       // Clear (回滚清空)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
       // Restore backup: Add olduser
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
       // getPermissions (回滚后)
-      mockedRunPowerShell.mockResolvedValueOnce([{ Users: 'olduser', Roles: '', AccessType: 'Allow', Permissions: 'Read' }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        { Users: 'olduser', Roles: '', AccessType: 'Allow', Permissions: 'Read' },
+      ] as any)
 
-      await expect(ftpAdapter.setPermissions('testftp', [
-        { shareName: 'testftp', account: 'user1', accountType: 'User', access: 'Read', deny: false },
-        { shareName: 'testftp', account: 'baduser', accountType: 'User', access: 'Change', deny: false }
-      ])).rejects.toThrow('部分权限授予失败')
+      await expect(
+        ftpAdapter.setPermissions!('testftp', [
+          {
+            shareName: 'testftp',
+            account: 'user1',
+            accountType: 'User',
+            access: 'Read',
+            deny: false,
+          },
+          {
+            shareName: 'testftp',
+            account: 'baduser',
+            accountType: 'User',
+            access: 'Change',
+            deny: false,
+          },
+        ]),
+      ).rejects.toThrow('部分权限授予失败')
     })
 
     it('全部成功 → 无回滚', async () => {
@@ -158,13 +182,19 @@ describe('ftpAdapter', () => {
       // Add user1 (成功)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
 
-      await ftpAdapter.setPermissions('testftp', [
-        { shareName: 'testftp', account: 'user1', accountType: 'User', access: 'Read', deny: false }
+      await ftpAdapter.setPermissions!('testftp', [
+        {
+          shareName: 'testftp',
+          account: 'user1',
+          accountType: 'User',
+          access: 'Read',
+          deny: false,
+        },
       ])
 
       // 无第二次 Clear（回滚时的 Clear）
-      const clearCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('Clear-WebConfiguration')
+      const clearCalls = mockedRunPowerShellVoid.mock.calls.filter(([cmd]) =>
+        cmd.includes('Clear-WebConfiguration'),
       )
       expect(clearCalls).toHaveLength(1) // 只有初始清空，无回滚清空
     })
@@ -177,7 +207,7 @@ describe('ftpAdapter', () => {
       // Clear
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
 
-      await ftpAdapter.setPermissions('testftp', [])
+      await ftpAdapter.setPermissions!('testftp', [])
 
       // 验证 ensureFtpSectionsUnlocked 被调用（通过 ftp mock）
       // 这里主要验证不会因非法 sslPolicy 崩溃
@@ -186,23 +216,25 @@ describe('ftpAdapter', () => {
 
   describe('updateShare - 边界用例', () => {
     it('无效站点名 → 抛出参数错误', async () => {
-      await expect(ftpAdapter.updateShare('test;rm', {} as any)).rejects.toThrow('站点名非法')
+      await expect(ftpAdapter.updateShare!('test;rm', {} as any)).rejects.toThrow('站点名非法')
     })
 
     it('成功更新 → 返回映射 Share', async () => {
       // applyFtpConfig: 无 sslPolicy/authMode → 提前 return，不调用 PSV
       // fetchSite → 返回站点
-      mockedRunPowerShell.mockResolvedValueOnce([{
-        Name: 'testftp',
-        State: 'Started',
-        PhysicalPath: 'C:\\ftp',
-        Port: 21,
-        SslPolicy: 'SslRequire',
-        AnonymousEnabled: false,
-        BasicEnabled: true
-      }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'testftp',
+          State: 'Started',
+          PhysicalPath: 'C:\\ftp',
+          Port: 21,
+          SslPolicy: 'SslRequire',
+          AnonymousEnabled: false,
+          BasicEnabled: true,
+        },
+      ] as any)
 
-      const result = await ftpAdapter.updateShare('testftp', {} as any)
+      const result = await ftpAdapter.updateShare!('testftp', {} as any)
       expect(result.name).toBe('testftp')
       expect(result.sslPolicy).toBe('SslRequire')
       expect(result.authMode).toBe('basic')
@@ -213,24 +245,29 @@ describe('ftpAdapter', () => {
       // fetchSite → 空数组
       mockedRunPowerShell.mockResolvedValueOnce([] as any)
 
-      await expect(ftpAdapter.updateShare('nonexistent', {} as any)).rejects.toThrow('不存在')
+      await expect(ftpAdapter.updateShare!('nonexistent', {} as any)).rejects.toThrow('不存在')
     })
 
     it('带 sslPolicy + authMode → applyFtpConfig 调用 runPowerShellVoid', async () => {
       // applyFtpConfig: sslPolicy=SslRequire, authMode=basic → parts 非空
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
       // fetchSite → 返回站点
-      mockedRunPowerShell.mockResolvedValueOnce([{
-        Name: 'testftp',
-        State: 'Started',
-        PhysicalPath: 'C:\\ftp',
-        Port: 21,
-        SslPolicy: 'SslRequire',
-        AnonymousEnabled: false,
-        BasicEnabled: true
-      }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'testftp',
+          State: 'Started',
+          PhysicalPath: 'C:\\ftp',
+          Port: 21,
+          SslPolicy: 'SslRequire',
+          AnonymousEnabled: false,
+          BasicEnabled: true,
+        },
+      ] as any)
 
-      await ftpAdapter.updateShare('testftp', { sslPolicy: 'SslRequire', authMode: 'basic' } as any)
+      await ftpAdapter.updateShare!('testftp', {
+        sslPolicy: 'SslRequire',
+        authMode: 'basic',
+      } as any)
 
       const configCmd = mockedRunPowerShellVoid.mock.calls[0][0]
       expect(configCmd).toContain('controlChannelPolicy')
@@ -242,10 +279,10 @@ describe('ftpAdapter', () => {
   describe('getPermissions - 权限映射', () => {
     it('Permissions=Read → Read, Users → User', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([
-        { AccessType: 'Allow', Users: 'user1', Roles: '', Permissions: 'Read' }
+        { AccessType: 'Allow', Users: 'user1', Roles: '', Permissions: 'Read' },
       ] as any)
 
-      const result = await ftpAdapter.getPermissions('testftp')
+      const result = await ftpAdapter.getPermissions!('testftp')
       expect(result[0].access).toBe('Read')
       expect(result[0].accountType).toBe('User')
       expect(result[0].deny).toBe(false)
@@ -253,49 +290,49 @@ describe('ftpAdapter', () => {
 
     it('Permissions=Read,Write → Change', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([
-        { AccessType: 'Allow', Users: 'user1', Roles: '', Permissions: 'Read,Write' }
+        { AccessType: 'Allow', Users: 'user1', Roles: '', Permissions: 'Read,Write' },
       ] as any)
 
-      const result = await ftpAdapter.getPermissions('testftp')
+      const result = await ftpAdapter.getPermissions!('testftp')
       expect(result[0].access).toBe('Change')
     })
 
     it('Permissions=Write → Change', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([
-        { AccessType: 'Allow', Users: 'user1', Roles: '', Permissions: 'Write' }
+        { AccessType: 'Allow', Users: 'user1', Roles: '', Permissions: 'Write' },
       ] as any)
 
-      const result = await ftpAdapter.getPermissions('testftp')
+      const result = await ftpAdapter.getPermissions!('testftp')
       expect(result[0].access).toBe('Change')
     })
 
     it('AccessType=Deny → deny=true', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([
-        { AccessType: 'Deny', Users: 'baduser', Roles: '', Permissions: 'Read' }
+        { AccessType: 'Deny', Users: 'baduser', Roles: '', Permissions: 'Read' },
       ] as any)
 
-      const result = await ftpAdapter.getPermissions('testftp')
+      const result = await ftpAdapter.getPermissions!('testftp')
       expect(result[0].deny).toBe(true)
     })
 
     it('Roles（无 Users）→ Group', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([
-        { AccessType: 'Allow', Users: '', Roles: 'Admins', Permissions: 'Read,Write' }
+        { AccessType: 'Allow', Users: '', Roles: 'Admins', Permissions: 'Read,Write' },
       ] as any)
 
-      const result = await ftpAdapter.getPermissions('testftp')
+      const result = await ftpAdapter.getPermissions!('testftp')
       expect(result[0].accountType).toBe('Group')
       expect(result[0].account).toBe('Admins')
     })
 
     it('空结果 → 返回空数组', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([] as any)
-      const result = await ftpAdapter.getPermissions('testftp')
+      const result = await ftpAdapter.getPermissions!('testftp')
       expect(result).toEqual([])
     })
 
     it('无效站点名 → 抛出参数错误', async () => {
-      await expect(ftpAdapter.getPermissions('test;rm')).rejects.toThrow('站点名非法')
+      await expect(ftpAdapter.getPermissions!('test;rm')).rejects.toThrow('站点名非法')
     })
   })
 
@@ -308,12 +345,18 @@ describe('ftpAdapter', () => {
       // Add (成功)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
 
-      await ftpAdapter.setPermissions('testftp', [
-        { shareName: 'testftp', account: 'baduser', accountType: 'User', access: 'Read', deny: true }
+      await ftpAdapter.setPermissions!('testftp', [
+        {
+          shareName: 'testftp',
+          account: 'baduser',
+          accountType: 'User',
+          access: 'Read',
+          deny: true,
+        },
       ])
 
-      const addCmd = mockedRunPowerShellVoid.mock.calls.find(
-        ([cmd]) => cmd.includes('Add-WebConfiguration')
+      const addCmd = mockedRunPowerShellVoid.mock.calls.find(([cmd]) =>
+        cmd.includes('Add-WebConfiguration'),
       )![0]
       expect(addCmd).toContain("accessType='Deny'")
     })
@@ -326,12 +369,18 @@ describe('ftpAdapter', () => {
       // Add (成功)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
 
-      await ftpAdapter.setPermissions('testftp', [
-        { shareName: 'testftp', account: 'Admins', accountType: 'Group', access: 'Full', deny: false }
+      await ftpAdapter.setPermissions!('testftp', [
+        {
+          shareName: 'testftp',
+          account: 'Admins',
+          accountType: 'Group',
+          access: 'Full',
+          deny: false,
+        },
       ])
 
-      const addCmd = mockedRunPowerShellVoid.mock.calls.find(
-        ([cmd]) => cmd.includes('Add-WebConfiguration')
+      const addCmd = mockedRunPowerShellVoid.mock.calls.find(([cmd]) =>
+        cmd.includes('Add-WebConfiguration'),
       )![0]
       expect(addCmd).toContain("roles='Admins'")
       expect(addCmd).not.toContain('users=')
@@ -348,21 +397,23 @@ describe('ftpAdapter', () => {
       //                 authMode undefined → 不添加 auth parts
       //                 parts.length===0 → 提前 return，不调用 PSV
       // fetchSite → 返回站点
-      mockedRunPowerShell.mockResolvedValueOnce([{
-        Name: 'testftp',
-        State: 'Started',
-        PhysicalPath: 'C:\\ftp',
-        Port: 21,
-        SslPolicy: '',
-        AnonymousEnabled: false,
-        BasicEnabled: false
-      }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'testftp',
+          State: 'Started',
+          PhysicalPath: 'C:\\ftp',
+          Port: 21,
+          SslPolicy: '',
+          AnonymousEnabled: false,
+          BasicEnabled: false,
+        },
+      ] as any)
 
       await ftpAdapter.createShare({
         name: 'testftp',
         path: 'C:\\ftp',
         protocol: 'ftp',
-        sslPolicy: 'EVIL; rm -rf' as any
+        sslPolicy: 'EVIL; rm -rf' as any,
       } as any)
 
       // 验证只有 New-WebFtpSite 的 PSV 调用，无 SSL 配置命令

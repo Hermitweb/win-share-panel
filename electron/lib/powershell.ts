@@ -12,7 +12,7 @@ const DEFAULT_RETRIES = 2
 // $ProgressPreference=SilentlyContinue 抑制模块加载进度输出，避免 -NonInteractive 模式下
 // 序列化为 CLIXML 污染 stderr 导致 formatPsError 误报
 const UTF8_PREFIX =
-  '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $OutputEncoding=[System.Text.Encoding]::UTF8; $ProgressPreference=\'SilentlyContinue\'; '
+  "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $OutputEncoding=[System.Text.Encoding]::UTF8; $ProgressPreference='SilentlyContinue'; "
 
 export interface PsOptions {
   timeout?: number
@@ -35,8 +35,15 @@ async function execOnce(command: string, withJson: boolean, timeout: number): Pr
     : `${UTF8_PREFIX}${command}`
   const { stdout } = await execFileAsync(
     'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encodeCommand(fullCmd)],
-    { timeout, maxBuffer: 10 * 1024 * 1024, windowsHide: true }
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-EncodedCommand',
+      encodeCommand(fullCmd),
+    ],
+    { timeout, maxBuffer: 10 * 1024 * 1024, windowsHide: true },
   )
   return stdout
 }
@@ -113,7 +120,8 @@ function formatPsError(err: Error | null): Error {
   const rawStderr = (err as Error & { stderr?: string }).stderr || ''
   const rawMsg = err.message || ''
   const combined = rawStderr || rawMsg
-  if (/timed out|ETIMEDOUT/i.test(rawMsg)) return new Error('命令执行超时，请检查系统响应或稍后重试')
+  if (/timed out|ETIMEDOUT/i.test(rawMsg))
+    return new Error('命令执行超时，请检查系统响应或稍后重试')
   const readable = stripClixml(combined)
   if (/access is denied|拒绝访问/i.test(readable)) return new Error('权限不足，请以管理员身份运行')
   return new Error(`命令执行失败：${readable.slice(0, 300)}`)
@@ -130,7 +138,9 @@ function stripClixml(text: string): string {
   if (matches && matches.length > 0) {
     return matches
       .map((m) => m.replace(/<S S="[^"]*"[^>]*>/, '').replace(/<\/S>/, ''))
-      .map((s) => s.replace(/_x([0-9A-Fa-f]{4})_/g, (_, hex) => String.fromCharCode(parseInt(hex, 16))))
+      .map((s) =>
+        s.replace(/_x([0-9A-Fa-f]{4})_/g, (_, hex) => String.fromCharCode(parseInt(hex, 16))),
+      )
       .join(' ')
       .trim()
   }
@@ -170,6 +180,7 @@ export function validateName(name: string, maxLen = 80): boolean {
 
 // Windows 路径校验
 export function validatePath(p: string): boolean {
+  // eslint-disable-next-line no-control-regex -- \u0000-\u001f 为显式排除控制字符，正是校验意图本身
   return /^[A-Za-z]:[\\/]([^\u0000-\u001f<>:"|?*][^<>:"|?*]*)*$/.test(p)
 }
 

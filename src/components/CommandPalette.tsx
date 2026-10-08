@@ -15,10 +15,34 @@ interface Command {
 
 const STATIC_COMMANDS: Command[] = [
   { key: '/', label: '前往：仪表板', hint: '概览共享与会话', group: 'nav', action: () => {} },
-  { key: '/shares', label: '前往：共享管理', hint: '创建/编辑/删除共享', group: 'nav', action: () => {} },
-  { key: '/users', label: '前往：用户权限', hint: '管理本地用户与权限', group: 'nav', action: () => {} },
-  { key: '/sessions', label: '前往：会话监控', hint: '查看并断开会话', group: 'nav', action: () => {} },
-  { key: '/settings', label: '前往：服务器配置', hint: 'SMB/NFS/FTP/WebDAV 配置', group: 'nav', action: () => {} }
+  {
+    key: '/shares',
+    label: '前往：共享管理',
+    hint: '创建/编辑/删除共享',
+    group: 'nav',
+    action: () => {},
+  },
+  {
+    key: '/users',
+    label: '前往：用户权限',
+    hint: '管理本地用户与权限',
+    group: 'nav',
+    action: () => {},
+  },
+  {
+    key: '/sessions',
+    label: '前往：会话监控',
+    hint: '查看并断开会话',
+    group: 'nav',
+    action: () => {},
+  },
+  {
+    key: '/settings',
+    label: '前往：服务器配置',
+    hint: 'SMB/NFS/FTP/WebDAV 配置',
+    group: 'nav',
+    action: () => {},
+  },
 ]
 
 const GROUP_LABEL: Record<Command['group'], string> = {
@@ -26,7 +50,7 @@ const GROUP_LABEL: Record<Command['group'], string> = {
   share: '共享',
   user: '用户',
   session: '会话',
-  action: '操作'
+  action: '操作',
 }
 
 const GROUP_ORDER: Command['group'][] = ['nav', 'share', 'user', 'session', 'action']
@@ -52,7 +76,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         const [shares, users, sessions] = await Promise.all([
           call(() => api.adapter.list()).catch(() => [] as Share[]),
           call(api.user.list).catch(() => [] as LocalUser[]),
-          call(api.session.list).catch(() => [] as SmbSession[])
+          call(api.session.list).catch(() => [] as SmbSession[]),
         ])
         if (cancelled) return
         const ql = q.toLowerCase()
@@ -64,7 +88,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               s.name.toLowerCase().includes(ql) ||
               (s.description || '').toLowerCase().includes(ql) ||
               s.path.toLowerCase().includes(ql) ||
-              s.protocol.toLowerCase().includes(ql)
+              s.protocol.toLowerCase().includes(ql),
           )
           .slice(0, 12)
           .forEach((s) => {
@@ -76,12 +100,15 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               action: () => {
                 navigate('/shares')
                 setSelectedShares([`${s.protocol}:${s.name}`])
-              }
+              },
             })
           })
 
         users
-          .filter((u) => u.name.toLowerCase().includes(ql) || (u.fullName || '').toLowerCase().includes(ql))
+          .filter(
+            (u) =>
+              u.name.toLowerCase().includes(ql) || (u.fullName || '').toLowerCase().includes(ql),
+          )
           .slice(0, 10)
           .forEach((u) => {
             cmds.push({
@@ -89,7 +116,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               label: `用户：${u.name}`,
               hint: u.fullName || '—',
               group: 'user',
-              action: () => navigate('/users')
+              action: () => navigate('/users'),
             })
           })
 
@@ -97,7 +124,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           .filter(
             (s) =>
               s.clientUserName.toLowerCase().includes(ql) ||
-              s.clientComputerName.toLowerCase().includes(ql)
+              s.clientComputerName.toLowerCase().includes(ql),
           )
           .slice(0, 10)
           .forEach((s) => {
@@ -106,7 +133,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               label: `会话：${s.clientUserName}`,
               hint: s.clientComputerName,
               group: 'session',
-              action: () => navigate('/sessions')
+              action: () => navigate('/sessions'),
             })
           })
 
@@ -201,7 +228,9 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     return (
       <>
         {text.slice(0, idx)}
-        <mark className="bg-primary/30 rounded px-0.5 text-ink">{text.slice(idx, idx + q.length)}</mark>
+        <mark className="bg-primary/30 rounded px-0.5 text-ink">
+          {text.slice(idx, idx + q.length)}
+        </mark>
         {text.slice(idx + q.length)}
       </>
     )

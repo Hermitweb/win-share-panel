@@ -14,8 +14,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         token: {
           colorPrimary: '#7EC8F0',
           borderRadius: 12,
-          colorBgContainer: 'rgba(255,255,255,0.7)'
-        }
+          colorBgContainer: 'rgba(255,255,255,0.7)',
+        },
       }}
     >
       <AntdApp>
@@ -24,5 +24,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </HashRouter>
       </AntdApp>
     </ConfigProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 )

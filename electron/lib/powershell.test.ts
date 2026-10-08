@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { psQuote, psEscapeSingle, validateName, validatePath, psBool, psNumber, psEnum } from './powershell'
+import {
+  psQuote,
+  psEscapeSingle,
+  validateName,
+  validatePath,
+  psBool,
+  psNumber,
+  psEnum,
+} from './powershell'
 
 describe('psQuote', () => {
   it('正常字符串用单引号包裹', () => {

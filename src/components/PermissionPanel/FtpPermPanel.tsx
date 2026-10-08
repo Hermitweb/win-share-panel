@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Space, Select, Input, Popconfirm, App, Tag, Empty, Spin, Tooltip } from 'antd'
+import {
+  Table,
+  Button,
+  Space,
+  Select,
+  Input,
+  Popconfirm,
+  App,
+  Tag,
+  Empty,
+  Spin,
+  Tooltip,
+} from 'antd'
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { api, call } from '../../api'
 import type { Share, SharePermission } from '../../types'
@@ -22,12 +34,12 @@ interface FtpRule {
 
 const PERM_OPTIONS: { label: string; value: FtpPerm }[] = [
   { label: '只读 (Read)', value: 'ro' },
-  { label: '读写 (Read, Write)', value: 'rw' }
+  { label: '读写 (Read, Write)', value: 'rw' },
 ]
 
 const TYPE_OPTIONS: { label: string; value: FtpType }[] = [
   { label: '允许', value: 'Allow' },
-  { label: '拒绝', value: 'Deny' }
+  { label: '拒绝', value: 'Deny' },
 ]
 
 function toRule(p: SharePermission): FtpRule {
@@ -35,7 +47,7 @@ function toRule(p: SharePermission): FtpRule {
     account: p.account,
     accountType: p.accountType,
     perm: p.access === 'Change' || p.access === 'Full' ? 'rw' : 'ro',
-    type: p.deny ? 'Deny' : 'Allow'
+    type: p.deny ? 'Deny' : 'Allow',
   }
 }
 
@@ -45,7 +57,7 @@ function toSharePerm(share: Share, r: FtpRule): SharePermission {
     account: r.account,
     accountType: r.accountType,
     access: r.perm === 'rw' ? 'Change' : 'Read',
-    deny: r.type === 'Deny'
+    deny: r.type === 'Deny',
   }
 }
 
@@ -73,6 +85,7 @@ export default function FtpPermPanel({ share }: Props) {
 
   useEffect(() => {
     load()
+    // 仅在切换共享时重载权限：load 引用每轮渲染变化，纳入依赖会无限循环
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [share.name])
 
@@ -124,7 +137,7 @@ export default function FtpPermPanel({ share }: Props) {
       width: 90,
       render: (v: 'User' | 'Group') => (
         <Tag color={v === 'User' ? 'blue' : 'purple'}>{v === 'User' ? '用户' : '组'}</Tag>
-      )
+      ),
     },
     {
       title: '权限',
@@ -138,7 +151,7 @@ export default function FtpPermPanel({ share }: Props) {
           onChange={(next) => handlePermChange(r.account, next)}
           style={{ width: 140 }}
         />
-      )
+      ),
     },
     {
       title: '授权',
@@ -152,17 +165,22 @@ export default function FtpPermPanel({ share }: Props) {
           onChange={(next) => handleTypeChange(r.account, next)}
           style={{ width: 90 }}
         />
-      )
+      ),
     },
     {
       title: '',
       width: 50,
       render: (_: unknown, r: FtpRule) => (
         <Tooltip title="移除">
-          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleRemove(r.account)} />
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleRemove(r.account)}
+          />
         </Tooltip>
-      )
-    }
+      ),
+    },
   ]
 
   return (
@@ -204,12 +222,22 @@ export default function FtpPermPanel({ share }: Props) {
             onChange={setNewType}
             options={[
               { label: '用户', value: 'User' },
-              { label: '组', value: 'Group' }
+              { label: '组', value: 'Group' },
             ]}
             style={{ width: 90 }}
           />
-          <Select value={newPerm} onChange={setNewPerm} options={PERM_OPTIONS} style={{ width: 140 }} />
-          <Select value={newAccessType} onChange={setNewAccessType} options={TYPE_OPTIONS} style={{ width: 90 }} />
+          <Select
+            value={newPerm}
+            onChange={setNewPerm}
+            options={PERM_OPTIONS}
+            style={{ width: 140 }}
+          />
+          <Select
+            value={newAccessType}
+            onChange={setNewAccessType}
+            options={TYPE_OPTIONS}
+            style={{ width: 90 }}
+          />
           <Button icon={<PlusOutlined />} onClick={handleAdd}>
             添加
           </Button>

@@ -1,24 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // vi.hoisted 确保 mock 变量在 vi.mock 工厂函数（被提升到文件顶部）执行时可用
-const { mockSmbListShares, mockNfsListShares, mockFtpListShares, mockWebdavListShares } = vi.hoisted(() => ({
-  mockSmbListShares: vi.fn(),
-  mockNfsListShares: vi.fn(),
-  mockFtpListShares: vi.fn(),
-  mockWebdavListShares: vi.fn()
-}))
+const { mockSmbListShares, mockNfsListShares, mockFtpListShares, mockWebdavListShares } =
+  vi.hoisted(() => ({
+    mockSmbListShares: vi.fn(),
+    mockNfsListShares: vi.fn(),
+    mockFtpListShares: vi.fn(),
+    mockWebdavListShares: vi.fn(),
+  }))
 
 vi.mock('./adapters/smbAdapter', () => ({
-  smbAdapter: { protocol: 'smb', listShares: mockSmbListShares }
+  smbAdapter: { protocol: 'smb', listShares: mockSmbListShares },
 }))
 vi.mock('./adapters/nfsAdapter', () => ({
-  nfsAdapter: { protocol: 'nfs', listShares: mockNfsListShares }
+  nfsAdapter: { protocol: 'nfs', listShares: mockNfsListShares },
 }))
 vi.mock('./adapters/ftpAdapter', () => ({
-  ftpAdapter: { protocol: 'ftp', listShares: mockFtpListShares }
+  ftpAdapter: { protocol: 'ftp', listShares: mockFtpListShares },
 }))
 vi.mock('./adapters/webdavAdapter', () => ({
-  webdavAdapter: { protocol: 'webdav', listShares: mockWebdavListShares }
+  webdavAdapter: { protocol: 'webdav', listShares: mockWebdavListShares },
 }))
 
 import { adapterList } from './registry'
@@ -26,8 +27,16 @@ import type { Share } from '../../types'
 
 function makeShare(name: string, protocol: Share['protocol']): Share {
   return {
-    name, protocol, path: `C:\\${name}`, description: '', type: 'Disk',
-    hidden: false, encrypted: false, concurrentUsers: 0, status: 'Enabled', cached: false
+    name,
+    protocol,
+    path: `C:\\${name}`,
+    description: '',
+    type: 'Disk',
+    hidden: false,
+    encrypted: false,
+    concurrentUsers: 0,
+    status: 'Enabled',
+    cached: false,
   }
 }
 
@@ -41,22 +50,30 @@ describe('adapterList - 并行化', () => {
     const callOrder: string[] = []
     const barriers: Record<string, (v: Share[]) => void> = {}
 
-    mockSmbListShares.mockReturnValue(new Promise<Share[]>((res) => {
-      callOrder.push('smb-start')
-      barriers.smb = res
-    }))
-    mockNfsListShares.mockReturnValue(new Promise<Share[]>((res) => {
-      callOrder.push('nfs-start')
-      barriers.nfs = res
-    }))
-    mockFtpListShares.mockReturnValue(new Promise<Share[]>((res) => {
-      callOrder.push('ftp-start')
-      barriers.ftp = res
-    }))
-    mockWebdavListShares.mockReturnValue(new Promise<Share[]>((res) => {
-      callOrder.push('webdav-start')
-      barriers.webdav = res
-    }))
+    mockSmbListShares.mockReturnValue(
+      new Promise<Share[]>((res) => {
+        callOrder.push('smb-start')
+        barriers.smb = res
+      }),
+    )
+    mockNfsListShares.mockReturnValue(
+      new Promise<Share[]>((res) => {
+        callOrder.push('nfs-start')
+        barriers.nfs = res
+      }),
+    )
+    mockFtpListShares.mockReturnValue(
+      new Promise<Share[]>((res) => {
+        callOrder.push('ftp-start')
+        barriers.ftp = res
+      }),
+    )
+    mockWebdavListShares.mockReturnValue(
+      new Promise<Share[]>((res) => {
+        callOrder.push('webdav-start')
+        barriers.webdav = res
+      }),
+    )
 
     const promise = adapterList()
 

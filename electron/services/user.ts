@@ -1,6 +1,19 @@
-import { runPowerShell, runPowerShellVoid, psQuote, validateName, validatePath } from '../lib/powershell'
+import {
+  runPowerShell,
+  runPowerShellVoid,
+  psQuote,
+  validateName,
+  validatePath,
+} from '../lib/powershell'
 import { Errors } from '../lib/errors'
-import type { LocalUser, LocalGroup, GroupMember, SharePermission, NtfsAcl, NtfsAclEntry } from '../types'
+import type {
+  LocalUser,
+  LocalGroup,
+  GroupMember,
+  SharePermission,
+  NtfsAcl,
+  NtfsAclEntry,
+} from '../types'
 
 // 解析时间字段（PowerShell 返回的 WMI 时间可能为 /Date(...)/ 或字符串）
 function parseTime(raw: unknown): string {
@@ -17,7 +30,7 @@ function parseTime(raw: unknown): string {
 
 export async function listUsers(): Promise<LocalUser[]> {
   const raw = await runPowerShell<any[]>(
-    `Get-LocalUser | Select-Object Name, FullName, Enabled, Description, PasswordRequired, PasswordChangeable, PasswordExpires, UserMayChangePassword, PasswordLastSet, LastLogon, SID, PrincipalSource`
+    `Get-LocalUser | Select-Object Name, FullName, Enabled, Description, PasswordRequired, PasswordChangeable, PasswordExpires, UserMayChangePassword, PasswordLastSet, LastLogon, SID, PrincipalSource`,
   )
   const arr = Array.isArray(raw) ? raw : [raw]
   // 批量获取每个用户所属组（一次性查询 Get-LocalGroup 后 group by member，避免 N+1）
@@ -36,7 +49,7 @@ export async function listUsers(): Promise<LocalUser[]> {
     passwordLastSet: parseTime(u.PasswordLastSet),
     lastLogon: parseTime(u.LastLogon),
     sid: u.SID?.Value || u.SID || '',
-    principalSource: u.PrincipalSource || 'Local'
+    principalSource: u.PrincipalSource || 'Local',
   }))
 }
 
@@ -51,7 +64,7 @@ async function buildUserGroupMap(): Promise<Record<string, string[]>> {
       try {
         const members = await runPowerShell<any[]>(
           `Get-LocalGroupMember -Group ${psQuote(g.Name)} | Select-Object Name, ObjectClass, PrincipalSource`,
-          { retries: 0 }
+          { retries: 0 },
         )
         const marr = Array.isArray(members) ? members : [members]
         for (const m of marr) {
@@ -80,14 +93,14 @@ export async function listGroups(): Promise<LocalGroup[]> {
     try {
       const mraw = await runPowerShell<any[]>(
         `Get-LocalGroupMember -Group ${psQuote(g.Name)} | Select-Object Name, ObjectClass, PrincipalSource`,
-        { retries: 0 }
+        { retries: 0 },
       )
       const marr = Array.isArray(mraw) ? mraw : [mraw]
       members = marr.map((m) => ({
         // Name 形如 "COMPUTERNAME\\username"
         name: String(m.Name).split('\\').pop() || m.Name,
         objectClass: m.ObjectClass === 'Group' ? 'Group' : 'User',
-        principalSource: m.PrincipalSource || 'Local'
+        principalSource: m.PrincipalSource || 'Local',
       }))
     } catch {
       members = []
@@ -101,7 +114,7 @@ export async function listGroups(): Promise<LocalGroup[]> {
 export async function getUser(name: string): Promise<LocalUser> {
   if (!validateName(name)) throw Errors.invalidParam('用户名非法')
   const raw = await runPowerShell<any>(
-    `Get-LocalUser -Name ${psQuote(name)} | Select-Object Name, FullName, Enabled, Description, PasswordRequired, PasswordChangeable, PasswordExpires, UserMayChangePassword, PasswordLastSet, LastLogon, SID, PrincipalSource`
+    `Get-LocalUser -Name ${psQuote(name)} | Select-Object Name, FullName, Enabled, Description, PasswordRequired, PasswordChangeable, PasswordExpires, UserMayChangePassword, PasswordLastSet, LastLogon, SID, PrincipalSource`,
   )
   if (!raw || !raw.Name) throw Errors.invalidParam(`用户 ${name} 不存在`)
   const groupMap = await buildUserGroupMap()
@@ -118,7 +131,7 @@ export async function getUser(name: string): Promise<LocalUser> {
     passwordLastSet: parseTime(raw.PasswordLastSet),
     lastLogon: parseTime(raw.LastLogon),
     sid: raw.SID?.Value || raw.SID || '',
-    principalSource: raw.PrincipalSource || 'Local'
+    principalSource: raw.PrincipalSource || 'Local',
   }
 }
 
@@ -139,7 +152,7 @@ export async function createUser(opts: CreateUserOpts): Promise<void> {
   const parts = [
     'New-LocalUser',
     `-Name ${psQuote(opts.name)}`,
-    `-Password (ConvertTo-SecureString -AsPlainText -Force ${psQuote(opts.password)})`
+    `-Password (ConvertTo-SecureString -AsPlainText -Force ${psQuote(opts.password)})`,
   ]
   if (opts.fullName !== undefined) parts.push(`-FullName ${psQuote(opts.fullName)}`)
   if (opts.description !== undefined) parts.push(`-Description ${psQuote(opts.description)}`)
@@ -190,7 +203,7 @@ export async function setUserPassword(name: string, password: string): Promise<v
   if (password.length > 127) throw Errors.invalidParam('密码长度不能超过 127 字符')
   await runPowerShellVoid(
     `Set-LocalUser -Name ${psQuote(name)} -Password (ConvertTo-SecureString -AsPlainText -Force ${psQuote(password)})`,
-    { retries: 0 }
+    { retries: 0 },
   )
 }
 
@@ -208,9 +221,12 @@ export async function renameUser(oldName: string, newName: string): Promise<void
   if (!validateName(oldName)) throw Errors.invalidParam('原用户名非法')
   if (!validateName(newName)) throw Errors.invalidParam('新用户名非法')
   if (oldName === newName) return
-  await runPowerShellVoid(`Rename-LocalUser -Name ${psQuote(oldName)} -NewName ${psQuote(newName)}`, {
-    retries: 0
-  })
+  await runPowerShellVoid(
+    `Rename-LocalUser -Name ${psQuote(oldName)} -NewName ${psQuote(newName)}`,
+    {
+      retries: 0,
+    },
+  )
 }
 
 // === 组管理 ===
@@ -246,7 +262,7 @@ const PROTECTED_GROUPS = [
   'system operators',
   'cryptographic operators',
   'event log readers',
-  'certificate service dcom access'
+  'certificate service dcom access',
 ]
 
 export async function deleteGroup(name: string): Promise<void> {
@@ -262,7 +278,7 @@ export async function updateGroup(name: string, description: string): Promise<vo
   if (!validateName(name)) throw Errors.invalidParam('组名非法')
   await runPowerShellVoid(
     `Set-LocalGroup -Name ${psQuote(name)} -Description ${psQuote(description)}`,
-    { retries: 0 }
+    { retries: 0 },
   )
 }
 
@@ -274,7 +290,7 @@ export async function renameGroup(name: string, newName: string): Promise<void> 
     throw Errors.invalidParam(`系统内置组 ${name} 不允许重命名`)
   }
   await runPowerShellVoid(`Rename-LocalGroup -Name ${psQuote(name)} -NewName ${psQuote(newName)}`, {
-    retries: 0
+    retries: 0,
   })
 }
 
@@ -283,7 +299,7 @@ export async function addGroupMember(group: string, member: string): Promise<voi
   if (!validateName(member)) throw Errors.invalidParam('成员名非法')
   await runPowerShellVoid(
     `Add-LocalGroupMember -Group ${psQuote(group)} -Member ${psQuote(member)}`,
-    { retries: 0 }
+    { retries: 0 },
   )
 }
 
@@ -292,7 +308,7 @@ export async function removeGroupMember(group: string, member: string): Promise<
   if (!validateName(member)) throw Errors.invalidParam('成员名非法')
   await runPowerShellVoid(
     `Remove-LocalGroupMember -Group ${psQuote(group)} -Member ${psQuote(member)}`,
-    { retries: 0 }
+    { retries: 0 },
   )
 }
 
@@ -305,7 +321,7 @@ export async function getSharePermissions(shareName: string): Promise<SharePermi
     account: x.AccountName,
     accountType: x.AccountType === 1 ? 'User' : 'Group',
     access: x.AccessRight === 0 ? 'Full' : x.AccessRight === 1 ? 'Change' : 'Read',
-    deny: x.AccessControlType === 1
+    deny: x.AccessControlType === 1,
   }))
 }
 
@@ -314,7 +330,7 @@ export async function getSharePermissions(shareName: string): Promise<SharePermi
 export async function getUserSharePermissions(username: string): Promise<SharePermission[]> {
   if (!validateName(username)) throw Errors.invalidParam('用户名非法')
   const r = await runPowerShell<any[]>(
-    `Get-SmbShare | ForEach-Object { $sn = $_.Name; Get-SmbShareAccess -Name $sn -ErrorAction SilentlyContinue | ForEach-Object { [PSCustomObject]@{ shareName = $sn; account = $_.AccountName; accessRight = $_.AccessRight; accountType = $_.AccountType; accessControlType = $_.AccessControlType } } } | Where-Object { $_.account -ieq ${psQuote(username)} -or $_.account -ilike "*\\${username}" }`
+    `Get-SmbShare | ForEach-Object { $sn = $_.Name; Get-SmbShareAccess -Name $sn -ErrorAction SilentlyContinue | ForEach-Object { [PSCustomObject]@{ shareName = $sn; account = $_.AccountName; accessRight = $_.AccessRight; accountType = $_.AccountType; accessControlType = $_.AccessControlType } } } | Where-Object { $_.account -ieq ${psQuote(username)} -or $_.account -ilike "*\\${username}" }`,
   )
   const arr = Array.isArray(r) ? r : r ? [r] : []
   return arr.map((x) => ({
@@ -322,11 +338,14 @@ export async function getUserSharePermissions(username: string): Promise<SharePe
     account: x.account,
     accountType: x.accountType === 1 ? 'User' : 'Group',
     access: x.accessRight === 0 ? 'Full' : x.accessRight === 1 ? 'Change' : 'Read',
-    deny: x.accessControlType === 1
+    deny: x.accessControlType === 1,
   }))
 }
 
-export async function setSharePermissions(shareName: string, perms: SharePermission[]): Promise<void> {
+export async function setSharePermissions(
+  shareName: string,
+  perms: SharePermission[],
+): Promise<void> {
   if (!validateName(shareName)) throw Errors.invalidParam('共享名非法')
   // 入参校验：account 必须合法，不静默跳过（避免用户误以为权限已设但实际未设）
   const invalid = perms.filter((p) => !validateName(p.account))
@@ -336,16 +355,21 @@ export async function setSharePermissions(shareName: string, perms: SharePermiss
 
   // 事务补偿：先备份当前权限，若后续 Grant/Block 中途失败则回滚到原状态
   const backup = await getSharePermissions(shareName).catch(() => [] as SharePermission[])
-  console.log('[setPermissions:smb] 已备份当前权限:', backup.length, '条 →', backup.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+  console.log(
+    '[setPermissions:smb] 已备份当前权限:',
+    backup.length,
+    '条 →',
+    backup.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)',
+  )
 
   // overwrite：先清空所有已授予与已拒绝项
   await runPowerShellVoid(
-    `Get-SmbShareAccess -Name ${psQuote(shareName)} | ForEach-Object { Revoke-SmbShareAccess -Name ${psQuote(shareName)} -AccountName $_.AccountName -Force }`
+    `Get-SmbShareAccess -Name ${psQuote(shareName)} | ForEach-Object { Revoke-SmbShareAccess -Name ${psQuote(shareName)} -AccountName $_.AccountName -Force }`,
   )
   // Unblock 当前所有 Deny 项（Revoke 不一定清除 Block，需显式 Unblock）
   try {
     await runPowerShellVoid(
-      `Get-SmbShareAccess -Name ${psQuote(shareName)} | Where-Object { $_.AccessControlType -eq 1 } | ForEach-Object { Unblock-SmbShareAccess -Name ${psQuote(shareName)} -AccountName $_.AccountName -Force }`
+      `Get-SmbShareAccess -Name ${psQuote(shareName)} | Where-Object { $_.AccessControlType -eq 1 } | ForEach-Object { Unblock-SmbShareAccess -Name ${psQuote(shareName)} -AccountName $_.AccountName -Force }`,
     )
   } catch {
     // 旧版 Windows 可能无 Unblock-SmbShareAccess cmdlet，降级：仅 Revoke 已足够清空
@@ -357,7 +381,7 @@ export async function setSharePermissions(shareName: string, perms: SharePermiss
     if (p.deny || p.access === 'NoAccess') {
       try {
         await runPowerShellVoid(
-          `Block-SmbShareAccess -Name ${psQuote(shareName)} -AccountName ${psQuote(p.account)} -Force`
+          `Block-SmbShareAccess -Name ${psQuote(shareName)} -AccountName ${psQuote(p.account)} -Force`,
         )
       } catch {
         // 无 Block-SmbShareAccess 时降级为"不授予"（仅 Revoke 状态）
@@ -367,7 +391,7 @@ export async function setSharePermissions(shareName: string, perms: SharePermiss
       const right = p.access === 'Full' ? 'Full' : p.access === 'Change' ? 'Change' : 'Read'
       try {
         await runPowerShellVoid(
-          `Grant-SmbShareAccess -Name ${psQuote(shareName)} -AccountName ${psQuote(p.account)} -AccessRight ${right} -Force`
+          `Grant-SmbShareAccess -Name ${psQuote(shareName)} -AccountName ${psQuote(p.account)} -AccessRight ${right} -Force`,
         )
       } catch {
         failed.push(p.account)
@@ -380,21 +404,27 @@ export async function setSharePermissions(shareName: string, perms: SharePermiss
     console.error('[setPermissions:smb] 回滚触发！失败账号:', failed.join(', '))
     // 查询回滚前的当前权限状态（部分授予后的残留状态）
     const beforeRollback = await getSharePermissions(shareName).catch(() => [] as SharePermission[])
-    console.log('[setPermissions:smb] 回滚前权限状态:', beforeRollback.length, '条 →', beforeRollback.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+    console.log(
+      '[setPermissions:smb] 回滚前权限状态:',
+      beforeRollback.length,
+      '条 →',
+      beforeRollback.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') ||
+        '(空)',
+    )
     // 静默回滚：重新清空 + 重新授予备份权限
     try {
       await runPowerShellVoid(
-        `Get-SmbShareAccess -Name ${psQuote(shareName)} | ForEach-Object { Revoke-SmbShareAccess -Name ${psQuote(shareName)} -AccountName $_.AccountName -Force }`
+        `Get-SmbShareAccess -Name ${psQuote(shareName)} | ForEach-Object { Revoke-SmbShareAccess -Name ${psQuote(shareName)} -AccountName $_.AccountName -Force }`,
       )
       for (const p of backup) {
         if (p.deny) {
           await runPowerShellVoid(
-            `Block-SmbShareAccess -Name ${psQuote(shareName)} -AccountName ${psQuote(p.account)} -Force`
+            `Block-SmbShareAccess -Name ${psQuote(shareName)} -AccountName ${psQuote(p.account)} -Force`,
           ).catch(() => undefined)
         } else {
           const right = p.access === 'Full' ? 'Full' : p.access === 'Change' ? 'Change' : 'Read'
           await runPowerShellVoid(
-            `Grant-SmbShareAccess -Name ${psQuote(shareName)} -AccountName ${psQuote(p.account)} -AccessRight ${right} -Force`
+            `Grant-SmbShareAccess -Name ${psQuote(shareName)} -AccountName ${psQuote(p.account)} -AccessRight ${right} -Force`,
           ).catch(() => undefined)
         }
       }
@@ -404,22 +434,30 @@ export async function setSharePermissions(shareName: string, perms: SharePermiss
     }
     // 查询回滚后的权限状态，验证是否恢复成功
     const afterRollback = await getSharePermissions(shareName).catch(() => [] as SharePermission[])
-    console.log('[setPermissions:smb] 回滚后权限状态:', afterRollback.length, '条 →', afterRollback.map(p => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') || '(空)')
+    console.log(
+      '[setPermissions:smb] 回滚后权限状态:',
+      afterRollback.length,
+      '条 →',
+      afterRollback.map((p) => `${p.account}=${p.access}${p.deny ? '(deny)' : ''}`).join(', ') ||
+        '(空)',
+    )
     throw Errors.commandFailed(
-      `部分权限设置失败（${failed.length} 个账号：${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ' 等' : ''}），已回滚到原状态`
+      `部分权限设置失败（${failed.length} 个账号：${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ' 等' : ''}），已回滚到原状态`,
     )
   }
 }
 
 export async function getNtfsPermissions(path: string): Promise<NtfsAcl> {
   if (!validatePath(path)) throw Errors.invalidParam('路径非法')
-  const raw = await runPowerShell<any>(`Get-Acl -Path ${psQuote(path)} | Select-Object -ExpandProperty Access`)
+  const raw = await runPowerShell<any>(
+    `Get-Acl -Path ${psQuote(path)} | Select-Object -ExpandProperty Access`,
+  )
   const arr = Array.isArray(raw) ? raw : [raw]
   const entries: NtfsAclEntry[] = arr.map((a) => ({
     account: a.IdentityReference?.toString() || '',
     rights: a.FileSystemRights?.toString() || '',
     type: a.AccessControlType === 0 ? 'Allow' : 'Deny',
-    inherited: !!a.IsInherited
+    inherited: !!a.IsInherited,
   }))
   return { path, entries }
 }

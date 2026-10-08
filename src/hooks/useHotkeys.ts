@@ -29,10 +29,7 @@ export function useHotkeys(): void {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
       const inField =
-        !!t &&
-        (t.tagName === 'INPUT' ||
-          t.tagName === 'TEXTAREA' ||
-          t.isContentEditable === true)
+        !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable === true)
 
       // Ctrl/Cmd+K 始终生效
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -85,6 +82,6 @@ export function useHotkeys(): void {
     triggerRefresh,
     requestShareDelete,
     requestShareToggle,
-    requestSessionClose
+    requestSessionClose,
   ])
 }

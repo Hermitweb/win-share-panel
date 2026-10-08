@@ -10,14 +10,14 @@ import {
   App,
   Spin,
   InputNumber,
-  Collapse
+  Collapse,
 } from 'antd'
 import {
   ReloadOutlined,
   PoweroffOutlined,
   UndoOutlined,
   CaretRightOutlined,
-  PauseOutlined
+  PauseOutlined,
 } from '@ant-design/icons'
 import { api, call } from '../api'
 import type { WebdavServerConfig, ServiceStatus } from '../types'
@@ -45,7 +45,7 @@ export default function WebdavSettingsPanel() {
     try {
       const [c, s] = await Promise.all([
         call(api.webdav.getConfig) as Promise<WebdavServerConfig>,
-        call(api.webdav.serviceStatus)
+        call(api.webdav.serviceStatus),
       ])
       setConfig(c)
       setSvc(s)
@@ -80,6 +80,7 @@ export default function WebdavSettingsPanel() {
   useEffect(() => {
     if (installed !== true) return
     load()
+    // 仅在确认已安装后重载配置：load 引用每轮渲染变化，有意省略以免无限循环
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installed])
 
@@ -215,7 +216,7 @@ export default function WebdavSettingsPanel() {
                       <InputNumber min={0} max={65535} />
                     </Form.Item>
                   </div>
-                )
+                ),
               },
               {
                 key: 'readonly',
@@ -228,7 +229,7 @@ export default function WebdavSettingsPanel() {
                       {
                         key: 'rules',
                         label: '全局 Authoring 规则数',
-                        children: config.globalAuthoringRulesCount ?? 0
+                        children: config.globalAuthoringRulesCount ?? 0,
                       },
                       {
                         key: 'sc',
@@ -237,7 +238,7 @@ export default function WebdavSettingsPanel() {
                           <Tag color={config.enableStaticCompression ? 'green' : 'default'}>
                             {config.enableStaticCompression ? '启用' : '禁用'}
                           </Tag>
-                        )
+                        ),
                       },
                       {
                         key: 'dc',
@@ -246,7 +247,7 @@ export default function WebdavSettingsPanel() {
                           <Tag color={config.enableDynamicCompression ? 'green' : 'default'}>
                             {config.enableDynamicCompression ? '启用' : '禁用'}
                           </Tag>
-                        )
+                        ),
                       },
                       {
                         key: 'ssl',
@@ -255,12 +256,12 @@ export default function WebdavSettingsPanel() {
                           <Tag color={config.requireSSL ? 'orange' : 'default'}>
                             {config.requireSSL ? '是' : '否'}
                           </Tag>
-                        )
-                      }
+                        ),
+                      },
                     ]}
                   />
-                )
-              }
+                ),
+              },
             ]}
           />
 
@@ -304,15 +305,18 @@ export default function WebdavSettingsPanel() {
                 {
                   key: 'st',
                   label: '服务状态',
-                  children: <Tag color={svc.status === 'Running' ? 'green' : 'red'}>{svc.status}</Tag>
+                  children: (
+                    <Tag color={svc.status === 'Running' ? 'green' : 'red'}>{svc.status}</Tag>
+                  ),
                 },
                 { key: 'srt', label: '启动类型', children: svc.startType || '-' },
-                { key: 'sn', label: '服务名', children: svc.name }
+                { key: 'sn', label: '服务名', children: svc.name },
               ]}
             />
           )}
           <div className="mt-3 text-xs text-fog">
-            WebDAV 服务器级配置（IIS system.webServer/* 配置节）。站点级 authoring 规则请在「共享管理」页对单个站点编辑。只读字段为服务器级状态，不可直接修改。
+            WebDAV 服务器级配置（IIS system.webServer/* 配置节）。站点级 authoring
+            规则请在「共享管理」页对单个站点编辑。只读字段为服务器级状态，不可直接修改。
           </div>
         </Form>
       </div>

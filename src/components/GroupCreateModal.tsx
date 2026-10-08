@@ -44,7 +44,7 @@ export default function GroupCreateModal({ open, onClose, onSuccess }: Props) {
           rules={[
             { required: true, message: '请输入组名' },
             { max: 256, message: '组名不能超过 256 字符' },
-            { pattern: /^[A-Za-z0-9._\- \u4e00-\u9fa5]+$/, message: '名称包含非法字符' }
+            { pattern: /^[A-Za-z0-9._\- \u4e00-\u9fa5]+$/, message: '名称包含非法字符' },
           ]}
         >
           <Input placeholder="如 ProjectEditors" />

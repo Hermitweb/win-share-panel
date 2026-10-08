@@ -6,7 +6,7 @@ import type {
   ProtocolSession,
   ProtocolCapabilities,
   CreateShareInput,
-  UpdateShareInput
+  UpdateShareInput,
 } from '../../types'
 import { Errors } from '../../lib/errors'
 import { smbAdapter } from './adapters/smbAdapter'
@@ -19,7 +19,7 @@ const adapters: Partial<Record<Protocol, ProtocolAdapter>> = {
   smb: smbAdapter,
   nfs: nfsAdapter,
   ftp: ftpAdapter,
-  webdav: webdavAdapter
+  webdav: webdavAdapter,
 }
 
 export function getAdapter(protocol: Protocol): ProtocolAdapter {
@@ -85,7 +85,7 @@ export async function adapterDelete(protocol: Protocol, name: string): Promise<v
 export async function adapterToggle(
   protocol: Protocol,
   name: string,
-  enabled: boolean
+  enabled: boolean,
 ): Promise<void> {
   const adapter = getAdapter(protocol)
   if (!adapter.toggleShare) throw Errors.invalidParam(`${protocol} 协议不支持启停`)
@@ -94,7 +94,7 @@ export async function adapterToggle(
 
 export async function adapterGetPermissions(
   protocol: Protocol,
-  name: string
+  name: string,
 ): Promise<SharePermission[]> {
   const adapter = getAdapter(protocol)
   if (!adapter.getPermissions) throw Errors.invalidParam(`${protocol} 协议不支持权限管理`)
@@ -109,7 +109,7 @@ export async function adapterGetPermissions(
 export async function adapterSetPermissions(
   protocol: Protocol,
   name: string,
-  perms: SharePermission[]
+  perms: SharePermission[],
 ): Promise<void> {
   const adapter = getAdapter(protocol)
   if (!adapter.setPermissions) throw Errors.invalidParam(`${protocol} 协议不支持权限管理`)
@@ -127,10 +127,7 @@ export async function adapterSessions(protocol: Protocol): Promise<ProtocolSessi
   }
 }
 
-export async function adapterCloseSession(
-  protocol: Protocol,
-  sessionId: string
-): Promise<void> {
+export async function adapterCloseSession(protocol: Protocol, sessionId: string): Promise<void> {
   const adapter = getAdapter(protocol)
   if (!adapter.closeSession) throw Errors.invalidParam(`${protocol} 协议不支持关闭会话`)
   return adapter.closeSession(sessionId)

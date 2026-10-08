@@ -11,14 +11,14 @@ const POOLS: Record<keyof PasswordOptions, string> = {
   uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
   lowercase: 'abcdefghijklmnopqrstuvwxyz',
   digits: '0123456789',
-  special: '!@#$%^&*()-_=+[]{}'
+  special: '!@#$%^&*()-_=+[]{}',
 }
 
 const DEFAULT_OPTIONS: PasswordOptions = {
   uppercase: true,
   lowercase: true,
   digits: true,
-  special: true
+  special: true,
 }
 
 // 使用 crypto.getRandomValues 生成密码学安全随机数
@@ -80,11 +80,11 @@ export function evaluateStrength(pwd: string): PasswordStrength {
 export const STRENGTH_LABEL: Record<PasswordStrength, string> = {
   weak: '弱',
   medium: '中',
-  strong: '强'
+  strong: '强',
 }
 
 export const STRENGTH_COLOR: Record<PasswordStrength, string> = {
   weak: 'red',
   medium: 'orange',
-  strong: 'green'
+  strong: 'green',
 }

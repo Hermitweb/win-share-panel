@@ -10,6 +10,6 @@ export function useTickEffect(tick: number, fn: () => void): void {
     if (prev.current === tick) return
     prev.current = tick
     fn()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意仅依赖 tick：tick 变化是唯一触发条件；fn 每轮渲染皆新建，纳入依赖会破坏"跳过初值"语义并重复触发
   }, [tick])
 }

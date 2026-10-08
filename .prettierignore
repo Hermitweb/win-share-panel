@@ -1,0 +1,9 @@
+node_modules/
+out/
+release/
+dist/
+coverage/
+.agent-teams/
+docs/
+*.md
+pnpm-lock.yaml

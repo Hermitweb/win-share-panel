@@ -6,7 +6,7 @@ import {
   TeamOutlined,
   ApiOutlined,
   SettingOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
 } from '@ant-design/icons'
 import TitleBar from './TitleBar'
 import HealthBar from './HealthBar'
@@ -22,10 +22,16 @@ const menus: MenuItem[] = [
   { path: '/shares', label: '共享管理', icon: <FolderOpenOutlined /> },
   { path: '/users', label: '用户权限', icon: <TeamOutlined /> },
   { path: '/sessions', label: '会话监控', icon: <ApiOutlined /> },
-  { path: '/settings', label: '服务配置', icon: <SettingOutlined /> }
+  { path: '/settings', label: '服务配置', icon: <SettingOutlined /> },
 ]
 
-export default function Layout({ children, onCommand }: { children: ReactNode; onCommand: () => void }) {
+export default function Layout({
+  children,
+  onCommand,
+}: {
+  children: ReactNode
+  onCommand: () => void
+}) {
   return (
     <div className="flex flex-col h-screen">
       <TitleBar />
@@ -39,7 +45,9 @@ export default function Layout({ children, onCommand }: { children: ReactNode; o
               end={m.path === '/'}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-btn text-sm transition-all ${
-                  isActive ? 'bg-white/70 text-primary shadow-card' : 'text-ink/70 hover:bg-white/40'
+                  isActive
+                    ? 'bg-white/70 text-primary shadow-card'
+                    : 'text-ink/70 hover:bg-white/40'
                 }`
               }
             >

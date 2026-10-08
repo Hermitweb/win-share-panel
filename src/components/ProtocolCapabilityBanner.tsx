@@ -137,7 +137,7 @@ export default function ProtocolCapabilityBanner({ protocol, refreshOnMount = fa
 
   // 选中「全部」时，列出所有未安装协议
   const uninstalled = (['nfs', 'ftp', 'webdav'] as Protocol[]).filter(
-    (p) => !protocolCaps[p]?.installed
+    (p) => !protocolCaps[p]?.installed,
   )
   if (uninstalled.length === 0) return null
 
@@ -176,4 +176,3 @@ export default function ProtocolCapabilityBanner({ protocol, refreshOnMount = fa
     />
   )
 }
-

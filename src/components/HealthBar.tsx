@@ -33,14 +33,14 @@ export default function HealthBar() {
         const [h, svc, caps] = await Promise.all([
           call(api.system.health),
           call(api.smb.serviceStatus),
-          call(api.protocol.detect).catch(() => null)
+          call(api.protocol.detect).catch(() => null),
         ])
         if (!mounted.current) return
         setHealth({
           ok: h.ok,
           detail: h.detail,
           serviceStatus: svc,
-          checkedAt: Date.now()
+          checkedAt: Date.now(),
         })
         if (caps) setProtocolCaps(caps)
       } catch {
@@ -60,7 +60,10 @@ export default function HealthBar() {
   const issues: Issue[] = []
   const svcRunning = health.serviceStatus?.status === 'Running'
   if (!svcRunning && health.serviceStatus) {
-    issues.push({ protocol: 'SMB', detail: `LanmanServer 服务异常：${health.serviceStatus.status}` })
+    issues.push({
+      protocol: 'SMB',
+      detail: `LanmanServer 服务异常：${health.serviceStatus.status}`,
+    })
   } else if (!health.ok) {
     issues.push({ protocol: 'SMB', detail: health.detail || 'SMB 健康检查失败' })
   }
@@ -70,7 +73,10 @@ export default function HealthBar() {
     ;(['nfs', 'ftp', 'webdav'] as Protocol[]).forEach((p) => {
       const cap = protocolCaps[p]
       if (cap?.installed && cap.serviceStatus === 'Stopped') {
-        issues.push({ protocol: p.toUpperCase(), detail: `${p.toUpperCase()} 服务未运行（${cap.serviceName}）` })
+        issues.push({
+          protocol: p.toUpperCase(),
+          detail: `${p.toUpperCase()} 服务未运行（${cap.serviceName}）`,
+        })
       }
     })
   }

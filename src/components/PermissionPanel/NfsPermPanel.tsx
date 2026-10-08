@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Space, Select, Input, Popconfirm, App, Tag, Empty, Spin, Tooltip } from 'antd'
+import {
+  Table,
+  Button,
+  Space,
+  Select,
+  Input,
+  Popconfirm,
+  App,
+  Tag,
+  Empty,
+  Spin,
+  Tooltip,
+} from 'antd'
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { api, call } from '../../api'
 import type { Share, SharePermission } from '../../types'
@@ -21,19 +33,19 @@ interface NfsClientPerm {
 
 const PERMISSION_OPTIONS: { label: string; value: NfsPermission }[] = [
   { label: '只读 (ro)', value: 'ro' },
-  { label: '读写 (rw)', value: 'rw' }
+  { label: '读写 (rw)', value: 'rw' },
 ]
 
 const TYPE_OPTIONS: { label: string; value: NfsType }[] = [
   { label: '允许', value: 'Allow' },
-  { label: '拒绝', value: 'Deny' }
+  { label: '拒绝', value: 'Deny' },
 ]
 
 function toClientPerm(p: SharePermission): NfsClientPerm {
   return {
     clientName: p.account,
     permission: p.access === 'Full' || p.access === 'Change' ? 'rw' : 'ro',
-    type: p.deny ? 'Deny' : 'Allow'
+    type: p.deny ? 'Deny' : 'Allow',
   }
 }
 
@@ -43,7 +55,7 @@ function toSharePerm(share: Share, c: NfsClientPerm): SharePermission {
     account: c.clientName,
     accountType: 'Group',
     access: c.permission === 'rw' ? 'Change' : 'Read',
-    deny: c.type === 'Deny'
+    deny: c.type === 'Deny',
   }
 }
 
@@ -70,6 +82,7 @@ export default function NfsPermPanel({ share }: Props) {
 
   useEffect(() => {
     load()
+    // 仅在切换共享时重载权限：load 引用每轮渲染变化，纳入依赖会无限循环
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [share.name])
 
@@ -127,7 +140,7 @@ export default function NfsPermPanel({ share }: Props) {
           onChange={(next) => handlePermChange(r.clientName, next)}
           style={{ width: 120 }}
         />
-      )
+      ),
     },
     {
       title: '类型',
@@ -141,24 +154,30 @@ export default function NfsPermPanel({ share }: Props) {
           onChange={(next) => handleTypeChange(r.clientName, next)}
           style={{ width: 90 }}
         />
-      )
+      ),
     },
     {
       title: '',
       width: 50,
       render: (_: unknown, r: NfsClientPerm) => (
         <Tooltip title="移除">
-          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleRemove(r.clientName)} />
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleRemove(r.clientName)}
+          />
         </Tooltip>
-      )
-    }
+      ),
+    },
   ]
 
   return (
     <Spin spinning={loading}>
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm text-fog">
-          NFS 基于客户端授权。客户端可为主机名、IP 或通配符（如 <code>*</code>、<code>192.168.1.0/24</code>）。保存时将覆盖现有规则。
+          NFS 基于客户端授权。客户端可为主机名、IP 或通配符（如 <code>*</code>、
+          <code>192.168.1.0/24</code>）。保存时将覆盖现有规则。
         </span>
         <Space>
           <Button size="small" icon={<ReloadOutlined />} onClick={load}>
@@ -194,7 +213,12 @@ export default function NfsPermPanel({ share }: Props) {
             options={PERMISSION_OPTIONS}
             style={{ width: 120 }}
           />
-          <Select value={newType} onChange={setNewType} options={TYPE_OPTIONS} style={{ width: 90 }} />
+          <Select
+            value={newType}
+            onChange={setNewType}
+            options={TYPE_OPTIONS}
+            style={{ width: 90 }}
+          />
           <Button icon={<PlusOutlined />} onClick={handleAdd}>
             添加
           </Button>

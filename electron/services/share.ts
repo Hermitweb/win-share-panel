@@ -1,14 +1,18 @@
-import { runPowerShell, runPowerShellVoid, psQuote, psBool, psNumber, psEnum, validateName, validatePath } from '../lib/powershell'
+import {
+  runPowerShell,
+  runPowerShellVoid,
+  psQuote,
+  psBool,
+  psNumber,
+  psEnum,
+  validateName,
+  validatePath,
+} from '../lib/powershell'
 import { Errors } from '../lib/errors'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import type {
-  Share,
-  CreateShareOpts,
-  UpdateShareOpts,
-  SharePermission
-} from '../types'
+import type { Share, CreateShareOpts, UpdateShareOpts, SharePermission } from '../types'
 
 // 枚举白名单（与 types.ts 声明一致），拼入命令前运行时校验，杜绝注入
 const CACHING_MODES = new Set(['None', 'Manual', 'Documents', 'Programs', 'BranchCache'])
@@ -32,7 +36,12 @@ interface RawShare {
   ShadowCopy?: boolean
 }
 
-const SHARE_TYPE_MAP: Record<number, Share['type']> = { 0: 'Disk', 1: 'IPC', 2: 'Printer', 3: 'Special' }
+const SHARE_TYPE_MAP: Record<number, Share['type']> = {
+  0: 'Disk',
+  1: 'IPC',
+  2: 'Printer',
+  3: 'Special',
+}
 
 function mapShare(r: RawShare): Share {
   return {
@@ -45,7 +54,7 @@ function mapShare(r: RawShare): Share {
     concurrentUsers: r.ConcurrentUsers || 0,
     status: 'Enabled',
     cached: !!r.Cached,
-    encrypted: !!r.Encrypted
+    encrypted: !!r.Encrypted,
   }
 }
 
@@ -101,7 +110,8 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
   if (opts.description) parts.push(`-Description ${psQuote(opts.description)}`)
   if (opts.encrypted || opts.encryptData) parts.push('-EncryptData $true')
   if (opts.fullAccess?.length) parts.push(`-FullAccess ${opts.fullAccess.map(psQuote).join(',')}`)
-  if (opts.changeAccess?.length) parts.push(`-ChangeAccess ${opts.changeAccess.map(psQuote).join(',')}`)
+  if (opts.changeAccess?.length)
+    parts.push(`-ChangeAccess ${opts.changeAccess.map(psQuote).join(',')}`)
   if (opts.readAccess?.length) parts.push(`-ReadAccess ${opts.readAccess.map(psQuote).join(',')}`)
   if (opts.noAccess?.length) parts.push(`-NoAccess ${opts.noAccess.map(psQuote).join(',')}`)
   // 高级选项（运行时类型校验，防止 IPC 传入非法值注入）
@@ -130,7 +140,7 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
     concurrentUserLimit: opts.concurrentUserLimit,
     cachingMode: opts.cachingMode,
     folderEnumerationMode: opts.folderEnumerationMode,
-    shareShadowCopy: opts.shareShadowCopy
+    shareShadowCopy: opts.shareShadowCopy,
   })
   console.log('[createShare:smb] PowerShell 命令:', cmd)
   try {
@@ -145,12 +155,12 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
     console.log('[createShare:smb] 尝试清理可能的孤儿共享...')
     await runPowerShellVoid(
       `try { Remove-SmbShare -Name ${psQuote(opts.name)} -Force -ErrorAction Stop } catch {}`,
-      { retries: 0 }
+      { retries: 0 },
     )
     // 验证清理结果
     const stillExists = await runPowerShell<string>(
       `try { Get-SmbShare -Name ${psQuote(opts.name)} -ErrorAction Stop | Select-Object -First 1 -ExpandProperty Name } catch {}`,
-      { retries: 0 }
+      { retries: 0 },
     ).catch(() => null)
     if (stillExists) {
       console.error('[createShare:smb] 孤儿共享清理失败！共享仍存在:', opts.name)
@@ -220,7 +230,7 @@ export async function toggleShare(name: string, enabled: boolean): Promise<void>
         encrypted: s.encrypted,
         concurrentUserLimit: advanced.concurrentUserLimit,
         cachingMode: advanced.cachingMode,
-        folderEnumerationMode: advanced.folderEnumerationMode
+        folderEnumerationMode: advanced.folderEnumerationMode,
       })
       writeDisabled(list)
     }
@@ -241,7 +251,7 @@ export async function toggleShare(name: string, enabled: boolean): Promise<void>
       encrypted: r.encrypted,
       concurrentUserLimit: r.concurrentUserLimit,
       cachingMode: r.cachingMode,
-      folderEnumerationMode: r.folderEnumerationMode
+      folderEnumerationMode: r.folderEnumerationMode,
     })
     // 补回 deny 条目（New-SmbShare 仅支持 allow 列表，deny 需 Block-SmbShareAccess）
     const deny = r.permissions.filter((p) => p.deny && p.account)
@@ -249,7 +259,7 @@ export async function toggleShare(name: string, enabled: boolean): Promise<void>
       try {
         await runPowerShellVoid(
           `Block-SmbShareAccess -Name ${psQuote(r.name)} -AccountName ${psQuote(p.account)} -Force`,
-          { retries: 0 }
+          { retries: 0 },
         )
       } catch {
         // best-effort：单个 deny 失败不阻断恢复
@@ -261,9 +271,7 @@ export async function toggleShare(name: string, enabled: boolean): Promise<void>
 }
 
 // 读取 SMB 共享的高级选项（用于禁用/恢复时保留配置）
-async function getShareAdvanced(
-  name: string
-): Promise<{
+async function getShareAdvanced(name: string): Promise<{
   concurrentUserLimit?: number
   cachingMode?: CreateShareOpts['cachingMode']
   folderEnumerationMode?: CreateShareOpts['folderEnumerationMode']
@@ -271,7 +279,7 @@ async function getShareAdvanced(
   try {
     const raw = await runPowerShell<RawShare>(
       `Get-SmbShare -Name ${psQuote(name)} | Select-Object ConcurrentUserLimit, CachingMode, FolderEnumerationMode`,
-      { retries: 0 }
+      { retries: 0 },
     )
     return {
       concurrentUserLimit:
@@ -279,11 +287,10 @@ async function getShareAdvanced(
           ? raw.ConcurrentUserLimit
           : undefined,
       // 经白名单校验，确保仅合法枚举值回填（同时收敛为联合类型）
-      cachingMode: psEnum(raw?.CachingMode, CACHING_MODES) as CreateShareOpts['cachingMode'] | undefined,
-      folderEnumerationMode: psEnum(
-        raw?.FolderEnumerationMode,
-        FOLDER_ENUM_MODES
-      ) as CreateShareOpts['folderEnumerationMode'] | undefined
+      cachingMode: psEnum(raw?.CachingMode, CACHING_MODES) as
+        CreateShareOpts['cachingMode'] | undefined,
+      folderEnumerationMode: psEnum(raw?.FolderEnumerationMode, FOLDER_ENUM_MODES) as
+        CreateShareOpts['folderEnumerationMode'] | undefined,
     }
   } catch {
     return {}
@@ -299,7 +306,7 @@ export async function getSharePermissions(name: string): Promise<SharePermission
     account: x.AccountName,
     accountType: x.AccountType === 1 ? 'User' : 'Group',
     access: x.AccessRight === 0 ? 'Full' : x.AccessRight === 1 ? 'Change' : 'Read',
-    deny: x.AccessControlType === 1
+    deny: x.AccessControlType === 1,
   }))
 }
 
@@ -311,17 +318,17 @@ export async function getShareConnections(name: string): Promise<{
   if (!validateName(name)) throw Errors.invalidParam('共享名非法')
   try {
     const raw = await runPowerShell<any[]>(
-      `Get-SmbConnection | Where-Object { $_.ShareName -eq ${psQuote(name)} } | Select-Object ClientUserName, ClientComputerName`
+      `Get-SmbConnection | Where-Object { $_.ShareName -eq ${psQuote(name)} } | Select-Object ClientUserName, ClientComputerName`,
     )
     const arr = Array.isArray(raw) ? raw : [raw]
     const clientConnections = arr.map((c) => ({
       clientUserName: c.ClientUserName || '',
       clientComputerName: c.ClientComputerName || '',
-      openFiles: 0
+      openFiles: 0,
     }))
     return {
       concurrentUsers: clientConnections.length,
-      clientConnections
+      clientConnections,
     }
   } catch {
     return { concurrentUsers: 0, clientConnections: [] }
@@ -341,7 +348,7 @@ export async function getShareOpenFiles(name: string): Promise<
   if (!validateName(name)) throw Errors.invalidParam('共享名非法')
   try {
     const raw = await runPowerShell<any[]>(
-      `Get-SmbOpenFile | Where-Object { $_.Path -like ${psQuote(`*${name}*`)} } | Select-Object FileId, Path, ClientUserName, ClientComputerName, LockCount`
+      `Get-SmbOpenFile | Where-Object { $_.Path -like ${psQuote(`*${name}*`)} } | Select-Object FileId, Path, ClientUserName, ClientComputerName, LockCount`,
     )
     const arr = Array.isArray(raw) ? raw : [raw]
     return arr.map((f) => ({
@@ -349,7 +356,7 @@ export async function getShareOpenFiles(name: string): Promise<
       path: f.Path || '',
       clientUserName: f.ClientUserName || '',
       clientComputerName: f.ClientComputerName || '',
-      lockCount: Number(f.LockCount) || 0
+      lockCount: Number(f.LockCount) || 0,
     }))
   } catch {
     return []
@@ -357,7 +364,9 @@ export async function getShareOpenFiles(name: string): Promise<
 }
 
 // 关闭共享上的所有打开文件
-export async function closeShareOpenFiles(name: string): Promise<{ closed: number; failed: number }> {
+export async function closeShareOpenFiles(
+  name: string,
+): Promise<{ closed: number; failed: number }> {
   if (!validateName(name)) throw Errors.invalidParam('共享名非法')
   try {
     const files = await getShareOpenFiles(name)
@@ -388,9 +397,24 @@ export async function exportConfig(): Promise<string> {
   return JSON.stringify({ exportedAt: new Date().toISOString(), shares: configs }, null, 2)
 }
 
-export async function importConfig(json: string): Promise<{ imported: number; skipped: number; errors: string[] }> {
-  const data = JSON.parse(json)
+export async function importConfig(
+  json: string,
+): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  // R-1 导入护栏：超大内容先行拒绝、非法 JSON 友好报错。
+  // V8 的 JSON.parse 为迭代实现无深栈溢出风险，嵌套深度由总量上限兜底。
+  if (typeof json !== 'string' || json.length > 2 * 1024 * 1024) {
+    throw Errors.invalidParam('导入内容不合法或超过 2MB 上限')
+  }
+  let data: { shares?: any[] }
+  try {
+    data = JSON.parse(json)
+  } catch {
+    throw Errors.invalidParam('导入文件格式错误：JSON 解析失败')
+  }
   if (!data.shares || !Array.isArray(data.shares)) throw Errors.invalidParam('导入文件格式错误')
+  if (data.shares.length > 500) {
+    throw Errors.invalidParam('导入条目超过 500 上限，请拆分后分批导入')
+  }
   let imported = 0
   let skipped = 0
   const errors: string[] = []
@@ -402,10 +426,24 @@ export async function importConfig(json: string): Promise<{ imported: number; sk
       continue
     }
     try {
-      const full = (s.permissions || []).filter((p: SharePermission) => p.access === 'Full' && !p.deny).map((p: SharePermission) => p.account)
-      const change = (s.permissions || []).filter((p: SharePermission) => p.access === 'Change' && !p.deny).map((p: SharePermission) => p.account)
-      const read = (s.permissions || []).filter((p: SharePermission) => p.access === 'Read' && !p.deny).map((p: SharePermission) => p.account)
-      await createShare({ name: s.name, path: s.path, description: s.description, fullAccess: full, changeAccess: change, readAccess: read, encrypted: s.encrypted })
+      const full = (s.permissions || [])
+        .filter((p: SharePermission) => p.access === 'Full' && !p.deny)
+        .map((p: SharePermission) => p.account)
+      const change = (s.permissions || [])
+        .filter((p: SharePermission) => p.access === 'Change' && !p.deny)
+        .map((p: SharePermission) => p.account)
+      const read = (s.permissions || [])
+        .filter((p: SharePermission) => p.access === 'Read' && !p.deny)
+        .map((p: SharePermission) => p.account)
+      await createShare({
+        name: s.name,
+        path: s.path,
+        description: s.description,
+        fullAccess: full,
+        changeAccess: change,
+        readAccess: read,
+        encrypted: s.encrypted,
+      })
       imported++
     } catch (e) {
       skipped++

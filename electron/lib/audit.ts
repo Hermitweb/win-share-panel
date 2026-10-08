@@ -30,14 +30,21 @@ export function audit(
   action: string,
   target: string,
   result: 'success' | 'failure',
-  detail?: string
+  detail?: string,
 ): void {
   try {
     const dir = logDir()
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     const file = logFile()
     if (existsSync(file) && statSync(file).size > MAX_SIZE) rotate(file)
-    const record: AuditRecord = { ts: new Date().toISOString(), operator, action, target, result, detail }
+    const record: AuditRecord = {
+      ts: new Date().toISOString(),
+      operator,
+      action,
+      target,
+      result,
+      detail,
+    }
     appendFileSync(file, JSON.stringify(record) + '\n', 'utf8')
   } catch {
     // 审计失败不影响主流程

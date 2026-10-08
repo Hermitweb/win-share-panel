@@ -19,7 +19,7 @@ export function defaultConfig(): NfsServerConfig {
     directoryCacheExpiry: 60,
     // 身份映射（只读）
     anonymousUid: -2,
-    anonymousGid: -2
+    anonymousGid: -2,
   }
 }
 
@@ -35,14 +35,21 @@ export async function getConfig(): Promise<NfsServerConfig> {
       gatewayCharacterSet: raw.GatewayCharacterSet || 'ANSI',
       protocolVersion: raw.ProtocolVersion || '4.1',
       // 连接与超时（best-effort：旧版 Windows 可能无此字段，降级为默认值）
-      tcpConnectionTimeout: raw.TcpConnectionTimeout !== undefined ? Number(raw.TcpConnectionTimeout) : 240,
-      udpConnectionTimeout: raw.UdpConnectionTimeout !== undefined ? Number(raw.UdpConnectionTimeout) : 240,
-      restartConnectionTimeout: raw.RestartConnectionTimeout !== undefined ? Number(raw.RestartConnectionTimeout) : 60,
-      maxConcurrentConnectionsPerUser: raw.MaxConcurrentConnectionsPerUser !== undefined ? Number(raw.MaxConcurrentConnectionsPerUser) : 0,
-      directoryCacheExpiry: raw.DirectoryCacheExpiry !== undefined ? Number(raw.DirectoryCacheExpiry) : 60,
+      tcpConnectionTimeout:
+        raw.TcpConnectionTimeout !== undefined ? Number(raw.TcpConnectionTimeout) : 240,
+      udpConnectionTimeout:
+        raw.UdpConnectionTimeout !== undefined ? Number(raw.UdpConnectionTimeout) : 240,
+      restartConnectionTimeout:
+        raw.RestartConnectionTimeout !== undefined ? Number(raw.RestartConnectionTimeout) : 60,
+      maxConcurrentConnectionsPerUser:
+        raw.MaxConcurrentConnectionsPerUser !== undefined
+          ? Number(raw.MaxConcurrentConnectionsPerUser)
+          : 0,
+      directoryCacheExpiry:
+        raw.DirectoryCacheExpiry !== undefined ? Number(raw.DirectoryCacheExpiry) : 60,
       // 身份映射（只读）
       anonymousUid: raw.AnonymousUid !== undefined ? Number(raw.AnonymousUid) : -2,
-      anonymousGid: raw.AnonymousGid !== undefined ? Number(raw.AnonymousGid) : -2
+      anonymousGid: raw.AnonymousGid !== undefined ? Number(raw.AnonymousGid) : -2,
     }
   } catch {
     // NFS 未装：返回默认配置，避免 Settings Tab 弹错
@@ -51,12 +58,15 @@ export async function getConfig(): Promise<NfsServerConfig> {
 }
 
 export async function setConfig(config: Partial<NfsServerConfig>): Promise<void> {
+  // 刻意不写回 gatewayCharacterSet / protocolVersion / anonymousUid / anonymousGid：
+  // 这些是服务器只读状态（types.ts 标"只读"；UI 位于"身份映射 / 网关信息（只读）"分区且 Input disabled；
+  // Set-NfsServerConfiguration 亦不接受这些参数）。静默跳过是正确语义而非遗漏（审计 M-1 复核结论）。
   const parts = ['Set-NfsServerConfiguration']
   const map: Record<string, string> = {
     gracefulUnmount: 'GracefulUnmount',
     logActivity: 'LogActivity',
     enableUnmappedAccess: 'EnableUnmappedAccess',
-    enableAuthenticationRenegotiation: 'EnableAuthenticationRenegotiation'
+    enableAuthenticationRenegotiation: 'EnableAuthenticationRenegotiation',
   }
   // 布尔字段：运行时类型校验，防止 IPC 传入非法值注入
   for (const key of Object.keys(map)) {
@@ -70,7 +80,7 @@ export async function setConfig(config: Partial<NfsServerConfig>): Promise<void>
     ['udpConnectionTimeout', 'UdpConnectionTimeout'],
     ['restartConnectionTimeout', 'RestartConnectionTimeout'],
     ['maxConcurrentConnectionsPerUser', 'MaxConcurrentConnectionsPerUser'],
-    ['directoryCacheExpiry', 'DirectoryCacheExpiry']
+    ['directoryCacheExpiry', 'DirectoryCacheExpiry'],
   ]
   for (const [k, psName] of numFields) {
     const n = psNumber(config[k])
@@ -94,7 +104,7 @@ async function getNfsServiceName(): Promise<string | null> {
   try {
     const raw = await runPowerShell<string>(
       "@('NfsService','NfsClnt') | ForEach-Object { Get-Service -Name $_ -ErrorAction SilentlyContinue } | Where-Object { $_ } | Select-Object -First 1 -ExpandProperty Name",
-      { retries: 0 }
+      { retries: 0 },
     )
     return raw ? String(raw).trim() : null
   } catch {
@@ -109,7 +119,7 @@ export async function getServiceStatus(): Promise<ServiceStatus> {
   }
   try {
     const raw = await runPowerShell<any>(
-      `Get-Service ${name} -ErrorAction SilentlyContinue | Select-Object Name, Status, StartType`
+      `Get-Service ${name} -ErrorAction SilentlyContinue | Select-Object Name, Status, StartType`,
     )
     if (!raw || !raw.Name) {
       return { name, status: 'Unknown', startType: 'Unknown' }
@@ -139,12 +149,12 @@ export async function restartService(): Promise<void> {
   const name = await getNfsServiceName()
   if (!name) {
     throw Errors.commandFailed(
-      'NFS 服务未安装。请在「共享管理」页 NFS Tab 按引导安装 NFS 角色后重试'
+      'NFS 服务未安装。请在「共享管理」页 NFS Tab 按引导安装 NFS 角色后重试',
     )
   }
   try {
     await runPowerShellVoid(`Restart-Service -Name ${name} -Force -ErrorAction Stop`, {
-      retries: 0
+      retries: 0,
     })
   } catch (e) {
     const msg = (e as Error).message || ''
@@ -174,7 +184,7 @@ export async function stopService(): Promise<void> {
   }
   try {
     await runPowerShellVoid(`Stop-Service -Name ${name} -Force -ErrorAction Stop`, {
-      retries: 0
+      retries: 0,
     })
   } catch (e) {
     throw Errors.commandFailed(`停止 NFS 服务失败：${(e as Error).message.slice(0, 200)}`)

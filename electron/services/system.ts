@@ -22,7 +22,7 @@ export async function isAdmin(): Promise<boolean> {
   try {
     const r = await runPowerShell<boolean>(
       '(New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)',
-      { retries: 0 }
+      { retries: 0 },
     )
     return !!r
   } catch {
@@ -39,10 +39,10 @@ export async function relaunchAsAdmin(): Promise<void> {
   const exePath = process.execPath
   try {
     // Start-Process -Verb RunAs 触发 UAC 提示；新进程启动成功后当前实例退出
-    await runPowerShellVoid(
-      `Start-Process -FilePath ${psQuote(exePath)} -Verb RunAs`,
-      { retries: 0, timeout: 30000 }
-    )
+    await runPowerShellVoid(`Start-Process -FilePath ${psQuote(exePath)} -Verb RunAs`, {
+      retries: 0,
+      timeout: 30000,
+    })
     // 给新实例一点启动时间后退出当前实例
     setTimeout(() => app.quit(), 500)
   } catch (e) {
@@ -59,7 +59,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       runPowerShell<any[]>('Get-SmbSession').catch(() => []),
       runPowerShell<any[]>('Get-SmbOpenFile').catch(() => []),
       adapterSessions('nfs').catch(() => []),
-      getServiceStatus()
+      getServiceStatus(),
     ])
 
   const allShares = allSharesResult.status === 'fulfilled' ? allSharesResult.value : []
@@ -68,7 +68,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     smb: { shares: 0, sessions: 0 },
     nfs: { shares: 0, sessions: 0 },
     ftp: { shares: 0, sessions: 0 },
-    webdav: { shares: 0, sessions: 0 }
+    webdav: { shares: 0, sessions: 0 },
   }
   for (const s of allShares) {
     if (byProtocol[s.protocol]) byProtocol[s.protocol].shares++
@@ -94,7 +94,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 
   // SMB 服务状态
-  const svc = svcResult.status === 'fulfilled' ? svcResult.value : { status: 'Unknown' as const, name: '', startType: '' as const }
+  const svc =
+    svcResult.status === 'fulfilled'
+      ? svcResult.value
+      : { status: 'Unknown' as const, name: '', startType: '' as const }
   const serviceStatus: DashboardStats['serviceStatus'] = svc.status
 
   const topShares = allShares
@@ -110,7 +113,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     openFiles,
     serviceStatus,
     topShares,
-    byProtocol
+    byProtocol,
   }
 }
 

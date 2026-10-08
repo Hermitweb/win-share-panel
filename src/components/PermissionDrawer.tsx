@@ -11,7 +11,7 @@ import {
   App,
   Tag,
   Empty,
-  Spin
+  Spin,
 } from 'antd'
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { api, call } from '../api'
@@ -38,21 +38,14 @@ const ACCESS_OPTIONS: { label: string; value: AccessChoice }[] = [
   { label: '完全控制', value: 'Full' },
   { label: '更改', value: 'Change' },
   { label: '只读', value: 'Read' },
-  { label: '拒绝', value: 'Deny' }
+  { label: '拒绝', value: 'Deny' },
 ]
-
-const ACCESS_COLOR: Record<AccessChoice, string> = {
-  Full: 'blue',
-  Change: 'purple',
-  Read: 'default',
-  Deny: 'red'
-}
 
 function toRow(p: SharePermission): PermRow {
   return {
     account: p.account,
     accountType: p.accountType,
-    access: p.deny || p.access === 'NoAccess' ? 'Deny' : p.access
+    access: p.deny || p.access === 'NoAccess' ? 'Deny' : p.access,
   }
 }
 
@@ -62,7 +55,7 @@ function toPerm(share: Share, r: PermRow): SharePermission {
     account: r.account,
     accountType: r.accountType,
     access: r.access === 'Deny' ? 'NoAccess' : r.access,
-    deny: r.access === 'Deny'
+    deny: r.access === 'Deny',
   }
 }
 
@@ -97,12 +90,9 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
     try {
       const [users, groups] = await Promise.all([
         call(api.user.list).catch(() => [] as LocalUser[]),
-        call(api.user.groups).catch(() => [] as LocalGroup[])
+        call(api.user.groups).catch(() => [] as LocalGroup[]),
       ])
-      setCandidates([
-        ...users.map((u) => u.name),
-        ...groups.map((g) => g.name)
-      ])
+      setCandidates([...users.map((u) => u.name), ...groups.map((g) => g.name)])
     } catch {
       // 静默
     }
@@ -129,6 +119,7 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
       loadCandidates()
       setNtfs(null)
     }
+    // 仅在抽屉打开/切换共享时加载：loadPerms/loadCandidates 引用每轮渲染变化，纳入依赖会无限循环
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, share])
 
@@ -177,7 +168,7 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
       width: 90,
       render: (v: 'User' | 'Group') => (
         <Tag color={v === 'User' ? 'blue' : 'purple'}>{v === 'User' ? '用户' : '组'}</Tag>
-      )
+      ),
     },
     {
       title: '权限',
@@ -191,15 +182,20 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
           onChange={(next) => handleAccessChange(r.account, next)}
           style={{ width: 110 }}
         />
-      )
+      ),
     },
     {
       title: '',
       width: 50,
       render: (_: unknown, r: PermRow) => (
-        <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleRemove(r.account)} />
-      )
-    }
+        <Button
+          size="small"
+          danger
+          icon={<DeleteOutlined />}
+          onClick={() => handleRemove(r.account)}
+        />
+      ),
+    },
   ]
 
   const ntfsColumns = [
@@ -209,14 +205,16 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
       title: '类型',
       dataIndex: 'type',
       width: 80,
-      render: (v: 'Allow' | 'Deny') => <Tag color={v === 'Allow' ? 'blue' : 'red'}>{v === 'Allow' ? '允许' : '拒绝'}</Tag>
+      render: (v: 'Allow' | 'Deny') => (
+        <Tag color={v === 'Allow' ? 'blue' : 'red'}>{v === 'Allow' ? '允许' : '拒绝'}</Tag>
+      ),
     },
     {
       title: '继承',
       dataIndex: 'inherited',
       width: 70,
-      render: (v: boolean) => (v ? <Tag>继承</Tag> : <Tag color="default">显式</Tag>)
-    }
+      render: (v: boolean) => (v ? <Tag>继承</Tag> : <Tag color="default">显式</Tag>),
+    },
   ]
 
   return (
@@ -229,8 +227,8 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
       styles={{
         body: {
           background: 'rgba(255,255,255,0.75)',
-          backdropFilter: 'blur(16px)'
-        }
+          backdropFilter: 'blur(16px)',
+        },
       }}
     >
       {share?.protocol === 'nfs' && share ? (
@@ -240,102 +238,102 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
       ) : share?.protocol === 'webdav' && share ? (
         <WebdavPermPanel share={share} />
       ) : (
-      <Tabs
-        items={[
-          {
-            key: 'share',
-            label: '共享权限',
-            children: (
-              <Spin spinning={loading}>
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm text-fog">
-                    修改后点击「保存」生效。Deny 优先于其他权限。
-                  </span>
-                  <Space>
-                    <Button size="small" icon={<ReloadOutlined />} onClick={loadPerms}>
-                      重新加载
-                    </Button>
-                    <Popconfirm title="确认覆盖当前权限？" onConfirm={handleSave}>
-                      <Button size="small" type="primary" loading={saving}>
-                        保存
+        <Tabs
+          items={[
+            {
+              key: 'share',
+              label: '共享权限',
+              children: (
+                <Spin spinning={loading}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-sm text-fog">
+                      修改后点击「保存」生效。Deny 优先于其他权限。
+                    </span>
+                    <Space>
+                      <Button size="small" icon={<ReloadOutlined />} onClick={loadPerms}>
+                        重新加载
                       </Button>
-                    </Popconfirm>
-                  </Space>
-                </div>
-                <Table
-                  dataSource={rows}
-                  rowKey="account"
-                  columns={sharePermColumns}
-                  pagination={false}
-                  size="small"
-                  locale={{ emptyText: <Empty description="暂无权限条目" /> }}
-                />
-                <div className="mt-4 p-3 rounded-card bg-white/60">
-                  <div className="text-xs text-fog mb-2">添加账号</div>
-                  <Space wrap>
-                    <Input
-                      placeholder="账号名"
-                      value={newAccount}
-                      onChange={(e) => setNewAccount(e.target.value)}
-                      style={{ width: 180 }}
-                    />
-                    <Select
-                      value={newType}
-                      onChange={setNewType}
-                      options={[
-                        { label: '用户', value: 'User' },
-                        { label: '组', value: 'Group' }
-                      ]}
-                      style={{ width: 90 }}
-                    />
-                    <Select
-                      value={newAccess}
-                      onChange={setNewAccess}
-                      options={ACCESS_OPTIONS}
-                      style={{ width: 110 }}
-                    />
-                    <Button icon={<PlusOutlined />} onClick={handleAdd}>
-                      添加
-                    </Button>
-                  </Space>
-                  {candidates.length > 0 && (
-                    <div className="mt-2 text-xs text-fog">
-                      常用账号：{candidates.slice(0, 12).join('、')}
-                      {candidates.length > 12 ? ' 等' : ''}
-                    </div>
-                  )}
-                </div>
-              </Spin>
-            )
-          },
-          {
-            key: 'ntfs',
-            label: 'NTFS 权限',
-            children: (
-              <Spin spinning={ntfsLoading}>
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm text-fog break-all">路径：{share?.path}</span>
-                  <Button size="small" icon={<ReloadOutlined />} onClick={loadNtfs}>
-                    加载
-                  </Button>
-                </div>
-                {ntfs ? (
+                      <Popconfirm title="确认覆盖当前权限？" onConfirm={handleSave}>
+                        <Button size="small" type="primary" loading={saving}>
+                          保存
+                        </Button>
+                      </Popconfirm>
+                    </Space>
+                  </div>
                   <Table
-                    dataSource={ntfs.entries as NtfsAclEntry[]}
-                    rowKey={(r) => `${r.account}-${r.rights}-${r.type}`}
-                    columns={ntfsColumns}
+                    dataSource={rows}
+                    rowKey="account"
+                    columns={sharePermColumns}
                     pagination={false}
                     size="small"
-                    locale={{ emptyText: <Empty description="无 ACL 条目" /> }}
+                    locale={{ emptyText: <Empty description="暂无权限条目" /> }}
                   />
-                ) : (
-                  <Empty description="点击「加载」查看 NTFS ACL（只读）" />
-                )}
-              </Spin>
-            )
-          }
-        ]}
-      />
+                  <div className="mt-4 p-3 rounded-card bg-white/60">
+                    <div className="text-xs text-fog mb-2">添加账号</div>
+                    <Space wrap>
+                      <Input
+                        placeholder="账号名"
+                        value={newAccount}
+                        onChange={(e) => setNewAccount(e.target.value)}
+                        style={{ width: 180 }}
+                      />
+                      <Select
+                        value={newType}
+                        onChange={setNewType}
+                        options={[
+                          { label: '用户', value: 'User' },
+                          { label: '组', value: 'Group' },
+                        ]}
+                        style={{ width: 90 }}
+                      />
+                      <Select
+                        value={newAccess}
+                        onChange={setNewAccess}
+                        options={ACCESS_OPTIONS}
+                        style={{ width: 110 }}
+                      />
+                      <Button icon={<PlusOutlined />} onClick={handleAdd}>
+                        添加
+                      </Button>
+                    </Space>
+                    {candidates.length > 0 && (
+                      <div className="mt-2 text-xs text-fog">
+                        常用账号：{candidates.slice(0, 12).join('、')}
+                        {candidates.length > 12 ? ' 等' : ''}
+                      </div>
+                    )}
+                  </div>
+                </Spin>
+              ),
+            },
+            {
+              key: 'ntfs',
+              label: 'NTFS 权限',
+              children: (
+                <Spin spinning={ntfsLoading}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-sm text-fog break-all">路径：{share?.path}</span>
+                    <Button size="small" icon={<ReloadOutlined />} onClick={loadNtfs}>
+                      加载
+                    </Button>
+                  </div>
+                  {ntfs ? (
+                    <Table
+                      dataSource={ntfs.entries as NtfsAclEntry[]}
+                      rowKey={(r) => `${r.account}-${r.rights}-${r.type}`}
+                      columns={ntfsColumns}
+                      pagination={false}
+                      size="small"
+                      locale={{ emptyText: <Empty description="无 ACL 条目" /> }}
+                    />
+                  ) : (
+                    <Empty description="点击「加载」查看 NTFS ACL（只读）" />
+                  )}
+                </Spin>
+              ),
+            },
+          ]}
+        />
       )}
     </Drawer>
   )

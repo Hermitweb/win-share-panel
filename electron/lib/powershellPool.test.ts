@@ -22,7 +22,7 @@ class FakeWorkerHandle extends EventEmitter implements WorkerHandle {
       write(chunk, _enc, cb) {
         self.written.push(chunk.toString())
         cb()
-      }
+      },
     })
   }
   get stdin(): Writable {
@@ -172,9 +172,9 @@ describe('PowerShellPool', () => {
     await Promise.race([
       p.then(
         () => (settled = true),
-        () => (settled = true)
+        () => (settled = true),
       ),
-      new Promise((r) => setTimeout(r, 30))
+      new Promise((r) => setTimeout(r, 30)),
     ])
     expect(settled).toBe(false)
     // 补齐 ERR_END → reject，消息为 ERR 与 ERR_END 之间的全部文本
@@ -201,7 +201,7 @@ describe('PowerShellPool', () => {
     const h = handles[0]
     // 模拟进程意外退出
     h.simulateExit(1)
-    const err = await p.catch((e: Error) => e)
+    const err = (await p.catch((e: Error) => e)) as Error
     expect(err.message).toBe('PowerShell 进程意外退出，请重试')
     // 错误消息含"重试"→ isRetryable 匹配 → runPowerShell 会换新 worker 重试
     expect(/重试|timed out|ECONNRESET/i.test(err.message)).toBe(true)
@@ -263,7 +263,9 @@ describe('PowerShellPool', () => {
     expect(handles[1].killed).toBe(true)
 
     // shutdown 后 execute 立即拒绝
-    await expect(pool.execute('after', 'JSON', { timeout: 5000 })).rejects.toThrow('PowerShell 进程池已关闭')
+    await expect(pool.execute('after', 'JSON', { timeout: 5000 })).rejects.toThrow(
+      'PowerShell 进程池已关闭',
+    )
   })
 
   it('残余字节处理：OK 标记后的杂散字节不污染下一条命令（assign 清空 buffer）', async () => {

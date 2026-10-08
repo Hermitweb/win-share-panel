@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // vi.hoisted 确保 mock 变量在 vi.mock 工厂函数（被提升到文件顶部）执行时可用
-const { mockedRunPowerShell, mockedAdapterList, mockedAdapterSessions, mockedGetServiceStatus } = vi.hoisted(() => ({
-  mockedRunPowerShell: vi.fn(),
-  mockedAdapterList: vi.fn(),
-  mockedAdapterSessions: vi.fn(),
-  mockedGetServiceStatus: vi.fn()
-}))
+const { mockedRunPowerShell, mockedAdapterList, mockedAdapterSessions, mockedGetServiceStatus } =
+  vi.hoisted(() => ({
+    mockedRunPowerShell: vi.fn(),
+    mockedAdapterList: vi.fn(),
+    mockedAdapterSessions: vi.fn(),
+    mockedGetServiceStatus: vi.fn(),
+  }))
 
 vi.mock('../lib/powershell', () => ({
   runPowerShell: mockedRunPowerShell,
@@ -14,21 +15,23 @@ vi.mock('../lib/powershell', () => ({
   psQuote: (v: string) => `'${v}'`,
   psBool: (v: unknown) => (typeof v === 'boolean' ? `$${v}` : null),
   psNumber: (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? String(v) : null),
-  psEnum: (v: unknown, allowed: ReadonlySet<string>) => (typeof v === 'string' && allowed.has(v) ? v : null),
+  psEnum: (v: unknown, allowed: ReadonlySet<string>) =>
+    typeof v === 'string' && allowed.has(v) ? v : null,
   validateName: (v: string) => !!v && v.length <= 80,
+  // eslint-disable-next-line no-control-regex -- 镜像实现：\u0000-\u001f 显式排除控制字符是校验语义本身
   validatePath: (v: string) => /^[A-Za-z]:[\\/]([^\u0000-\u001f<>:"|?*][^<>:"|?*]*)*$/.test(v),
-  psEscapeSingle: (v: string) => v.replace(/'/g, "''")
+  psEscapeSingle: (v: string) => v.replace(/'/g, "''"),
 }))
 
 // Mock adapterList / adapterSessions（从 protocol/registry）
 vi.mock('./protocol/registry', () => ({
   adapterList: mockedAdapterList,
-  adapterSessions: mockedAdapterSessions
+  adapterSessions: mockedAdapterSessions,
 }))
 
 // Mock getServiceStatus（从 ./smb）
 vi.mock('./smb', () => ({
-  getServiceStatus: mockedGetServiceStatus
+  getServiceStatus: mockedGetServiceStatus,
 }))
 
 // Mock electron app（relaunchAsAdmin 引用，但 getDashboardStats 不用）
@@ -38,12 +41,20 @@ vi.mock('electron', () => ({ app: { isPackaged: false, quit: vi.fn() } }))
 vi.mock('../lib/audit', () => ({ readAuditLog: vi.fn().mockResolvedValue('') }))
 
 import { getDashboardStats } from './system'
-import type { Share, ServiceStatus } from '../types'
+import type { Share } from '../types'
 
 function makeShare(name: string, protocol: Share['protocol'], users = 0): Share {
   return {
-    name, protocol, path: `C:\\${name}`, description: '', type: 'Disk',
-    hidden: false, encrypted: false, concurrentUsers: users, status: 'Enabled', cached: false
+    name,
+    protocol,
+    path: `C:\\${name}`,
+    description: '',
+    type: 'Disk',
+    hidden: false,
+    encrypted: false,
+    concurrentUsers: users,
+    status: 'Enabled',
+    cached: false,
   }
 }
 
@@ -58,7 +69,7 @@ describe('getDashboardStats - 并行化与容错', () => {
       makeShare('s2', 'smb', 2),
       makeShare('n1', 'nfs', 1),
       makeShare('f1', 'ftp'),
-      makeShare('w1', 'webdav', 3)
+      makeShare('w1', 'webdav', 3),
     ]
     mockedAdapterList.mockResolvedValue(shares)
     mockedRunPowerShell.mockImplementation((cmd: string) => {
@@ -67,7 +78,11 @@ describe('getDashboardStats - 并行化与容错', () => {
       return Promise.resolve([])
     })
     mockedAdapterSessions.mockResolvedValue([{ sessionId: 'n1' }, { sessionId: 'n2' }])
-    mockedGetServiceStatus.mockResolvedValue({ name: 'LanmanServer', status: 'Running', startType: 'Automatic' })
+    mockedGetServiceStatus.mockResolvedValue({
+      name: 'LanmanServer',
+      status: 'Running',
+      startType: 'Automatic',
+    })
 
     const stats = await getDashboardStats()
 
@@ -115,7 +130,11 @@ describe('getDashboardStats - 并行化与容错', () => {
     mockedAdapterList.mockRejectedValue(new Error('全部协议失败'))
     mockedRunPowerShell.mockResolvedValue([{ id: 1 }])
     mockedAdapterSessions.mockResolvedValue([])
-    mockedGetServiceStatus.mockResolvedValue({ name: 'LanmanServer', status: 'Running', startType: 'Automatic' })
+    mockedGetServiceStatus.mockResolvedValue({
+      name: 'LanmanServer',
+      status: 'Running',
+      startType: 'Automatic',
+    })
 
     const stats = await getDashboardStats()
 
@@ -134,7 +153,11 @@ describe('getDashboardStats - 并行化与容错', () => {
       return Promise.resolve([])
     })
     mockedAdapterSessions.mockResolvedValue([])
-    mockedGetServiceStatus.mockResolvedValue({ name: 'LanmanServer', status: 'Stopped', startType: 'Manual' })
+    mockedGetServiceStatus.mockResolvedValue({
+      name: 'LanmanServer',
+      status: 'Stopped',
+      startType: 'Manual',
+    })
 
     const stats = await getDashboardStats()
 
@@ -161,7 +184,11 @@ describe('getDashboardStats - 并行化与容错', () => {
       return Promise.resolve([])
     })
     mockedAdapterSessions.mockRejectedValue(new Error('NFS 未装'))
-    mockedGetServiceStatus.mockResolvedValue({ name: 'LanmanServer', status: 'Running', startType: 'Automatic' })
+    mockedGetServiceStatus.mockResolvedValue({
+      name: 'LanmanServer',
+      status: 'Running',
+      startType: 'Automatic',
+    })
 
     const stats = await getDashboardStats()
 
@@ -187,7 +214,7 @@ describe('getDashboardStats - 并行化与容错', () => {
       smb: { shares: 0, sessions: 0 },
       nfs: { shares: 0, sessions: 0 },
       ftp: { shares: 0, sessions: 0 },
-      webdav: { shares: 0, sessions: 0 }
+      webdav: { shares: 0, sessions: 0 },
     })
   })
 
@@ -195,7 +222,7 @@ describe('getDashboardStats - 并行化与容错', () => {
     mockedAdapterList.mockResolvedValue([
       makeShare('normal', 'smb'),
       { ...makeShare('ADMIN$', 'smb'), type: 'Special' },
-      { ...makeShare('IPC$', 'smb'), type: 'IPC' }
+      { ...makeShare('IPC$', 'smb'), type: 'IPC' },
     ])
     mockedRunPowerShell.mockResolvedValue([])
     mockedAdapterSessions.mockResolvedValue([])

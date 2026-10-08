@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    # 与 release.yml 同为 windows-latest：本仓库是 Windows 控制面板（PowerShell/注册表语义）
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        # 不指定 version：pnpm/action-setup 读取 package.json 的 packageManager（pnpm@9.12.0），
+        # 与本地/lockfile（v9.0，由 pnpm 9 生成）保持单一真相源，消除版本漂移（audit E-2）
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 满足 package.json engines.node >=20；与 release.yml 的 Node 22 一致
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        # lockfile 与 package.json 已由 E1-E4 对齐，CI 强制可重现安装
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Format check
+        run: pnpm run format:check
+
+      - name: Test (with coverage gate)
+        run: pnpm run test:coverage

@@ -11,14 +11,14 @@ import {
   Spin,
   Input,
   InputNumber,
-  Collapse
+  Collapse,
 } from 'antd'
 import {
   ReloadOutlined,
   PoweroffOutlined,
   UndoOutlined,
   CaretRightOutlined,
-  PauseOutlined
+  PauseOutlined,
 } from '@ant-design/icons'
 import { api, call } from '../api'
 import type { NfsServerConfig, ServiceStatus } from '../types'
@@ -30,7 +30,6 @@ import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
 // 仅在已安装 NFS 角色时可用；未安装时显示降级提示
 export default function NfsSettingsPanel() {
   const { message } = App.useApp()
-  const [config, setConfig] = useState<Partial<NfsServerConfig>>({})
   const [svc, setSvc] = useState<ServiceStatus | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -46,9 +45,8 @@ export default function NfsSettingsPanel() {
     try {
       const [c, s] = await Promise.all([
         call(api.nfs.getConfig) as Promise<NfsServerConfig>,
-        call(api.nfs.serviceStatus)
+        call(api.nfs.serviceStatus),
       ])
-      setConfig(c)
       setSvc(s)
       form.setFieldsValue(c)
     } catch (e) {
@@ -139,7 +137,6 @@ export default function NfsSettingsPanel() {
       const def = (await call(api.nfs.restoreDefault)) as NfsServerConfig
       message.success('已恢复默认配置')
       form.setFieldsValue(def)
-      setConfig(def)
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -215,7 +212,7 @@ export default function NfsSettingsPanel() {
                       <InputNumber min={0} max={65535} />
                     </Form.Item>
                   </div>
-                )
+                ),
               },
               {
                 key: 'readonly',
@@ -235,8 +232,8 @@ export default function NfsSettingsPanel() {
                       <Input disabled style={{ width: 160 }} />
                     </Form.Item>
                   </div>
-                )
-              }
+                ),
+              },
             ]}
           />
 
@@ -280,15 +277,18 @@ export default function NfsSettingsPanel() {
                 {
                   key: 'st',
                   label: '服务状态',
-                  children: <Tag color={svc.status === 'Running' ? 'green' : 'red'}>{svc.status}</Tag>
+                  children: (
+                    <Tag color={svc.status === 'Running' ? 'green' : 'red'}>{svc.status}</Tag>
+                  ),
                 },
                 { key: 'srt', label: '启动类型', children: svc.startType || '-' },
-                { key: 'sn', label: '服务名', children: svc.name }
+                { key: 'sn', label: '服务名', children: svc.name },
               ]}
             />
           )}
           <div className="mt-3 text-xs text-fog">
-            NFS 服务器配置修改后通常即时生效，部分参数需重启服务。客户端能力检测与共享管理见「共享管理」页。
+            NFS
+            服务器配置修改后通常即时生效，部分参数需重启服务。客户端能力检测与共享管理见「共享管理」页。
           </div>
         </Form>
       </div>

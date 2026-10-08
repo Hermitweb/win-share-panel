@@ -165,7 +165,8 @@ export interface FtpServerConfig {
   // 目录浏览
   showVirtualDirs: boolean
   // 用户隔离
-  userIsolationMode: 'None' | 'StartInUsersDirectory' | 'IsolateUsers' | 'IsolateUsersWithoutAD' | 'ActiveDirectory'
+  userIsolationMode:
+    'None' | 'StartInUsersDirectory' | 'IsolateUsers' | 'IsolateUsersWithoutAD' | 'ActiveDirectory'
   // 连接超时（秒）
   unauthenticatedTimeout: number
   controlConnectionTimeout: number // 默认 300

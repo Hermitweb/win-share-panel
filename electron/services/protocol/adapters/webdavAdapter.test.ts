@@ -5,7 +5,7 @@ vi.mock('../../../lib/powershell', async (importOriginal) => {
   return {
     ...actual,
     runPowerShell: vi.fn(),
-    runPowerShellVoid: vi.fn()
+    runPowerShellVoid: vi.fn(),
   }
 })
 vi.mock('../../webdav', () => ({
@@ -15,7 +15,7 @@ vi.mock('../../webdav', () => ({
   getConfig: vi.fn(),
   setConfig: vi.fn(),
   defaultConfig: vi.fn(),
-  restoreDefault: vi.fn()
+  restoreDefault: vi.fn(),
 }))
 
 import { webdavAdapter } from './webdavAdapter'
@@ -43,15 +43,17 @@ describe('webdavAdapter', () => {
       // 验证清理 Get-Website
       mockedRunPowerShell.mockResolvedValueOnce(null as any)
 
-      await expect(webdavAdapter.createShare({
-        name: 'testwebdav',
-        path: 'C:\\webdav',
-        protocol: 'webdav',
-        port: 80
-      } as any)).rejects.toThrow('已自动清理孤儿站点')
+      await expect(
+        webdavAdapter.createShare({
+          name: 'testwebdav',
+          path: 'C:\\webdav',
+          protocol: 'webdav',
+          port: 80,
+        } as any),
+      ).rejects.toThrow('已自动清理孤儿站点')
 
-      const cleanupCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('Remove-Website')
+      const cleanupCalls = mockedRunPowerShellVoid.mock.calls.filter(([cmd]) =>
+        cmd.includes('Remove-Website'),
       )
       expect(cleanupCalls.length).toBeGreaterThan(0)
     })
@@ -64,19 +66,23 @@ describe('webdavAdapter', () => {
       // 清理 Remove-Website
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
 
-      await expect(webdavAdapter.createShare({
-        name: 'testwebdav',
-        path: 'C:\\webdav',
-        protocol: 'webdav'
-      } as any)).rejects.toThrow('WebDAV authoring 启用失败')
+      await expect(
+        webdavAdapter.createShare({
+          name: 'testwebdav',
+          path: 'C:\\webdav',
+          protocol: 'webdav',
+        } as any),
+      ).rejects.toThrow('WebDAV authoring 启用失败')
     })
 
     it('无效站点名 → 抛出参数错误', async () => {
-      await expect(webdavAdapter.createShare({
-        name: 'test;rm',
-        path: 'C:\\webdav',
-        protocol: 'webdav'
-      } as any)).rejects.toThrow('站点名非法')
+      await expect(
+        webdavAdapter.createShare({
+          name: 'test;rm',
+          path: 'C:\\webdav',
+          protocol: 'webdav',
+        } as any),
+      ).rejects.toThrow('站点名非法')
     })
   })
 
@@ -89,25 +95,28 @@ describe('webdavAdapter', () => {
       // Set anonymousAuthentication
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
       // fetchSite 返回站点
-      mockedRunPowerShell.mockResolvedValueOnce([{
-        Name: 'testwebdav',
-        State: 'Started',
-        PhysicalPath: 'C:\\webdav',
-        Port: 80,
-        AuthoringEnabled: true,
-        AnonymousEnabled: true
-      }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'testwebdav',
+          State: 'Started',
+          PhysicalPath: 'C:\\webdav',
+          Port: 80,
+          AuthoringEnabled: true,
+          AnonymousEnabled: true,
+        },
+      ] as any)
 
-      const result = await webdavAdapter.createShare({
+      await webdavAdapter.createShare({
         name: 'testwebdav',
         path: 'C:\\webdav',
         protocol: 'webdav',
-        anonymousEnabled: true
+        anonymousEnabled: true,
       } as any)
 
       // 验证 Set-WebConfigurationProperty 被调用
       const setCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('Set-WebConfigurationProperty') && cmd.includes('anonymousAuthentication')
+        ([cmd]) =>
+          cmd.includes('Set-WebConfigurationProperty') && cmd.includes('anonymousAuthentication'),
       )
       expect(setCalls.length).toBe(1)
       expect(setCalls[0][0]).toContain('$true')
@@ -121,25 +130,27 @@ describe('webdavAdapter', () => {
       // Set anonymousAuthentication (psBool(false) = '$false', if(anon) 是 truthy)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
       // fetchSite 返回站点
-      mockedRunPowerShell.mockResolvedValueOnce([{
-        Name: 'testwebdav',
-        State: 'Started',
-        PhysicalPath: 'C:\\webdav',
-        Port: 80,
-        AuthoringEnabled: true,
-        AnonymousEnabled: false
-      }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'testwebdav',
+          State: 'Started',
+          PhysicalPath: 'C:\\webdav',
+          Port: 80,
+          AuthoringEnabled: true,
+          AnonymousEnabled: false,
+        },
+      ] as any)
 
       await webdavAdapter.createShare({
         name: 'testwebdav',
         path: 'C:\\webdav',
         protocol: 'webdav',
-        anonymousEnabled: false
+        anonymousEnabled: false,
       } as any)
 
       // 验证 Set-WebConfigurationProperty 被调用，且值为 $false
-      const setCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('anonymousAuthentication')
+      const setCalls = mockedRunPowerShellVoid.mock.calls.filter(([cmd]) =>
+        cmd.includes('anonymousAuthentication'),
       )
       expect(setCalls.length).toBe(1)
       expect(setCalls[0][0]).toContain('$false')
@@ -151,24 +162,26 @@ describe('webdavAdapter', () => {
       // enableAuthoring 返回 true
       mockedRunPowerShell.mockResolvedValueOnce(true as any)
       // fetchSite 返回站点
-      mockedRunPowerShell.mockResolvedValueOnce([{
-        Name: 'testwebdav',
-        State: 'Started',
-        PhysicalPath: 'C:\\webdav',
-        Port: 80,
-        AuthoringEnabled: true,
-        AnonymousEnabled: false
-      }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'testwebdav',
+          State: 'Started',
+          PhysicalPath: 'C:\\webdav',
+          Port: 80,
+          AuthoringEnabled: true,
+          AnonymousEnabled: false,
+        },
+      ] as any)
 
       await webdavAdapter.createShare({
         name: 'testwebdav',
         path: 'C:\\webdav',
-        protocol: 'webdav'
+        protocol: 'webdav',
       } as any)
 
       // 无 anonymousAuthentication 的 Set 调用
-      const setCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('anonymousAuthentication')
+      const setCalls = mockedRunPowerShellVoid.mock.calls.filter(([cmd]) =>
+        cmd.includes('anonymousAuthentication'),
       )
       expect(setCalls).toHaveLength(0)
     })
@@ -177,20 +190,20 @@ describe('webdavAdapter', () => {
   describe('toggleShare - 存在性检查', () => {
     it('站点不存在 → 抛出 shareNotFound', async () => {
       mockedRunPowerShell.mockResolvedValueOnce(null as any)
-      await expect(webdavAdapter.toggleShare('nonexistent', true)).rejects.toThrow('不存在')
+      await expect(webdavAdapter.toggleShare!('nonexistent', true)).rejects.toThrow('不存在')
     })
 
     it('站点存在 → 执行 Start-Website', async () => {
       mockedRunPowerShell.mockResolvedValueOnce('test' as any)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
-      await webdavAdapter.toggleShare('test', true)
+      await webdavAdapter.toggleShare!('test', true)
       expect(mockedRunPowerShellVoid.mock.calls[0][0]).toContain('Start-Website')
     })
 
     it('站点存在 → 执行 Stop-Website', async () => {
       mockedRunPowerShell.mockResolvedValueOnce('test' as any)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
-      await webdavAdapter.toggleShare('test', false)
+      await webdavAdapter.toggleShare!('test', false)
       expect(mockedRunPowerShellVoid.mock.calls[0][0]).toContain('Stop-Website')
     })
   })
@@ -211,7 +224,7 @@ describe('webdavAdapter', () => {
 
   describe('toggleShare - 无效名验证', () => {
     it('无效站点名 → 抛出参数错误', async () => {
-      await expect(webdavAdapter.toggleShare('test;rm', true)).rejects.toThrow('站点名非法')
+      await expect(webdavAdapter.toggleShare!('test;rm', true)).rejects.toThrow('站点名非法')
     })
   })
 
@@ -219,7 +232,7 @@ describe('webdavAdapter', () => {
     it('部分授予失败 → 回滚到备份权限', async () => {
       // getPermissions (备份) → 1 条已有
       mockedRunPowerShell.mockResolvedValueOnce([
-        { Users: 'olduser', Roles: '', Path: '*', Access: 'Read' }
+        { Users: 'olduser', Roles: '', Path: '*', Access: 'Read' },
       ] as any)
       // Clear
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
@@ -228,18 +241,30 @@ describe('webdavAdapter', () => {
       // Add baduser (失败)
       mockedRunPowerShellVoid.mockRejectedValueOnce(new Error('配置节锁定'))
       // getPermissions (回滚前)
-      mockedRunPowerShell.mockResolvedValueOnce([{ Users: 'user1', Roles: '', Path: '*', Access: 'Read' }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        { Users: 'user1', Roles: '', Path: '*', Access: 'Read' },
+      ] as any)
       // Clear (回滚清空)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
       // Restore backup
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
       // getPermissions (回滚后)
-      mockedRunPowerShell.mockResolvedValueOnce([{ Users: 'olduser', Roles: '', Path: '*', Access: 'Read' }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        { Users: 'olduser', Roles: '', Path: '*', Access: 'Read' },
+      ] as any)
 
-      await expect(webdavAdapter.setPermissions('test', [
-        { shareName: 'test', account: 'user1', accountType: 'User', access: 'Read', deny: false },
-        { shareName: 'test', account: 'baduser', accountType: 'User', access: 'Change', deny: false }
-      ])).rejects.toThrow('部分权限授予失败')
+      await expect(
+        webdavAdapter.setPermissions!('test', [
+          { shareName: 'test', account: 'user1', accountType: 'User', access: 'Read', deny: false },
+          {
+            shareName: 'test',
+            account: 'baduser',
+            accountType: 'User',
+            access: 'Change',
+            deny: false,
+          },
+        ]),
+      ).rejects.toThrow('部分权限授予失败')
     })
 
     it('全部成功 → 无回滚', async () => {
@@ -247,12 +272,12 @@ describe('webdavAdapter', () => {
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined) // Clear
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined) // Add user1
 
-      await webdavAdapter.setPermissions('test', [
-        { shareName: 'test', account: 'user1', accountType: 'User', access: 'Read', deny: false }
+      await webdavAdapter.setPermissions!('test', [
+        { shareName: 'test', account: 'user1', accountType: 'User', access: 'Read', deny: false },
       ])
 
-      const clearCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('Clear-WebConfiguration')
+      const clearCalls = mockedRunPowerShellVoid.mock.calls.filter(([cmd]) =>
+        cmd.includes('Clear-WebConfiguration'),
       )
       expect(clearCalls).toHaveLength(1)
     })
@@ -260,26 +285,28 @@ describe('webdavAdapter', () => {
 
   describe('updateShare - 边界用例', () => {
     it('无效站点名 → 抛出参数错误', async () => {
-      await expect(webdavAdapter.updateShare('test;rm', {} as any)).rejects.toThrow('站点名非法')
+      await expect(webdavAdapter.updateShare!('test;rm', {} as any)).rejects.toThrow('站点名非法')
     })
 
     it('anonymousEnabled=true → Set-WebConfigurationProperty 调用 $true', async () => {
       // Set anonymousAuthentication
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
       // fetchSite → 返回站点
-      mockedRunPowerShell.mockResolvedValueOnce([{
-        Name: 'test',
-        State: 'Started',
-        PhysicalPath: 'C:\\webdav',
-        Port: 80,
-        AuthoringEnabled: true,
-        AnonymousEnabled: true
-      }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'test',
+          State: 'Started',
+          PhysicalPath: 'C:\\webdav',
+          Port: 80,
+          AuthoringEnabled: true,
+          AnonymousEnabled: true,
+        },
+      ] as any)
 
-      await webdavAdapter.updateShare('test', { anonymousEnabled: true } as any)
+      await webdavAdapter.updateShare!('test', { anonymousEnabled: true } as any)
 
-      const setCall = mockedRunPowerShellVoid.mock.calls.find(
-        ([cmd]) => cmd.includes('anonymousAuthentication')
+      const setCall = mockedRunPowerShellVoid.mock.calls.find(([cmd]) =>
+        cmd.includes('anonymousAuthentication'),
       )
       expect(setCall).toBeDefined()
       expect(setCall![0]).toContain('$true')
@@ -289,19 +316,21 @@ describe('webdavAdapter', () => {
       // psBool(false) = '$false'（truthy 字符串），if(anon) 为真 → 执行 Set
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
       // fetchSite
-      mockedRunPowerShell.mockResolvedValueOnce([{
-        Name: 'test',
-        State: 'Started',
-        PhysicalPath: 'C:\\webdav',
-        Port: 80,
-        AuthoringEnabled: true,
-        AnonymousEnabled: false
-      }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'test',
+          State: 'Started',
+          PhysicalPath: 'C:\\webdav',
+          Port: 80,
+          AuthoringEnabled: true,
+          AnonymousEnabled: false,
+        },
+      ] as any)
 
-      await webdavAdapter.updateShare('test', { anonymousEnabled: false } as any)
+      await webdavAdapter.updateShare!('test', { anonymousEnabled: false } as any)
 
-      const setCall = mockedRunPowerShellVoid.mock.calls.find(
-        ([cmd]) => cmd.includes('anonymousAuthentication')
+      const setCall = mockedRunPowerShellVoid.mock.calls.find(([cmd]) =>
+        cmd.includes('anonymousAuthentication'),
       )
       expect(setCall).toBeDefined()
       expect(setCall![0]).toContain('$false')
@@ -309,20 +338,22 @@ describe('webdavAdapter', () => {
 
     it('anonymousEnabled=undefined → 跳过匿名配置，直接 fetchSite', async () => {
       // 无 PSV 调用，直接 fetchSite
-      mockedRunPowerShell.mockResolvedValueOnce([{
-        Name: 'test',
-        State: 'Started',
-        PhysicalPath: 'C:\\webdav',
-        Port: 80,
-        AuthoringEnabled: true,
-        AnonymousEnabled: false
-      }] as any)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'test',
+          State: 'Started',
+          PhysicalPath: 'C:\\webdav',
+          Port: 80,
+          AuthoringEnabled: true,
+          AnonymousEnabled: false,
+        },
+      ] as any)
 
-      await webdavAdapter.updateShare('test', {} as any)
+      await webdavAdapter.updateShare!('test', {} as any)
 
       // 无 anonymousAuthentication 的 Set 调用
-      const setCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('anonymousAuthentication')
+      const setCalls = mockedRunPowerShellVoid.mock.calls.filter(([cmd]) =>
+        cmd.includes('anonymousAuthentication'),
       )
       expect(setCalls).toHaveLength(0)
     })
@@ -330,45 +361,45 @@ describe('webdavAdapter', () => {
     it('fetchSite 返回 null → 抛出 shareNotFound', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([] as any)
 
-      await expect(webdavAdapter.updateShare('nonexistent', {} as any)).rejects.toThrow('不存在')
+      await expect(webdavAdapter.updateShare!('nonexistent', {} as any)).rejects.toThrow('不存在')
     })
   })
 
   describe('getPermissions - 权限映射', () => {
     it('Access=Read → Read', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([
-        { Users: 'user1', Roles: '', Path: '*', Access: 'Read' }
+        { Users: 'user1', Roles: '', Path: '*', Access: 'Read' },
       ] as any)
 
-      const result = await webdavAdapter.getPermissions('test')
+      const result = await webdavAdapter.getPermissions!('test')
       expect(result[0].access).toBe('Read')
       expect(result[0].accountType).toBe('User')
     })
 
     it('Access=Write → Change', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([
-        { Users: 'user1', Roles: '', Path: '*', Access: 'Write' }
+        { Users: 'user1', Roles: '', Path: '*', Access: 'Write' },
       ] as any)
 
-      const result = await webdavAdapter.getPermissions('test')
+      const result = await webdavAdapter.getPermissions!('test')
       expect(result[0].access).toBe('Change')
     })
 
     it('Access=Source → Full', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([
-        { Users: 'user1', Roles: '', Path: '*', Access: 'Source' }
+        { Users: 'user1', Roles: '', Path: '*', Access: 'Source' },
       ] as any)
 
-      const result = await webdavAdapter.getPermissions('test')
+      const result = await webdavAdapter.getPermissions!('test')
       expect(result[0].access).toBe('Full')
     })
 
     it('Roles（无 Users）→ Group', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([
-        { Users: '', Roles: 'Admins', Path: '*', Access: 'Read,Write,Source' }
+        { Users: '', Roles: 'Admins', Path: '*', Access: 'Read,Write,Source' },
       ] as any)
 
-      const result = await webdavAdapter.getPermissions('test')
+      const result = await webdavAdapter.getPermissions!('test')
       expect(result[0].accountType).toBe('Group')
       expect(result[0].account).toBe('Admins')
       expect(result[0].access).toBe('Full')
@@ -376,12 +407,12 @@ describe('webdavAdapter', () => {
 
     it('空结果 → 返回空数组', async () => {
       mockedRunPowerShell.mockResolvedValueOnce([] as any)
-      const result = await webdavAdapter.getPermissions('test')
+      const result = await webdavAdapter.getPermissions!('test')
       expect(result).toEqual([])
     })
 
     it('无效站点名 → 抛出参数错误', async () => {
-      await expect(webdavAdapter.getPermissions('test;rm')).rejects.toThrow('站点名非法')
+      await expect(webdavAdapter.getPermissions!('test;rm')).rejects.toThrow('站点名非法')
     })
   })
 
@@ -394,12 +425,12 @@ describe('webdavAdapter', () => {
       // Add (成功)
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
 
-      await webdavAdapter.setPermissions('test', [
-        { shareName: 'test', account: 'Admins', accountType: 'Group', access: 'Full', deny: false }
+      await webdavAdapter.setPermissions!('test', [
+        { shareName: 'test', account: 'Admins', accountType: 'Group', access: 'Full', deny: false },
       ])
 
-      const addCmd = mockedRunPowerShellVoid.mock.calls.find(
-        ([cmd]) => cmd.includes('Add-WebConfiguration')
+      const addCmd = mockedRunPowerShellVoid.mock.calls.find(([cmd]) =>
+        cmd.includes('Add-WebConfiguration'),
       )![0]
       expect(addCmd).toContain("roles='Admins'")
       expect(addCmd).not.toContain('users=')
@@ -413,14 +444,14 @@ describe('webdavAdapter', () => {
       // Clear
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
 
-      await webdavAdapter.setPermissions('test', [])
+      await webdavAdapter.setPermissions!('test', [])
 
-      const addCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('Add-WebConfiguration')
+      const addCalls = mockedRunPowerShellVoid.mock.calls.filter(([cmd]) =>
+        cmd.includes('Add-WebConfiguration'),
       )
       expect(addCalls).toHaveLength(0)
-      const clearCalls = mockedRunPowerShellVoid.mock.calls.filter(
-        ([cmd]) => cmd.includes('Clear-WebConfiguration')
+      const clearCalls = mockedRunPowerShellVoid.mock.calls.filter(([cmd]) =>
+        cmd.includes('Clear-WebConfiguration'),
       )
       expect(clearCalls).toHaveLength(1)
     })

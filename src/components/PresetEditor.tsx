@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Modal, Form, Input, Button, Table, Select, Switch, Space, Tag, App, Popconfirm, Tooltip, Empty } from 'antd'
 import {
-  PlusOutlined,
-  DeleteOutlined,
-  CopyOutlined,
-  SaveOutlined
-} from '@ant-design/icons'
+  Modal,
+  Form,
+  Input,
+  Button,
+  Table,
+  Select,
+  Switch,
+  Space,
+  Tag,
+  App,
+  Tooltip,
+  Empty,
+} from 'antd'
+import { PlusOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons'
 import { api, call } from '../api'
 import type { PermissionPreset, PresetEntry, LocalUser, LocalGroup } from '../types'
 
@@ -19,14 +27,14 @@ interface Props {
 const ACCESS_OPTIONS = [
   { label: '完全控制', value: 'Full' },
   { label: '更改', value: 'Change' },
-  { label: '只读', value: 'Read' }
+  { label: '只读', value: 'Read' },
 ]
 
 // 内置账号占位符
 const PLACEHOLDER_ACCOUNTS = [
   { name: '{Everyone}', label: '所有人 (Everyone)', type: 'Group' as const },
   { name: '{Administrators}', label: '管理员组 (Administrators)', type: 'Group' as const },
-  { name: '{CurrentUser}', label: '当前用户 (CurrentUser)', type: 'User' as const }
+  { name: '{CurrentUser}', label: '当前用户 (CurrentUser)', type: 'User' as const },
 ]
 
 export default function PresetEditor({ open, preset, onClose, onSuccess }: Props) {
@@ -34,7 +42,9 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
   const [form] = Form.useForm()
   const [entries, setEntries] = useState<PresetEntry[]>([])
   const [saving, setSaving] = useState(false)
-  const [candidates, setCandidates] = useState<{ name: string; label: string; type: 'User' | 'Group' }[]>([])
+  const [candidates, setCandidates] = useState<
+    { name: string; label: string; type: 'User' | 'Group' }[]
+  >([])
   const [newAccount, setNewAccount] = useState('')
   const [newType, setNewType] = useState<'User' | 'Group'>('User')
   const [newAccess, setNewAccess] = useState<PresetEntry['access']>('Read')
@@ -45,7 +55,7 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
       form.setFieldsValue({
         name: preset.name,
         description: preset.description,
-        category: preset.category || '自定义'
+        category: preset.category || '自定义',
       })
       setEntries(preset.entries ? preset.entries.map((e) => ({ ...e })) : [])
       setNewAccount('')
@@ -62,16 +72,22 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
       try {
         const [users, groups] = await Promise.all([
           call(api.user.list).catch(() => [] as LocalUser[]),
-          call(api.user.groups).catch(() => [] as LocalGroup[])
+          call(api.user.groups).catch(() => [] as LocalGroup[]),
         ])
         const list: { name: string; label: string; type: 'User' | 'Group' }[] = [
           ...PLACEHOLDER_ACCOUNTS.map((p) => ({ name: p.name, label: p.label, type: p.type })),
-          ...users.map((u) => ({ name: u.name, label: `${u.name}${u.fullName ? ` (${u.fullName})` : ''}`, type: 'User' as const })),
-          ...groups.map((g) => ({ name: g.name, label: `${g.name} (组)`, type: 'Group' as const }))
+          ...users.map((u) => ({
+            name: u.name,
+            label: `${u.name}${u.fullName ? ` (${u.fullName})` : ''}`,
+            type: 'User' as const,
+          })),
+          ...groups.map((g) => ({ name: g.name, label: `${g.name} (组)`, type: 'Group' as const })),
         ]
         setCandidates(list)
       } catch {
-        setCandidates(PLACEHOLDER_ACCOUNTS.map((p) => ({ name: p.name, label: p.label, type: p.type })))
+        setCandidates(
+          PLACEHOLDER_ACCOUNTS.map((p) => ({ name: p.name, label: p.label, type: p.type })),
+        )
       }
     }
     loadCandidates()
@@ -88,7 +104,7 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
       account: newAccount.trim(),
       accountType: newType,
       access: newAccess,
-      deny: newDeny
+      deny: newDeny,
     }
     if (idx >= 0) {
       const next = [...entries]
@@ -129,7 +145,7 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
           category: v.category || '自定义',
           entries,
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         }
         await call(() => api.preset.save(newPreset))
         message.success('已基于内置模板创建自定义模板')
@@ -139,8 +155,8 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
             name: v.name,
             description: v.description || '',
             category: v.category || '自定义',
-            entries
-          })
+            entries,
+          }),
         )
         message.success('模板已更新')
       }
@@ -163,8 +179,8 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
         api.preset.update(dup.id, {
           description: v.description || '',
           category: v.category || '自定义',
-          entries
-        })
+          entries,
+        }),
       )
       message.success('已另存为新模板')
       onSuccess()
@@ -181,12 +197,8 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
       width: 180,
       render: (v: string) => {
         const placeholder = PLACEHOLDER_ACCOUNTS.find((p) => p.name === v)
-        return placeholder ? (
-          <Tag color="blue">{placeholder.label}</Tag>
-        ) : (
-          <span>{v}</span>
-        )
-      }
+        return placeholder ? <Tag color="blue">{placeholder.label}</Tag> : <span>{v}</span>
+      },
     },
     {
       title: '类型',
@@ -199,11 +211,11 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
           style={{ width: 90 }}
           options={[
             { label: '用户', value: 'User' },
-            { label: '组', value: 'Group' }
+            { label: '组', value: 'Group' },
           ]}
           onChange={(val) => handleEntryChange(r.account, 'accountType', val)}
         />
-      )
+      ),
     },
     {
       title: '权限',
@@ -218,7 +230,7 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
           onChange={(val) => handleEntryChange(r.account, 'access', val)}
           disabled={r.deny}
         />
-      )
+      ),
     },
     {
       title: '拒绝',
@@ -230,23 +242,32 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
           checked={!!v}
           onChange={(val) => handleEntryChange(r.account, 'deny', val)}
         />
-      )
+      ),
     },
     {
       title: '',
       width: 60,
       render: (_: unknown, r: PresetEntry) => (
         <Tooltip title="移除">
-          <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleRemoveEntry(r.account)} />
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleRemoveEntry(r.account)}
+          />
         </Tooltip>
-      )
-    }
+      ),
+    },
   ]
 
   return (
     <Modal
       open={open}
-      title={preset?.builtIn ? `查看/复制内置模板：${preset?.name ?? ''}` : `编辑模板：${preset?.name ?? ''}`}
+      title={
+        preset?.builtIn
+          ? `查看/复制内置模板：${preset?.name ?? ''}`
+          : `编辑模板：${preset?.name ?? ''}`
+      }
       onCancel={onClose}
       onOk={handleSave}
       okText={preset?.builtIn ? '另存为自定义' : '保存'}
@@ -272,7 +293,7 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
             label="模板名"
             rules={[
               { required: true, message: '请输入模板名' },
-              { max: 40, message: '模板名不能超过 40 字符' }
+              { max: 40, message: '模板名不能超过 40 字符' },
             ]}
           >
             <Input disabled={preset?.builtIn} placeholder="如 部门只读" />
@@ -311,7 +332,7 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
               style={{ width: 90 }}
               options={[
                 { label: '用户', value: 'User' },
-                { label: '组', value: 'Group' }
+                { label: '组', value: 'Group' },
               ]}
             />
             <Select
