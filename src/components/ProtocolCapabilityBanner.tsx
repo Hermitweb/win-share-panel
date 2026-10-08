@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Alert, Button, App, Space, Tag } from 'antd'
 import { api, call } from '../api'
 import { useUiStore } from '../stores/uiStore'
+import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 import type { Protocol, ProtocolFeatureState } from '../types'
 
 interface Props {
@@ -20,27 +21,11 @@ export default function ProtocolCapabilityBanner({ protocol, refreshOnMount = fa
   const { message } = App.useApp()
   const activeProtocol = useUiStore((s) => s.activeProtocol)
   const protocolCaps = useUiStore((s) => s.protocolCaps)
+  // 安装成功后需主动刷新缓存（区别于 hook 的挂载探测）
   const setProtocolCaps = useUiStore((s) => s.setProtocolCaps)
   const [installing, setInstalling] = useState<Protocol | null>(null)
 
-  useEffect(() => {
-    // refreshOnMount=true 时强制重新检测；否则仅在无缓存时检测
-    if (protocolCaps && !refreshOnMount) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const result = await call(api.protocol.detect)
-        if (!cancelled) setProtocolCaps(result)
-      } catch {
-        // 检测失败静默，不影响主流程
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-    // 仅在挂载时执行：refreshOnMount 触发一次刷新，避免 protocolCaps 变化导致循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useEnsureProtocolCaps({ refreshOnMount })
 
   if (!protocolCaps) return null
 

@@ -53,6 +53,12 @@
 
 仍为开放项（P3，建议后续专项）：M-2~M-5、M-7（注释/可读性级）；R-3~R-5、R-6、R-7（组件抽象/错误分类透传/死样式）；R-8（react-hooks set-state-in-effect 数据获取模式重构，见 eslint.config.mjs 留档）；F-1/F-3/F-4（IPC 逐字段校验、提权路径单测、渲染层入参守卫）。组件级 jsdom 测试基建亦未引入（见 t8 取舍记录）。
 
+### P3 第二批（2026-06 追加，Captain 直改 + 六门禁复验）
+
+已闭环：**M-2/M-3/M-4/M-6**（快照链注释、池空闲杂散输出丢弃+回归测试、crypto token、恢复报错场景化）、**R-3/R-4 + R-5(部分)**（useEnsureProtocolCaps 统一 Dashboard/Banner/三面板五处探测）、**R-6**（api.call 透传 code/category + 2 用例）、**R-7**（死样式清理：tailwind 5 项 + CSS 变量 6 项，逐项引用扫描取证，build 复验）、**F-1/F-4**（IPC 逐字段形状守卫，仅拒畸形不改合法语义）、**F-3**（含空格路径 psQuote 单测）；M-5/M-7 原判即"维持现状"，随批次关闭。
+
+开放项收敛为三项专项：**R-8** 数据获取模式重构（26 处挂载 fetch → defer/React Query，完成后复启 set-state-in-effect）；**R-5 全量** 三 PermPanel/三 SettingsPanel 表单级抽象；**jsdom 组件测试基建**（t8 取舍留档）。
+
 ## 4. 执行摘要（给决策者的话）
 
 审计未发现任何可被利用的安全漏洞；代码分层、事务补偿、生命周期管理、注入防护均达到生产级。真正需要"工程化/规范化"的是：把本地已通过的 typecheck/test 固化为 **CI 门禁**（ESLint/Prettier + 测试 + 覆盖率），并解决 **本地 pnpm9/Node24 与 CI pnpm11/Node22 的版本漂移**（否则 CI 可能用不同工具链重建 lockfile，破坏可重现构建）。这两项落地后，项目即达到"提交即门禁、可重现发布"的工程化标准。

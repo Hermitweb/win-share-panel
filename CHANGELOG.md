@@ -20,6 +20,18 @@
 - 全库未使用导入/只写不读死状态清理（lint 归零过程，行为不变；R-2/E-7）
 - `.gitignore` 补充 `.agent-teams/`（E-8）
 
+### 🔧 P3 收尾 / Follow-ups（2026-06 第二批）
+
+- **M-3** 进程池空闲期杂散 stdout 直接丢弃：防止 buffer 无限累积与伪造协议标记窗口，附回归测试
+- **M-4** 池协议 token 改用 `crypto.randomBytes`（加密安全随机源）
+- **M-2/M-6** SMB 快照链语义注释留档（restoreDefault 正常快照）；共享恢复失败信息场景化（"恢复共享X失败"）
+- **R-4/R-5(部分)** 抽取 `useEnsureProtocolCaps` 统一协议探测逻辑（Dashboard / Banner / 三 SettingsPanel 五处 → 一处），保留各消费方失败降级语义（面板 onDetectFailure→未装渲染）
+- **F-1/F-4** IPC 边界逐字段形状守卫（share/user/group:create、update、preset:save、四 setConfig）：对象/文本长度/控制字符/布尔类型畸形输入在边界拒绝；合法语义（DOMAIN\user、口令任意字符集）不受影响
+- **R-6** `api.call` 透传 AppError 的 `code`/`category`（Electron 不支持该属性过桥时行为等价），附 2 用例
+- **R-7** 死样式清理：tailwind 移除 primary-light/secondary/accent/backdropBlur.glass/shadow-hover，`:root` 移除 6 个零引用 CSS 变量（类名与 var() 引用逐项扫描取证）；build 复验通过
+- **F-3** relaunchAsAdmin 含空格路径补 psQuote 单测
+- 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）、jsdom 组件测试基建
+
 ## [v1.0.0] - 2026-08-08
 
 首个正式发布版本：多协议共享管理 + 生产级安全加固 + 性能优化 + 全面测试。

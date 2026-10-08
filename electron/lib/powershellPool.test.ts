@@ -108,6 +108,26 @@ describe('PowerShellPool', () => {
     expect(result).toBe('')
   })
 
+  it('M-3：空闲期杂散 stdout（含伪造 OK 标记）被丢弃，不影响也不提前完成后续命令', async () => {
+    pool.prewarm()
+    expect(handles).toHaveLength(1)
+    const h = handles[0]
+    // 空闲期推送非预期输出（含伪造标记串）——修复前会累积进 buffer
+    h.respond('stray junk before any command\n' + OK)
+
+    const p = pool.execute('Get-SmbShare', 'JSON', { timeout: 5000 })
+    let settled = false
+    void p.then(() => {
+      settled = true
+    })
+    await new Promise((r) => setTimeout(r, 20))
+    // 伪造标记不得提前 resolve 真实命令
+    expect(settled).toBe(false)
+    h.respond('{"name":"real"}\n' + OK)
+    const result = await p
+    expect(JSON.parse(result)).toEqual({ name: 'real' })
+  })
+
   it('多命令 FIFO 排队：size=1 时串行执行', async () => {
     pool.shutdown()
     pool = makePool(1, handles)

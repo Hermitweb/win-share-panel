@@ -6,6 +6,7 @@ import { api, call } from '../api'
 import type { DashboardStats, Protocol } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
+import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 
 // 协议配色（与共享管理页保持一致）
 const PROTOCOL_COLOR: Record<Protocol, string> = {
@@ -35,7 +36,6 @@ export default function Dashboard() {
 
   const refreshTick = useUiStore((s) => s.refreshTick)
   const protocolCaps = useUiStore((s) => s.protocolCaps)
-  const setProtocolCaps = useUiStore((s) => s.setProtocolCaps)
 
   const load = async () => {
     setLoading(true)
@@ -53,23 +53,9 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 协议安装状态检测：如果 store 中未缓存，挂载时触发一次
-  // 仪表盘需要用 installed 字段判断"已安装/未安装"，而非用共享数判断
-  useEffect(() => {
-    if (protocolCaps) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const result = await call(api.protocol.detect)
-        if (!cancelled) setProtocolCaps(result)
-      } catch {
-        // 检测失败静默，不影响仪表盘主流程
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [protocolCaps, setProtocolCaps])
+  // 协议安装状态检测（统一入口 useEnsureProtocolCaps）：
+  // 仪表盘需用 installed 字段判断"已安装/未安装"，而非用共享数判断
+  useEnsureProtocolCaps()
 
   // hotkey F5 刷新
   useTickEffect(refreshTick, () => {

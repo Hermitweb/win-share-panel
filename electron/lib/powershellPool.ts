@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import { randomBytes } from 'crypto'
 import type { Writable, Readable } from 'stream'
 
 // === PowerShell 常驻进程池 ===
@@ -66,7 +67,8 @@ function buildPayload(mode: Mode, command: string): string {
 }
 
 function randomToken(): string {
-  return Math.random().toString(16).slice(2, 10).toUpperCase().padEnd(8, '0')
+  // M-4：标记 token 依赖不可预测性降低"外部输出伪造协议标记"错配面，改用加密安全随机源
+  return randomBytes(4).toString('hex').toUpperCase()
 }
 
 // worker 服务端脚本：设置 UTF-8 输出 + 抑制进度流，循环读 stdin 执行并写标记
@@ -285,6 +287,10 @@ export class PowerShellPool {
 
   private onStdoutData(worker: Worker, chunk: string | Buffer): void {
     if (!worker.alive) return
+    // M-3：无在飞命令（预热/空闲期）时直接丢弃 stdout 杂散字节——
+    // 否则残留在 buffer 中（含可能的伪造标记串）会在下一条命令边界被错误消费。
+    // 协议上 worker 仅在命令完成后写标记，空闲期任何输出均属非预期。
+    if (!worker.current) return
     worker.buffer += typeof chunk === 'string' ? chunk : chunk.toString('utf8')
     this.processBuffer(worker)
   }

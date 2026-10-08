@@ -179,7 +179,8 @@ function buildSetCmd(config: Partial<SmbServerConfig>): string {
 export async function setConfig(config: Partial<SmbServerConfig>): Promise<void> {
   // 串行化：将整次 setConfig（含快照+写入）排入链式队列，避免并发竞态
   const run = async (): Promise<void> => {
-    // 写前快照当前完整配置（rollback 触发的 setConfig 跳过）
+    // 写前快照当前完整配置（rollback 触发的 setConfig 跳过；
+    // restoreDefault 同样经由本链，会正常产生"改前"快照——语义正确，M-2 留档）
     if (!skipNextSnapshot) {
       try {
         const current = await getConfig()

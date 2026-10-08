@@ -51,6 +51,11 @@ describe('psQuote', () => {
     expect(psQuote('测试共享')).toBe("'测试共享'")
   })
 
+  it('F-3：含空格的 Windows 路径（relaunchAsAdmin 的 exePath 场景）被单引号完整包裹', () => {
+    const exe = 'C:\\Program Files\\WinShare Panel\\WinShare Panel.exe'
+    expect(psQuote(exe)).toBe(`'${exe}'`)
+  })
+
   it('数字参数自动转字符串', () => {
     expect(psQuote(42 as unknown as string)).toBe("'42'")
   })

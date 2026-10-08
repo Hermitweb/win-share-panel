@@ -241,18 +241,23 @@ export async function toggleShare(name: string, enabled: boolean): Promise<void>
     const r = list[idx]
     // 还原共享：保留高级选项；allow 列表用 New-SmbShare 参数，deny 条目随后用 Block-SmbShareAccess 补回
     const allow = r.permissions.filter((p) => !p.deny)
-    await createShare({
-      name: r.name,
-      path: r.path,
-      description: r.description,
-      fullAccess: allow.filter((p) => p.access === 'Full').map((p) => p.account),
-      changeAccess: allow.filter((p) => p.access === 'Change').map((p) => p.account),
-      readAccess: allow.filter((p) => p.access === 'Read').map((p) => p.account),
-      encrypted: r.encrypted,
-      concurrentUserLimit: r.concurrentUserLimit,
-      cachingMode: r.cachingMode,
-      folderEnumerationMode: r.folderEnumerationMode,
-    })
+    // M-6：恢复路径失败给出场景化提示（区别于新建失败），保留底层原因摘要
+    try {
+      await createShare({
+        name: r.name,
+        path: r.path,
+        description: r.description,
+        fullAccess: allow.filter((p) => p.access === 'Full').map((p) => p.account),
+        changeAccess: allow.filter((p) => p.access === 'Change').map((p) => p.account),
+        readAccess: allow.filter((p) => p.access === 'Read').map((p) => p.account),
+        encrypted: r.encrypted,
+        concurrentUserLimit: r.concurrentUserLimit,
+        cachingMode: r.cachingMode,
+        folderEnumerationMode: r.folderEnumerationMode,
+      })
+    } catch (e) {
+      throw Errors.commandFailed(`恢复共享"${name}"失败：${(e as Error).message.slice(0, 200)}`)
+    }
     // 补回 deny 条目（New-SmbShare 仅支持 allow 列表，deny 需 Block-SmbShareAccess）
     const deny = r.permissions.filter((p) => p.deny && p.account)
     for (const p of deny) {

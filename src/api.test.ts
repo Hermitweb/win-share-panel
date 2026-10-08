@@ -34,4 +34,30 @@ describe('call 错误包装', () => {
       }),
     ).rejects.toThrow('操作失败')
   })
+
+  it('R-6：透传 AppError 的 code/category 元数据', async () => {
+    const appErr = Object.assign(new Error('权限不足'), {
+      code: 'NOT_ADMIN',
+      category: 'permission',
+    })
+    await expect(
+      call(async () => {
+        throw appErr
+      }),
+    ).rejects.toMatchObject({ message: '权限不足', code: 'NOT_ADMIN', category: 'permission' })
+  })
+
+  it('R-6：源错误无元数据时，包装错误不携带 code/category', async () => {
+    let caught: unknown
+    try {
+      await call(async () => {
+        throw new Error('boom')
+      })
+    } catch (e) {
+      caught = e
+    }
+    const err = caught as { code?: string; category?: string }
+    expect(err.code).toBeUndefined()
+    expect(err.category).toBeUndefined()
+  })
 })

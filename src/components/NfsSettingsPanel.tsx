@@ -24,6 +24,7 @@ import { api, call } from '../api'
 import type { NfsServerConfig, ServiceStatus } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
+import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
 
 // NFS 服务器配置 + 服务控制
@@ -38,7 +39,6 @@ export default function NfsSettingsPanel() {
 
   const refreshTick = useUiStore((s) => s.refreshTick)
   const protocolCaps = useUiStore((s) => s.protocolCaps)
-  const setProtocolCaps = useUiStore((s) => s.setProtocolCaps)
 
   const load = async () => {
     setLoading(true)
@@ -56,26 +56,12 @@ export default function NfsSettingsPanel() {
     }
   }
 
-  // 协议探测：store 中无缓存时主动 detect（避免依赖 Shares 页面懒加载）
+  // 协议探测（统一入口 useEnsureProtocolCaps，R-4/R-5）：store 无缓存时挂载探测（避免依赖 Shares 页懒加载）
+  useEnsureProtocolCaps({ onDetectFailure: () => setInstalled(false) })
   useEffect(() => {
-    if (protocolCaps) {
-      setInstalled(!!protocolCaps.nfs?.installed)
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      try {
-        const result = await call(api.protocol.detect)
-        if (!cancelled) setProtocolCaps(result)
-      } catch {
-        // 检测失败：当作未装处理
-        if (!cancelled) setInstalled(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [protocolCaps, setProtocolCaps])
+    if (!protocolCaps) return
+    setInstalled(!!protocolCaps.nfs?.installed)
+  }, [protocolCaps])
 
   // 仅在明确已装时加载配置，避免未装时触发 nfs:getConfig 错误
   useEffect(() => {

@@ -63,20 +63,56 @@ function requireStringArray(v: unknown): string[] | undefined {
   for (const item of v) {
     if (typeof item !== 'string' || !item.length)
       throw Errors.invalidParam('数组元素必须为非空字符串')
+    // F-1（审计纵深）：限制元素长度与控制字符；DOMAIN\user、空格等合法账号形态保持放行
+    if (item.length > 200 || CONTROL_CHARS.test(item))
+      throw Errors.invalidParam('数组元素过长或含控制字符')
   }
   return v as string[]
+}
+
+// === F-1 防御纵深助手：形状守卫（类型混淆/超长/控制字符一律拒绝；空值按未提供放行）。
+// 语义校验仍归服务层（validateName/validatePath/ps*），此处只做边界收敛，不改合法输入语义。
+// eslint-disable-next-line no-control-regex -- \u0000-\u001f/\u007f 为显式排除控制字符，正是 F-1 边界守卫的语义本身
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/
+function requirePlainObject(v: unknown, what: string): Record<string, unknown> {
+  if (typeof v !== 'object' || v === null || Array.isArray(v))
+    throw Errors.invalidParam(`${what}必须为对象`)
+  return v as Record<string, unknown>
+}
+function requireTextField(v: unknown, what: string, maxLen: number): void {
+  if (v === undefined || v === null) return
+  if (typeof v !== 'string' || v.length > maxLen || CONTROL_CHARS.test(v))
+    throw Errors.invalidParam(`${what}不合法（类型/长度/控制字符）`)
+}
+function requireBooleanField(v: unknown, what: string): void {
+  if (v === undefined || v === null) return
+  if (typeof v !== 'boolean') throw Errors.invalidParam(`${what}必须为布尔值`)
 }
 
 export function registerIpc(): void {
   // === share ===
   ipcMain.handle('share:list', () => wrap(share.listShares, 'list', 'shares'))
   ipcMain.handle('share:get', (_e, name: string) => wrap(() => share.getShare(name), 'get', name))
-  ipcMain.handle('share:create', (_e, opts) =>
-    wrap(() => share.createShare(opts), 'create', opts?.name || ''),
-  )
-  ipcMain.handle('share:update', (_e, name: string, opts) =>
-    wrap(() => share.updateShare(name, opts), 'update', name),
-  )
+  ipcMain.handle('share:create', (_e, opts) => {
+    const o = requirePlainObject(opts, '共享创建参数')
+    requireTextField(o.description, '描述', 200)
+    requireBooleanField(o.encrypted, 'encrypted')
+    requireBooleanField(o.encryptData, 'encryptData')
+    requireBooleanField(o.shareShadowCopy, 'shareShadowCopy')
+    requireBooleanField(o.cached, 'cached')
+    requireStringArray(o.fullAccess)
+    requireStringArray(o.changeAccess)
+    requireStringArray(o.readAccess)
+    requireStringArray(o.noAccess)
+    return wrap(() => share.createShare(opts), 'create', opts?.name || '')
+  })
+  ipcMain.handle('share:update', (_e, name: string, opts) => {
+    const o = requirePlainObject(opts, '共享更新参数')
+    requireTextField(o.description, '描述', 200)
+    requireBooleanField(o.cached, 'cached')
+    requireBooleanField(o.encryptData, 'encryptData')
+    return wrap(() => share.updateShare(name, opts), 'update', name)
+  })
   ipcMain.handle('share:delete', (_e, name: string) =>
     wrap(() => share.deleteShare(name), 'delete', name),
   )
@@ -116,12 +152,27 @@ export function registerIpc(): void {
   ipcMain.handle('user:ntfsPermissions', (_e, path: string) =>
     wrap(() => user.getNtfsPermissions(path), 'getNtfs', path),
   )
-  ipcMain.handle('user:create', (_e, opts) =>
-    wrap(() => user.createUser(opts), 'create', opts?.name || ''),
-  )
-  ipcMain.handle('user:update', (_e, name: string, opts) =>
-    wrap(() => user.updateUser(name, opts), 'update', name),
-  )
+  ipcMain.handle('user:create', (_e, opts) => {
+    const o = requirePlainObject(opts, '用户创建参数')
+    requireTextField(o.name, '用户名', 80)
+    requireTextField(o.fullName, '全名', 200)
+    requireTextField(o.description, '描述', 200)
+    requireBooleanField(o.enabled, 'enabled')
+    requireBooleanField(o.passwordChangeable, 'passwordChangeable')
+    requireBooleanField(o.passwordExpires, 'passwordExpires')
+    // 口令刻意不做控制字符守卫：合法口令可含任意字符；
+    // 非空/≤127 由服务层校验，拼接由 psQuote 兜底安全
+    return wrap(() => user.createUser(opts), 'create', opts?.name || '')
+  })
+  ipcMain.handle('user:update', (_e, name: string, opts) => {
+    const o = requirePlainObject(opts, '用户更新参数')
+    requireTextField(o.fullName, '全名', 200)
+    requireTextField(o.description, '描述', 200)
+    requireBooleanField(o.enabled, 'enabled')
+    requireBooleanField(o.passwordChangeable, 'passwordChangeable')
+    requireBooleanField(o.passwordExpires, 'passwordExpires')
+    return wrap(() => user.updateUser(name, opts), 'update', name)
+  })
   ipcMain.handle('user:delete', (_e, name: string) =>
     wrap(() => user.deleteUser(name), 'delete', name),
   )
@@ -139,15 +190,19 @@ export function registerIpc(): void {
   )
 
   // === group ===
-  ipcMain.handle('group:create', (_e, opts) =>
-    wrap(() => user.createGroup(opts), 'createGroup', opts?.name || ''),
-  )
+  ipcMain.handle('group:create', (_e, opts) => {
+    const o = requirePlainObject(opts, '组创建参数')
+    requireTextField(o.name, '组名', 80)
+    requireTextField(o.description, '描述', 200)
+    return wrap(() => user.createGroup(opts), 'createGroup', opts?.name || '')
+  })
   ipcMain.handle('group:delete', (_e, name: string) =>
     wrap(() => user.deleteGroup(name), 'deleteGroup', name),
   )
-  ipcMain.handle('group:update', (_e, name: string, desc: string) =>
-    wrap(() => user.updateGroup(name, desc), 'updateGroup', name),
-  )
+  ipcMain.handle('group:update', (_e, name: string, desc: string) => {
+    requireTextField(desc, '组描述', 200)
+    return wrap(() => user.updateGroup(name, desc), 'updateGroup', name)
+  })
   ipcMain.handle('group:rename', (_e, name: string, newName: string) =>
     wrap(() => user.renameGroup(name, newName), 'renameGroup', name),
   )
@@ -170,9 +225,10 @@ export function registerIpc(): void {
 
   // === smb ===
   ipcMain.handle('smb:getConfig', () => wrap(smb.getConfig, 'getConfig', 'smb'))
-  ipcMain.handle('smb:setConfig', (_e, config) =>
-    wrap(() => smb.setConfig(config), 'setConfig', 'smb'),
-  )
+  ipcMain.handle('smb:setConfig', (_e, config) => {
+    requirePlainObject(config, 'SMB 服务器配置')
+    return wrap(() => smb.setConfig(config), 'setConfig', 'smb')
+  })
   ipcMain.handle('smb:restoreDefault', () => wrap(smb.restoreDefault, 'restoreDefault', 'smb'))
   ipcMain.handle('smb:defaultConfig', () => smb.defaultConfig())
   ipcMain.handle('smb:serviceStatus', () =>
@@ -189,9 +245,10 @@ export function registerIpc(): void {
   // === preset ===
   ipcMain.handle('preset:list', () => preset.listPresets())
   ipcMain.handle('preset:get', (_e, id: string) => preset.getPreset(id))
-  ipcMain.handle('preset:save', (_e, p) =>
-    wrap(() => preset.savePreset(p), 'save', p?.id || 'preset'),
-  )
+  ipcMain.handle('preset:save', (_e, p) => {
+    requirePlainObject(p, '预设模板')
+    return wrap(() => preset.savePreset(p), 'save', p?.id || 'preset')
+  })
   ipcMain.handle('preset:update', (_e, id: string, updates) =>
     wrap(() => preset.updatePreset(id, updates), 'update', id),
   )
@@ -286,9 +343,10 @@ export function registerIpc(): void {
 
   // === nfs: NFS 服务器配置/服务控制 ===
   ipcMain.handle('nfs:getConfig', () => wrap(nfs.getConfig, 'getConfig', 'nfs'))
-  ipcMain.handle('nfs:setConfig', (_e, config) =>
-    wrap(() => nfs.setConfig(config), 'setConfig', 'nfs'),
-  )
+  ipcMain.handle('nfs:setConfig', (_e, config) => {
+    requirePlainObject(config, 'NFS 服务器配置')
+    return wrap(() => nfs.setConfig(config), 'setConfig', 'nfs')
+  })
   ipcMain.handle('nfs:restoreDefault', () => wrap(nfs.restoreDefault, 'restoreDefault', 'nfs'))
   ipcMain.handle('nfs:defaultConfig', () => nfs.defaultConfig())
   ipcMain.handle('nfs:serviceStatus', () =>
@@ -300,9 +358,10 @@ export function registerIpc(): void {
 
   // === ftp: FTP 服务器级配置 + 服务控制（站点级配置经 adapter 路由） ===
   ipcMain.handle('ftp:getConfig', () => wrap(ftp.getConfig, 'getConfig', 'ftp'))
-  ipcMain.handle('ftp:setConfig', (_e, config) =>
-    wrap(() => ftp.setConfig(config), 'setConfig', 'ftp'),
-  )
+  ipcMain.handle('ftp:setConfig', (_e, config) => {
+    requirePlainObject(config, 'FTP 服务器配置')
+    return wrap(() => ftp.setConfig(config), 'setConfig', 'ftp')
+  })
   ipcMain.handle('ftp:restoreDefault', () => wrap(ftp.restoreDefault, 'restoreDefault', 'ftp'))
   ipcMain.handle('ftp:defaultConfig', () => ftp.defaultConfig())
   ipcMain.handle('ftp:serviceStatus', () => wrap(ftp.getServiceStatus, 'serviceStatus', 'ftpsvc'))
@@ -312,9 +371,10 @@ export function registerIpc(): void {
 
   // === webdav: WebDAV 服务器级配置 + 服务控制（站点级配置经 adapter 路由） ===
   ipcMain.handle('webdav:getConfig', () => wrap(webdav.getConfig, 'getConfig', 'webdav'))
-  ipcMain.handle('webdav:setConfig', (_e, config) =>
-    wrap(() => webdav.setConfig(config), 'setConfig', 'webdav'),
-  )
+  ipcMain.handle('webdav:setConfig', (_e, config) => {
+    requirePlainObject(config, 'WebDAV 服务器配置')
+    return wrap(() => webdav.setConfig(config), 'setConfig', 'webdav')
+  })
   ipcMain.handle('webdav:restoreDefault', () =>
     wrap(webdav.restoreDefault, 'restoreDefault', 'webdav'),
   )

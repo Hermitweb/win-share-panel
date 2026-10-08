@@ -23,6 +23,7 @@ import { api, call } from '../api'
 import type { WebdavServerConfig, ServiceStatus } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
+import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
 
 // WebDAV 服务器级配置 + 服务控制
@@ -38,7 +39,6 @@ export default function WebdavSettingsPanel() {
 
   const refreshTick = useUiStore((s) => s.refreshTick)
   const protocolCaps = useUiStore((s) => s.protocolCaps)
-  const setProtocolCaps = useUiStore((s) => s.setProtocolCaps)
 
   const load = async () => {
     setLoading(true)
@@ -57,25 +57,12 @@ export default function WebdavSettingsPanel() {
     }
   }
 
-  // 协议探测：store 中无缓存时主动 detect
+  // 协议探测（统一入口 useEnsureProtocolCaps，R-4/R-5）：store 无缓存时挂载探测
+  useEnsureProtocolCaps({ onDetectFailure: () => setInstalled(false) })
   useEffect(() => {
-    if (protocolCaps) {
-      setInstalled(!!protocolCaps.webdav?.installed)
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      try {
-        const result = await call(api.protocol.detect)
-        if (!cancelled) setProtocolCaps(result)
-      } catch {
-        if (!cancelled) setInstalled(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [protocolCaps, setProtocolCaps])
+    if (!protocolCaps) return
+    setInstalled(!!protocolCaps.webdav?.installed)
+  }, [protocolCaps])
 
   useEffect(() => {
     if (installed !== true) return
