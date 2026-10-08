@@ -30,6 +30,7 @@
 - **R-6** `api.call` 透传 AppError 的 `code`/`category`（Electron 不支持该属性过桥时行为等价），附 2 用例
 - **R-7** 死样式清理：tailwind 移除 primary-light/secondary/accent/backdropBlur.glass/shadow-hover，`:root` 移除 6 个零引用 CSS 变量（类名与 var() 引用逐项扫描取证）；build 复验通过
 - **F-3** relaunchAsAdmin 含空格路径补 psQuote 单测
+- **E6 统一日志系统**：新增 `electron/lib/logger.ts`——运行日志持久化到 `%APPDATA%\WinSharePanel\logs\app.log`（2MB×3 轮转、级别、console 镜像）；全库 12 文件 `console.*` 收编为 `log.*`；渲染层崩溃经 `ErrorBoundary` + `window.onerror`/`unhandledrejection` 转发落盘；设置页新增"应用日志"Tab（查看最近 300 行/复制/导出），托盘菜单新增"打开日志文件夹"；IPC 日志通道带 level 白名单、4000 字符截断、30 条/秒限流；vitest 环境默认关闭文件落盘防测试污染；logger 8 用例，全量 232 用例六门禁全绿
 - 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）、jsdom 组件测试基建
 
 ## [v1.0.0] - 2026-08-08
