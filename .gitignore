@@ -9,3 +9,4 @@ release/
 .env.local
 coverage/
 .agent-teams/
+.dsh-vision-toolkit/

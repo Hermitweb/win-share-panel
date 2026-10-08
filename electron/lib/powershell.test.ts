@@ -3,6 +3,7 @@ import {
   psQuote,
   psEscapeSingle,
   validateName,
+  validateShareName,
   validatePath,
   psBool,
   psNumber,
@@ -74,6 +75,37 @@ describe('psEscapeSingle', () => {
     const malicious = "test'; Remove-Website -Name '"
     const result = psEscapeSingle(malicious)
     expect(result).toBe("test''; Remove-Website -Name ''")
+  })
+})
+
+describe('validateShareName（B-4 读取校验：放行尾 $，拒绝其余）', () => {
+  it('系统/隐藏共享尾 $ 合法', () => {
+    expect(validateShareName('IPC$')).toBe(true)
+    expect(validateShareName('ADMIN$')).toBe(true)
+    expect(validateShareName('C$')).toBe(true)
+    expect(validateShareName('rdp-tcp$')).toBe(true)
+  })
+
+  it('普通名称照常放行', () => {
+    expect(validateShareName('测试')).toBe(true)
+    expect(validateShareName('my-share.v1')).toBe(true)
+    expect(validateShareName('Public Share')).toBe(true)
+  })
+
+  it('中间/多个 $ 与注入形态拒绝', () => {
+    expect(validateShareName('A$B')).toBe(false)
+    expect(validateShareName('a$(calc)')).toBe(false)
+    expect(validateShareName('a$$')).toBe(false)
+    expect(validateShareName('IPC$x')).toBe(false)
+    expect(validateShareName("'; Get-SmbShare; '")).toBe(false)
+  })
+
+  it('空/超长/非法字符拒绝', () => {
+    expect(validateShareName('')).toBe(false)
+    expect(validateShareName('x'.repeat(81))).toBe(false)
+    expect(validateShareName('a:b')).toBe(false)
+    expect(validateShareName(undefined as never)).toBe(false)
+    expect(validateShareName(42 as never)).toBe(false)
   })
 })
 

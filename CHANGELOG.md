@@ -32,6 +32,7 @@
 - **F-3** relaunchAsAdmin 含空格路径补 psQuote 单测
 - **E6 统一日志系统**：新增 `electron/lib/logger.ts`——运行日志持久化到 `%APPDATA%\WinSharePanel\logs\app.log`（2MB×3 轮转、级别、console 镜像）；全库 12 文件 `console.*` 收编为 `log.*`；渲染层崩溃经 `ErrorBoundary` + `window.onerror`/`unhandledrejection` 转发落盘；设置页新增"应用日志"Tab（查看最近 300 行/复制/导出），托盘菜单新增"打开日志文件夹"；IPC 日志通道带 level 白名单、4000 字符截断、30 条/秒限流；vitest 环境默认关闭文件落盘防测试污染；logger 8 用例，全量 232 用例六门禁全绿
 - **B-1/B-2 假成功缺陷修复**（日志上线当日由 app.log+audit.log 交叉定位）：cmdlet 非终止性错误（权限不足/名称冲突）被当作退出码 0 吞掉 → `New-SmbShare` 等写操作假成功、审计记 success、UI 刷新时才报"共享不存在"。修复：进程池 server 脚本与 execOnce 前缀统一 `$ErrorActionPreference='Stop'`（既有容错路径均有显式 -EA 或 try/catch，语义不变）；SMB/NFS createShare 回读判空守卫（4 回归用例）；同型修复 healthCheck 模块探测假可用、4 处存在性检查 `[]` truthy 误判（新增 `firstOrNull`）；全量 236 用例六门禁全绿
+- **B-4 系统共享详情误报"共享名非法"**（用户提供复制出的错误文本定位）：查看 `IPC$`/`ADMIN$` 等系统共享的详情/权限被入口校验拒绝——`validateName` 为防 PS 双引号插值全局禁 `$`，但系统共享名必然含合法尾 `$`。新增 `validateShareName`（读取/操作路径放行恰一个**尾部** `$`，中间/多个 `$` 与 `$(...)` 注入形态仍拒绝；全部嵌入点核对处于 psQuote 单引号上下文，`$` 无插值语义）；创建/用户名/权限写入保持严格；补齐 `toggleShare` 对系统特殊共享的防护（其禁用分支会真删共享，此前仅被过严校验意外挡住）；新增 `validateShareName` 4 组单测（尾 $ 合法/注入形态拒绝）
 - 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）、jsdom 组件测试基建
 
 ## [v1.0.0] - 2026-08-08

@@ -4,6 +4,7 @@ import {
   runPowerShellVoid,
   psQuote,
   validateName,
+  validateShareName,
   validatePath,
 } from '../lib/powershell'
 import { Errors } from '../lib/errors'
@@ -314,7 +315,8 @@ export async function removeGroupMember(group: string, member: string): Promise<
 }
 
 export async function getSharePermissions(shareName: string): Promise<SharePermission[]> {
-  if (!validateName(shareName)) throw Errors.invalidParam('共享名非法')
+  // 读取路径：允许系统共享尾 $（IPC$ 等，B-4）；setSharePermissions 写入保持严格
+  if (!validateShareName(shareName)) throw Errors.invalidParam('共享名非法')
   const r = await runPowerShell<any[]>(`Get-SmbShareAccess -Name ${psQuote(shareName)}`)
   const arr = Array.isArray(r) ? r : [r]
   return arr.map((x) => ({

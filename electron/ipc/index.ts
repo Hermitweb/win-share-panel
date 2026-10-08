@@ -2,7 +2,7 @@ import { log, normalizeLevel, readLogTail, writeLog } from '../lib/logger'
 import { ipcMain } from 'electron'
 import { audit } from '../lib/audit'
 import { Errors } from '../lib/errors'
-import { validateName, validatePath } from '../lib/powershell'
+import { validateShareName, validatePath } from '../lib/powershell'
 import * as share from '../services/share'
 import * as user from '../services/user'
 import * as session from '../services/session'
@@ -47,9 +47,10 @@ function requireProtocol(v: unknown): Protocol {
   if (!isProtocol(v)) throw Errors.invalidParam(`非法协议：${String(v)}`)
   return v
 }
-// 共享名校验：空/超长/非法字符直接拒绝
+// 共享名校验：空/超长/非法字符直接拒绝。B-4：与读取侧一致放行系统共享尾 $（IPC$ 等），
+// adapter:create 的 $ 名最终仍被服务层严格 validateName 拒绝（纵深不变）。
 function requireName(v: unknown): string {
-  if (typeof v !== 'string' || !validateName(v)) throw Errors.invalidParam('共享名非法')
+  if (typeof v !== 'string' || !validateShareName(v)) throw Errors.invalidParam('共享名非法')
   return v
 }
 // 路径校验

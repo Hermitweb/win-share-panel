@@ -187,6 +187,18 @@ export function validateName(name: string, maxLen = 80): boolean {
   return /^[A-Za-z0-9._\-\u4e00-\u9fa5 ]{1,80}$/.test(name)
 }
 
+// 共享名"读取/操作"校验：放行 Windows 系统/隐藏共享的合法尾缀 "$"（IPC$、ADMIN$、C$）。
+// 背景：validateName 全局禁 $ 是为防 PS 双引号插值注入，但系统共享名必然含尾 $，
+// 导致查看 IPC$ 详情/权限被误拒（2026-10-08 用户报错定位）。
+// 安全性：①仅允许"结尾一个 $"，中间 $ 仍拒——历史上存在双引号插值调用点
+// （user.getUserSharePermissions 的 -ilike "*\\${username}"），拒绝 $( 子表达式注入形态；
+// ②放行值的全部嵌入点已逐点核对均处于 psQuote 单引号上下文，$ 在 PS 单引号串内无插值语义。
+// 注意：创建/写入路径（createShare、用户名、组名）继续使用严格 validateName，不得用本函数。
+export function validateShareName(name: unknown): boolean {
+  if (typeof name !== 'string' || !name || name.length > 80) return false
+  return /^[A-Za-z0-9._\u4e00-\u9fa5 -]{1,79}\$?$/.test(name)
+}
+
 // Windows 路径校验
 export function validatePath(p: string): boolean {
   // eslint-disable-next-line no-control-regex -- \u0000-\u001f 为显式排除控制字符，正是校验意图本身

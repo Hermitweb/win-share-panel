@@ -7,6 +7,7 @@ import {
   psNumber,
   psEnum,
   validateName,
+  validateShareName,
   validatePath,
 } from '../lib/powershell'
 import { Errors } from '../lib/errors'
@@ -43,6 +44,17 @@ const SHARE_TYPE_MAP: Record<number, Share['type']> = {
   2: 'Printer',
   3: 'Special',
 }
+
+// 系统特殊共享（ADMIN$/IPC$/C$ 等）：禁止删除与启停（toggleShare 的禁用分支会真删共享）
+const SYSTEM_SPECIAL_SHARES = new Set([
+  'admin$',
+  'ipc$',
+  'c$',
+  'print$',
+  'fax$',
+  'rdp-tcp$',
+  'rdp-tls$',
+])
 
 function mapShare(r: RawShare): Share {
   return {
@@ -97,7 +109,7 @@ export async function listShares(): Promise<Share[]> {
 }
 
 export async function getShare(name: string): Promise<Share> {
-  if (!validateName(name)) throw Errors.invalidParam('共享名非法')
+  if (!validateShareName(name)) throw Errors.invalidParam('共享名非法')
   const raw = await runPowerShell<RawShare>(`Get-SmbShare -Name ${psQuote(name)}`)
   if (!raw || !raw.Name) throw Errors.shareNotFound(name)
   return mapShare(raw)
@@ -181,7 +193,7 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
 }
 
 export async function updateShare(name: string, opts: UpdateShareOpts): Promise<Share> {
-  if (!validateName(name)) throw Errors.invalidParam('共享名非法')
+  if (!validateShareName(name)) throw Errors.invalidParam('共享名非法')
   const parts = ['Set-SmbShare', `-Name ${psQuote(name)}`]
   if (opts.description !== undefined) parts.push(`-Description ${psQuote(opts.description)}`)
   if (opts.concurrentUserLimit !== undefined) {
@@ -209,17 +221,21 @@ export async function updateShare(name: string, opts: UpdateShareOpts): Promise<
 }
 
 export async function deleteShare(name: string): Promise<void> {
-  if (!validateName(name)) throw Errors.invalidParam('共享名非法')
+  if (!validateShareName(name)) throw Errors.invalidParam('共享名非法')
   // 系统特殊共享（ADMIN$, IPC$, C$ 等）禁止删除
-  const protectedShares = ['admin$', 'ipc$', 'c$', 'print$', 'fax$']
-  if (protectedShares.includes(name.toLowerCase())) {
+  if (SYSTEM_SPECIAL_SHARES.has(name.toLowerCase())) {
     throw Errors.invalidParam(`系统特殊共享 ${name} 不允许删除`)
   }
   await runPowerShellVoid(`Remove-SmbShare -Name ${psQuote(name)} -Force`)
 }
 
 export async function toggleShare(name: string, enabled: boolean): Promise<void> {
-  if (!validateName(name)) throw Errors.invalidParam('共享名非法')
+  if (!validateShareName(name)) throw Errors.invalidParam('共享名非法')
+  // B-4：禁用分支会 Remove-SmbShare——系统特殊共享（IPC$ 等）必须同样禁止启停，
+  // 否则放宽尾 $ 校验后存在被真实删除的风险（此前仅被过严的 validateName"意外"挡住）
+  if (SYSTEM_SPECIAL_SHARES.has(name.toLowerCase())) {
+    throw Errors.invalidParam(`系统特殊共享 ${name} 不允许启停`)
+  }
   if (!enabled) {
     const shares = await listShares()
     const s = shares.find((x) => x.name === name)
@@ -312,7 +328,7 @@ async function getShareAdvanced(name: string): Promise<{
 }
 
 export async function getSharePermissions(name: string): Promise<SharePermission[]> {
-  if (!validateName(name)) throw Errors.invalidParam('共享名非法')
+  if (!validateShareName(name)) throw Errors.invalidParam('共享名非法')
   const r = await runPowerShell<any[]>(`Get-SmbShareAccess -Name ${psQuote(name)}`)
   const arr = Array.isArray(r) ? r : [r]
   return arr.map((x) => ({
@@ -329,7 +345,7 @@ export async function getShareConnections(name: string): Promise<{
   concurrentUsers: number
   clientConnections: { clientUserName: string; clientComputerName: string; openFiles: number }[]
 }> {
-  if (!validateName(name)) throw Errors.invalidParam('共享名非法')
+  if (!validateShareName(name)) throw Errors.invalidParam('共享名非法')
   try {
     const raw = await runPowerShell<any[]>(
       `Get-SmbConnection | Where-Object { $_.ShareName -eq ${psQuote(name)} } | Select-Object ClientUserName, ClientComputerName`,
@@ -359,7 +375,7 @@ export async function getShareOpenFiles(name: string): Promise<
     lockCount: number
   }[]
 > {
-  if (!validateName(name)) throw Errors.invalidParam('共享名非法')
+  if (!validateShareName(name)) throw Errors.invalidParam('共享名非法')
   try {
     const raw = await runPowerShell<any[]>(
       `Get-SmbOpenFile | Where-Object { $_.Path -like ${psQuote(`*${name}*`)} } | Select-Object FileId, Path, ClientUserName, ClientComputerName, LockCount`,
@@ -381,7 +397,7 @@ export async function getShareOpenFiles(name: string): Promise<
 export async function closeShareOpenFiles(
   name: string,
 ): Promise<{ closed: number; failed: number }> {
-  if (!validateName(name)) throw Errors.invalidParam('共享名非法')
+  if (!validateShareName(name)) throw Errors.invalidParam('共享名非法')
   try {
     const files = await getShareOpenFiles(name)
     let closed = 0
