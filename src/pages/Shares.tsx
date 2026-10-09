@@ -41,6 +41,7 @@ import type { Share, Protocol, ProtocolCapabilities, LocalUser, LocalGroup } fro
 import { api, call } from '../api'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
+import { deleteImpactText, undoHintText } from '../utils/shareDefaults'
 import PermissionDrawer from '../components/PermissionDrawer'
 import ProtocolCapabilityBanner from '../components/ProtocolCapabilityBanner'
 import ShareDetailDrawer from '../components/ShareDetailDrawer'
@@ -57,6 +58,8 @@ const PROTOCOL_COLOR: Record<string, string> = {
 function toKey(s: Share): string {
   return `${s.protocol}:${s.name}`
 }
+
+// 删除影响/撤销能力文案已抽到 utils/shareDefaults（纯函数便于单测，页面只做组合）
 function parseKey(key: string): { protocol: Protocol; name: string } {
   const idx = key.indexOf(':')
   if (idx < 0) return { protocol: 'smb', name: key }
@@ -631,62 +634,77 @@ export default function Shares() {
       title: '操作',
       width: 220,
       fixed: 'right' as const,
-      render: (_: unknown, r: Share) => (
-        <Space>
-          <Tooltip title="详情">
-            <Button
-              size="small"
-              icon={<InfoCircleOutlined />}
-              onClick={() => {
-                setDetailShare(r)
-                setDetailOpen(true)
-              }}
-            />
-          </Tooltip>
-          {canToggle(r.protocol) && (
-            <Tooltip title={r.status === 'Enabled' ? '禁用' : '启用'}>
+      render: (_: unknown, r: Share) => {
+        const impact = deleteImpactText([r])
+        return (
+          <Space>
+            <Tooltip title="详情">
               <Button
                 size="small"
-                icon={r.status === 'Enabled' ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
-                onClick={() => handleToggle(r)}
-              />
-            </Tooltip>
-          )}
-          <Tooltip title="编辑">
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => {
-                setEditShare(r)
-                editForm.setFieldsValue({
-                  description: r.description,
-                  nfsPermission: r.nfsPermission,
-                  allowRootAccess: r.allowRootAccess,
-                  sslPolicy: r.sslPolicy,
-                  authMode: r.authMode,
-                  anonymousEnabled: r.anonymousEnabled,
-                })
-                setEditOpen(true)
-              }}
-            />
-          </Tooltip>
-          {capOf(r.protocol)?.supportsPermissions && (
-            <Tooltip title="权限">
-              <Button
-                size="small"
-                icon={<SafetyOutlined />}
+                icon={<InfoCircleOutlined />}
                 onClick={() => {
-                  setPermShare(r)
-                  setPermOpen(true)
+                  setDetailShare(r)
+                  setDetailOpen(true)
                 }}
               />
             </Tooltip>
-          )}
-          <Popconfirm title="确认删除该共享？" onConfirm={() => handleDelete(r)}>
-            <Button size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
+            {canToggle(r.protocol) && (
+              <Tooltip title={r.status === 'Enabled' ? '禁用' : '启用'}>
+                <Button
+                  size="small"
+                  icon={r.status === 'Enabled' ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                  onClick={() => handleToggle(r)}
+                />
+              </Tooltip>
+            )}
+            <Tooltip title="编辑">
+              <Button
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setEditShare(r)
+                  editForm.setFieldsValue({
+                    description: r.description,
+                    nfsPermission: r.nfsPermission,
+                    allowRootAccess: r.allowRootAccess,
+                    sslPolicy: r.sslPolicy,
+                    authMode: r.authMode,
+                    anonymousEnabled: r.anonymousEnabled,
+                  })
+                  setEditOpen(true)
+                }}
+              />
+            </Tooltip>
+            {capOf(r.protocol)?.supportsPermissions && (
+              <Tooltip title="权限">
+                <Button
+                  size="small"
+                  icon={<SafetyOutlined />}
+                  onClick={() => {
+                    setPermShare(r)
+                    setPermOpen(true)
+                  }}
+                />
+              </Tooltip>
+            )}
+            <Popconfirm
+              title="确认删除该共享？"
+              description={
+                <div style={{ maxWidth: 280 }}>
+                  <div style={{ color: impact.danger ? '#d4380d' : undefined }}>{impact.text}</div>
+                  <div className="text-xs text-fog" style={{ marginTop: 4 }}>
+                    {undoHintText([r])}
+                  </div>
+                </div>
+              }
+              okButtonProps={{ danger: true }}
+              onConfirm={() => handleDelete(r)}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          </Space>
+        )
+      },
     },
   ]
 
@@ -784,10 +802,34 @@ export default function Shares() {
               </Popconfirm>
               <Button
                 danger
-                onClick={() =>
+                onClick={() => {
+                  const targets = selectedShares
+                    .map((key) => {
+                      const { protocol, name } = parseKey(key)
+                      return shares.find((s) => s.protocol === protocol && s.name === name)
+                    })
+                    .filter((s): s is Share => !!s)
+                  const impact = deleteImpactText(targets)
                   modal.confirm({
                     title: '批量删除共享',
-                    content: `将对 ${selectedShares.length} 个共享执行删除，不可恢复。`,
+                    content: (
+                      <div>
+                        <p style={{ marginBottom: 6 }}>
+                          将对 {selectedShares.length} 个共享执行删除。
+                        </p>
+                        <p
+                          style={{
+                            marginBottom: 6,
+                            color: impact.danger ? '#d4380d' : undefined,
+                          }}
+                        >
+                          {impact.text}
+                        </p>
+                        <p className="text-xs text-fog" style={{ marginBottom: 0 }}>
+                          {undoHintText(targets)}
+                        </p>
+                      </div>
+                    ),
                     okText: '删除',
                     okType: 'danger',
                     cancelText: '取消',
@@ -810,7 +852,7 @@ export default function Shares() {
                       load()
                     },
                   })
-                }
+                }}
               >
                 批量删除
               </Button>
