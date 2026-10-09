@@ -21,11 +21,12 @@ import {
   PauseOutlined,
 } from '@ant-design/icons'
 import { api, call } from '../api'
-import type { NfsServerConfig, ServiceStatus } from '../types'
+import type { NfsServerConfig } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ConfigPresetBar from './ConfigPresetBar'
 import { NFS_CONFIG_PRESETS } from '../utils/configPresets'
 
@@ -33,44 +34,42 @@ import { NFS_CONFIG_PRESETS } from '../utils/configPresets'
 // 仅在已安装 NFS 角色时可用；未安装时显示降级提示
 export default function NfsSettingsPanel() {
   const { message } = App.useApp()
-  const [svc, setSvc] = useState<ServiceStatus | null>(null)
   const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [installed, setInstalled] = useState<boolean | null>(null)
+  const [detectFailed, setDetectFailed] = useState(false)
   const [form] = Form.useForm()
 
   const refreshTick = useUiStore((s) => s.refreshTick)
   const protocolCaps = useUiStore((s) => s.protocolCaps)
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const [c, s] = await Promise.all([
-        call(api.nfs.getConfig) as Promise<NfsServerConfig>,
-        call(api.nfs.serviceStatus),
-      ])
-      setSvc(s)
-      form.setFieldsValue(c)
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
+  // B1：数据层 react-query；安装状态纯推导；load=invalidate
+  const queryClient = useQueryClient()
+  // 协议探测（统一入口）：store 无缓存时挂载探测（避免依赖 Shares 页懒加载），失败经 detectFailed 降级
+  useEnsureProtocolCaps({ onDetectFailure: () => setDetectFailed(true) })
+  const installed = detectFailed ? false : protocolCaps ? !!protocolCaps.nfs?.installed : null
+
+  const { data, isFetching, error } = useQuery({
+    queryKey: ['nfs-settings'],
+    queryFn: async () => {
+      const [c, s] = await Promise.all([api.nfs.getConfig(), api.nfs.serviceStatus()])
+      return { c, s }
+    },
+    // 仅在确认已安装时拉取，避免未装时触发 nfs:getConfig 错误
+    enabled: installed === true,
+  })
+  const svc = data?.s ?? null
+  const loading = isFetching
+  const load = () => {
+    void queryClient.invalidateQueries({ queryKey: ['nfs-settings'] }).catch(() => {})
   }
 
-  // 协议探测（统一入口 useEnsureProtocolCaps，R-4/R-5）：store 无缓存时挂载探测（避免依赖 Shares 页懒加载）
-  useEnsureProtocolCaps({ onDetectFailure: () => setInstalled(false) })
   useEffect(() => {
-    if (!protocolCaps) return
-    setInstalled(!!protocolCaps.nfs?.installed)
-  }, [protocolCaps])
+    if (error && !data && installed === true) message.error((error as Error).message)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- error/data 引用稳定于单次状态迁移
+  }, [error, data, installed])
 
-  // 仅在明确已装时加载配置，避免未装时触发 nfs:getConfig 错误
   useEffect(() => {
-    if (installed !== true) return
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installed])
+    if (data) form.setFieldsValue(data.c)
+  }, [data, form])
 
   useTickEffect(refreshTick, () => {
     if (installed === true) load()

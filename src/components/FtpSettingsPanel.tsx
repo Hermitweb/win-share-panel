@@ -22,11 +22,12 @@ import {
   PauseOutlined,
 } from '@ant-design/icons'
 import { api, call } from '../api'
-import type { FtpServerConfig, ServiceStatus } from '../types'
+import type { FtpServerConfig } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ConfigPresetBar from './ConfigPresetBar'
 import { FTP_CONFIG_PRESETS } from '../utils/configPresets'
 
@@ -57,45 +58,43 @@ const LOG_PERIOD_OPTIONS = [
 // 仅在已安装 FTP 角色服务时可用；未安装时显示降级提示
 export default function FtpSettingsPanel() {
   const { message } = App.useApp()
-  const [svc, setSvc] = useState<ServiceStatus | null>(null)
   const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [installed, setInstalled] = useState<boolean | null>(null)
+  const [detectFailed, setDetectFailed] = useState(false)
   const [form] = Form.useForm()
 
   const refreshTick = useUiStore((s) => s.refreshTick)
   const protocolCaps = useUiStore((s) => s.protocolCaps)
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const [c, s] = await Promise.all([
-        call(api.ftp.getConfig) as Promise<FtpServerConfig>,
-        call(api.ftp.serviceStatus),
-      ])
-      setSvc(s)
-      form.setFieldsValue(c)
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
+  // B1：数据层 react-query。安装状态纯推导（detectFailed/protocolCaps），不再走 effect setState；
+  // 配置拉取仅在安装确认后 enabled；load 语义=失效重取
+  const queryClient = useQueryClient()
+  useEnsureProtocolCaps({ onDetectFailure: () => setDetectFailed(true) })
+  const installed = detectFailed ? false : protocolCaps ? !!protocolCaps.ftp?.installed : null
+
+  const { data, isFetching, error } = useQuery({
+    queryKey: ['ftp-settings'],
+    queryFn: async () => {
+      const [c, s] = await Promise.all([api.ftp.getConfig(), api.ftp.serviceStatus()])
+      return { c, s }
+    },
+    enabled: installed === true,
+  })
+  const svc = data?.s ?? null
+  const loading = isFetching
+  const load = () => {
+    void queryClient.invalidateQueries({ queryKey: ['ftp-settings'] }).catch(() => {})
   }
 
-  // 协议探测（统一入口 useEnsureProtocolCaps，R-4/R-5）：
-  // store 无缓存时挂载探测，失败按"未装"降级渲染
-  useEnsureProtocolCaps({ onDetectFailure: () => setInstalled(false) })
+  // 首轮失败提示（与原 load catch 语义一致）
   useEffect(() => {
-    if (!protocolCaps) return
-    setInstalled(!!protocolCaps.ftp?.installed)
-  }, [protocolCaps])
+    if (error && !data && installed === true) message.error((error as Error).message)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- error/data 引用稳定于单次状态迁移
+  }, [error, data, installed])
 
+  // 拉到配置后同步表单（setFieldsValue 为 antd 命令式 API）
   useEffect(() => {
-    if (installed !== true) return
-    load()
-    // 仅在确认已安装后重载配置：load 引用每轮渲染变化，有意省略以免无限循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installed])
+    if (data) form.setFieldsValue(data.c)
+  }, [data, form])
 
   useTickEffect(refreshTick, () => {
     if (installed === true) load()

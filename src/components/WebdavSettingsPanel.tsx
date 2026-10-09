@@ -20,11 +20,12 @@ import {
   PauseOutlined,
 } from '@ant-design/icons'
 import { api, call } from '../api'
-import type { WebdavServerConfig, ServiceStatus } from '../types'
+import type { WebdavServerConfig } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ConfigPresetBar from './ConfigPresetBar'
 import { WEBDAV_CONFIG_PRESETS } from '../utils/configPresets'
 
@@ -32,46 +33,41 @@ import { WEBDAV_CONFIG_PRESETS } from '../utils/configPresets'
 // 仅在已安装 IIS + WebDAV 角色时可用；未安装时显示降级提示
 export default function WebdavSettingsPanel() {
   const { message } = App.useApp()
-  const [config, setConfig] = useState<Partial<WebdavServerConfig>>({})
-  const [svc, setSvc] = useState<ServiceStatus | null>(null)
   const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [installed, setInstalled] = useState<boolean | null>(null)
+  const [detectFailed, setDetectFailed] = useState(false)
   const [form] = Form.useForm()
 
   const refreshTick = useUiStore((s) => s.refreshTick)
   const protocolCaps = useUiStore((s) => s.protocolCaps)
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const [c, s] = await Promise.all([
-        call(api.webdav.getConfig) as Promise<WebdavServerConfig>,
-        call(api.webdav.serviceStatus),
-      ])
-      setConfig(c)
-      setSvc(s)
-      form.setFieldsValue(c)
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
+  // B1：数据层 react-query；安装状态纯推导；load=invalidate
+  const queryClient = useQueryClient()
+  useEnsureProtocolCaps({ onDetectFailure: () => setDetectFailed(true) })
+  const installed = detectFailed ? false : protocolCaps ? !!protocolCaps.webdav?.installed : null
+
+  const { data, isFetching, error } = useQuery({
+    queryKey: ['webdav-settings'],
+    queryFn: async () => {
+      const [c, s] = await Promise.all([api.webdav.getConfig(), api.webdav.serviceStatus()])
+      return { c, s }
+    },
+    enabled: installed === true,
+  })
+  const config: Partial<WebdavServerConfig> = data?.c ?? {}
+  const svc = data?.s ?? null
+  const loading = isFetching
+  const load = () => {
+    void queryClient.invalidateQueries({ queryKey: ['webdav-settings'] }).catch(() => {})
   }
 
-  // 协议探测（统一入口 useEnsureProtocolCaps，R-4/R-5）：store 无缓存时挂载探测
-  useEnsureProtocolCaps({ onDetectFailure: () => setInstalled(false) })
   useEffect(() => {
-    if (!protocolCaps) return
-    setInstalled(!!protocolCaps.webdav?.installed)
-  }, [protocolCaps])
+    if (error && !data && installed === true) message.error((error as Error).message)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- error/data 引用稳定于单次状态迁移
+  }, [error, data, installed])
 
   useEffect(() => {
-    if (installed !== true) return
-    load()
-    // 仅在确认已安装后重载配置：load 引用每轮渲染变化，有意省略以免无限循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installed])
+    if (data) form.setFieldsValue(data.c)
+  }, [data, form])
 
   useTickEffect(refreshTick, () => {
     if (installed === true) load()
@@ -126,8 +122,7 @@ export default function WebdavSettingsPanel() {
       const def = (await call(api.webdav.restoreDefault)) as WebdavServerConfig
       message.success('已恢复默认配置')
       form.setFieldsValue(def)
-      setConfig(def)
-      load()
+      load() // 失效重取后 config 派生值随服务器状态刷新
     } catch (e) {
       message.error((e as Error).message)
     }
