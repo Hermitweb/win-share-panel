@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   Table,
   Button,
@@ -34,14 +35,33 @@ import {
   SafetyOutlined,
   InfoCircleOutlined,
   FolderOpenOutlined,
+  StarFilled,
+  StarOutlined,
 } from '@ant-design/icons'
-import type { UploadProps } from 'antd'
+import type { FormInstance, UploadProps } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { Share, Protocol, ProtocolCapabilities, LocalUser, LocalGroup } from '../types'
+import type {
+  Share,
+  Protocol,
+  ProtocolCapabilities,
+  LocalUser,
+  LocalGroup,
+  DiskUsage,
+} from '../types'
 import { api, call } from '../api'
 import { useUiStore } from '../stores/uiStore'
+import { useAppStore } from '../stores/appStore'
 import { useTickEffect } from '../hooks/useTickEffect'
-import { deleteImpactText, undoHintText } from '../utils/shareDefaults'
+import {
+  DEFAULT_READ_ACCESS,
+  deleteImpactText,
+  diskLevel,
+  driveOf,
+  indexDiskUsages,
+  isUncPath,
+  shareNameFromPath,
+  undoHintText,
+} from '../utils/shareDefaults'
 import PermissionDrawer from '../components/PermissionDrawer'
 import ProtocolCapabilityBanner from '../components/ProtocolCapabilityBanner'
 import ShareDetailDrawer from '../components/ShareDetailDrawer'
@@ -136,7 +156,59 @@ const CREATE_SCENARIO_PRESETS: Record<
   ],
 }
 
-export default function Shares() {
+// 高级参数键集：这些字段的语义属于 SMB/NFS 运维深水区（缓存/枚举/并发上限/加密/root 访问）。
+// 新手模式（advancedMode=false）既不渲染也不提交——隐藏项残留值静默入库，比看不见更糟。
+const ADVANCED_FORM_KEYS = new Set([
+  'encrypted',
+  'encryptData',
+  'shareShadowCopy',
+  'folderEnumerationMode',
+  'cachingMode',
+  'concurrentUserLimit',
+  'enableUnmappedAccess',
+  'allowRootAccess',
+  'anonymousUid',
+  'anonymousGid',
+])
+
+/** 场景预设是否会写入高级参数（含 SMB 加密/按访问枚举等文案）：新手模式一并收敛 */
+function presetUsesAdvanced(values: Record<string, unknown>): boolean {
+  return Object.keys(values).some((k) => ADVANCED_FORM_KEYS.has(k))
+}
+
+/** 磁盘水位 Tag 颜色：warn=黄标、danger=红标；ok 不打扰（调用方已过滤，不渲染） */
+const DISK_TAG_COLOR: Record<'warn' | 'danger', string> = {
+  warn: 'warning',
+  danger: 'error',
+}
+
+/**
+ * 新建表单写路径：路径落地后顺带把共享名带出来（末级目录名，shareNameFromPath）。
+ * touched=用户已手改过名字，则只改路径——自动值永远不得覆盖用户输入。
+ * 提到模块级（而非组件内闭包）是为了让"打开表单取建议路径"的 effect 依赖保持最小。
+ */
+function fillPathAndName(form: FormInstance, p: string, touched: boolean): void {
+  form.setFieldsValue({ path: p })
+  if (touched) return
+  const auto = shareNameFromPath(p)
+  if (auto) form.setFieldsValue({ name: auto })
+}
+
+/**
+ * 共享管理页的对外挂载契约：批1 的回收站/诊断入口由集成方注入（toolbarSlots / rowActions），
+ * 页面本身不实现那些能力，也不反向依赖它们的组件。
+ */
+export interface SharesProps {
+  /**
+   * 顶部工具位插槽：批1 的「操作回收站」「一键诊断」入口由集成方注入
+   * （组件本身不反向依赖回收站/诊断实现，保持可被外部 props 驱动）。
+   */
+  toolbarSlots?: ReactNode
+  /** 行内操作插槽：按共享注入「诊断此共享」等按钮（同上，由集成方驱动） */
+  rowActions?: (share: Share) => ReactNode
+}
+
+export default function Shares({ toolbarSlots, rowActions }: SharesProps = {}) {
   const { message, modal } = App.useApp()
   const [editOpen, setEditOpen] = useState(false)
   const [editShare, setEditShare] = useState<Share | null>(null)
@@ -145,6 +217,10 @@ export default function Shares() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailShare, setDetailShare] = useState<Share | null>(null)
   const [keyword, setKeyword] = useState('')
+  // 「只看有人连接」：与关键字搜索、协议 Tab 叠加（Tab 已在 queryKey 层筛选，此处只做本视图过滤）
+  const [onlyConnected, setOnlyConnected] = useState(false)
+  // 共享名是否被用户手改过：改过之后路径变化不再自动带名（自动填值不得覆盖用户输入）
+  const nameTouchedRef = useRef(false)
   const [form] = Form.useForm()
   const [editForm] = Form.useForm()
 
@@ -163,6 +239,38 @@ export default function Shares() {
   const [installingProto, setInstallingProto] = useState<Protocol | null>(null)
 
   const queryClient = useQueryClient()
+
+  // ===== 批1 运维体验（状态全部取自 appState，页面不复制状态、不硬编码阈值）=====
+  // 置顶：key=`${protocol}:${name}`，写经 appStore.patch → 主进程 appstate.json，重启仍在
+  const pinned = useAppStore((s) => s.state.pinned)
+  const togglePin = useAppStore((s) => s.togglePin)
+  // 新手/专家双模式：advancedMode=false 收敛高级参数与其文案
+  const advancedMode = useAppStore((s) => s.state.advancedMode)
+  // 磁盘水位阈值（剩余 GB）来自可配置告警规则
+  const diskLowGb = useAppStore((s) => s.state.alertRules.diskLowGb)
+
+  // 磁盘水位：查盘是 PowerShell 冷启动，60s 内复用；查失败降级为空表（不显示水位而不是显示 0%）
+  const { data: diskData } = useQuery({
+    queryKey: ['disk-usages'],
+    queryFn: () => api.disk.usages().catch(() => [] as DiskUsage[]),
+    staleTime: 60 * 1000,
+  })
+  const diskIndex = useMemo(() => indexDiskUsages(diskData ?? []), [diskData])
+  const pinnedSet = useMemo(() => new Set(pinned), [pinned])
+
+  /**
+   * 所在盘水位标记。UNC（\\server\share）、无盘符路径、以及查不到用量的盘一律返回 null：
+   * 没有本地卷就没有"剩余空间"语义，显示 0% 或空标记都会误导运维。
+   */
+  const waterLevelOf = (path: string): { usage: DiskUsage; level: 'warn' | 'danger' } | null => {
+    if (isUncPath(path)) return null
+    const drive = driveOf(path)
+    if (!drive) return null
+    const usage = diskIndex[drive]
+    if (!usage) return null
+    const level = diskLevel(usage, { lowGb: diskLowGb })
+    return level === 'warn' || level === 'danger' ? { usage, level } : null
+  }
 
   // 版本适配：OS 功能探测（与设置页环境卡共享 'os-info' 缓存）——
   // Win10/11 仅客户端 NFS（installType client-only）与家庭版无 IIS 时禁用对应协议创建选项
@@ -242,33 +350,57 @@ export default function Shares() {
 
   useTickEffect(refreshTick, () => load())
 
-  // hotkey: Del 批量删除
-  useTickEffect(shareDeleteTick, () => {
-    if (!selectedShares.length) return
+  /**
+   * 批量删除确认（hotkey Del 与工具栏按钮共用）。
+   * 文案一律走 deleteImpactText/undoHintText：连接影响与可撤销性是运维点下删除前唯一
+   * 能看到的事实，旧的"不可恢复"既不诚实（SMB 删除有快照可撤销）也不 actionable。
+   */
+  const confirmBatchDelete = (keys: string[]) => {
+    if (!keys.length) return
+    const targets = keys
+      .map((key) => {
+        const { protocol, name } = parseKey(key)
+        return shares.find((s) => s.protocol === protocol && s.name === name)
+      })
+      .filter((s): s is Share => !!s)
+    const impact = deleteImpactText(targets)
     modal.confirm({
       title: '批量删除共享',
-      content: `将对 ${selectedShares.length} 个共享执行删除，不可恢复。`,
+      content: (
+        <div>
+          <p style={{ marginBottom: 6 }}>将对 {keys.length} 个共享执行删除。</p>
+          <p style={{ marginBottom: 6, color: impact.danger ? '#d4380d' : undefined }}>
+            {impact.text}
+          </p>
+          <p className="text-xs text-fog" style={{ marginBottom: 0 }}>
+            {undoHintText(targets)}
+          </p>
+        </div>
+      ),
       okText: '删除',
       okType: 'danger',
       cancelText: '取消',
       onOk: async () => {
         const results = await Promise.allSettled(
-          selectedShares.map((key) => {
+          keys.map((key) => {
             const { protocol, name } = parseKey(key)
             return api.adapter.delete(protocol, name)
           }),
         )
         const failed = results.filter((r) => r.status === 'rejected')
         if (failed.length) {
-          message.error(`${selectedShares.length - failed.length} 个成功，${failed.length} 个失败`)
+          message.error(`${keys.length - failed.length} 个成功，${failed.length} 个失败`)
         } else {
-          message.success(`已删除 ${selectedShares.length} 个共享`)
+          message.success(`已删除 ${keys.length} 个共享`)
         }
         setSelectedShares([])
         load()
       },
     })
-  })
+  }
+
+  // hotkey: Del 批量删除
+  useTickEffect(shareDeleteTick, () => confirmBatchDelete(selectedShares))
 
   // hotkey: Space 批量启停
   useTickEffect(shareToggleTick, () => {
@@ -313,6 +445,23 @@ export default function Shares() {
     const v = await form.validateFields()
     try {
       const protocol = (v.protocol || 'smb') as Protocol
+      // 访问控制是折叠面板，未展开时 validateFields 不返回其值；默认授权（Users 读取）取 store 补齐
+      const readAccess = v.readAccess ?? form.getFieldValue('readAccess')
+      // 新手模式：隐藏项一律不提交。表单可能残留上次专家模式的取值，静默入库等于替用户做主。
+      const advanced = advancedMode
+        ? {
+            encrypted: v.encrypted,
+            encryptData: v.encryptData,
+            concurrentUserLimit: v.concurrentUserLimit,
+            cachingMode: v.cachingMode,
+            folderEnumerationMode: v.folderEnumerationMode,
+            shareShadowCopy: v.shareShadowCopy,
+            enableUnmappedAccess: v.enableUnmappedAccess,
+            allowRootAccess: v.allowRootAccess,
+            anonymousUid: v.anonymousUid,
+            anonymousGid: v.anonymousGid,
+          }
+        : {}
       await call(() =>
         api.adapter.create({
           protocol,
@@ -320,29 +469,20 @@ export default function Shares() {
           path: v.path,
           description: v.description,
           // SMB
-          encrypted: v.encrypted,
           fullAccess: v.fullAccess,
           changeAccess: v.changeAccess,
-          readAccess: v.readAccess,
+          readAccess,
           noAccess: v.noAccess,
-          encryptData: v.encryptData,
-          concurrentUserLimit: v.concurrentUserLimit,
-          cachingMode: v.cachingMode,
-          folderEnumerationMode: v.folderEnumerationMode,
-          shareShadowCopy: v.shareShadowCopy,
           // NFS
           authentication: v.authentication,
           nfsPermission: v.nfsPermission,
-          allowRootAccess: v.allowRootAccess,
-          enableUnmappedAccess: v.enableUnmappedAccess,
-          anonymousUid: v.anonymousUid,
-          anonymousGid: v.anonymousGid,
           // FTP
           port: v.port,
           sslPolicy: v.sslPolicy,
           authMode: v.authMode,
           // WebDAV
           anonymousEnabled: v.anonymousEnabled,
+          ...advanced,
         }),
       )
       if (v.presetId && protocol === 'smb') {
@@ -352,6 +492,7 @@ export default function Shares() {
       message.success('创建成功')
       setShareCreateOpen(false)
       form.resetFields()
+      nameTouchedRef.current = false
       load()
     } catch (e) {
       message.error((e as Error).message)
@@ -368,12 +509,13 @@ export default function Shares() {
           description: v.description,
           // NFS
           nfsPermission: v.nfsPermission,
-          allowRootAccess: v.allowRootAccess,
           // FTP
           sslPolicy: v.sslPolicy,
           authMode: v.authMode,
           // WebDAV
           anonymousEnabled: v.anonymousEnabled,
+          // root 访问属深水区：新手模式不渲染也不提交，隐藏值不得覆盖现网配置
+          ...(advancedMode ? { allowRootAccess: v.allowRootAccess } : {}),
         }),
       )
       message.success('已保存')
@@ -451,7 +593,7 @@ export default function Shares() {
       // Electron 32+ 移除了 sandbox 渲染进程的 File.path：优先 preload webUtils，回退旧属性
       const path = api.system.pathForFile(f) || (f as File & { path?: string }).path
       if (path) {
-        form.setFieldsValue({ path })
+        fillPathAndName(form, path, nameTouchedRef.current)
         setShareCreateOpen(true)
       }
     }
@@ -461,10 +603,38 @@ export default function Shares() {
   const handlePickFolder = async () => {
     try {
       const p = await api.system.selectFolder()
-      if (p) form.setFieldsValue({ path: p })
+      if (p) fillPathAndName(form, p, nameTouchedRef.current)
     } catch (e) {
       message.error((e as Error).message)
     }
+  }
+
+  // 智能默认值：打开新建表单即给出可用路径（disk.suggestRoot：非系统盘余量最大的卷），
+  // 用户只需确认而不必从零理解"路径/共享名/权限"。已有值不覆盖；查盘失败留空由用户填。
+  useEffect(() => {
+    if (!shareCreateOpen) return
+    // 复用上次未提交的输入：已有名字视为用户意图，后续路径变化不再覆盖
+    nameTouchedRef.current = !!form.getFieldValue('name')
+    if (form.getFieldValue('path')) return
+    let ignore = false
+    void call(api.disk.suggestRoot)
+      .then((p) => {
+        if (ignore || !p) return
+        fillPathAndName(form, p, nameTouchedRef.current)
+      })
+      .catch(() => {
+        // 建议路径拿不到不该挡住新建：保持空表单，用户自己填
+      })
+    return () => {
+      ignore = true
+    }
+  }, [shareCreateOpen, form])
+
+  // 路径手输时同样带名（浏览/拖拽走 fillPathAndName，这里覆盖键盘输入路径）
+  const handlePathInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (nameTouchedRef.current) return
+    const auto = shareNameFromPath(e.target.value)
+    if (auto) form.setFieldsValue({ name: auto })
   }
 
   // SMB 访问控制选项：本地用户 + 本地组
@@ -476,14 +646,25 @@ export default function Shares() {
 
   const filtered = useMemo(() => {
     const q = keyword.trim().toLowerCase()
-    if (!q) return shares
-    return shares.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.path.toLowerCase().includes(q) ||
-        (s.description || '').toLowerCase().includes(q),
+    const byKeyword = q
+      ? shares.filter(
+          (s) =>
+            s.name.toLowerCase().includes(q) ||
+            s.path.toLowerCase().includes(q) ||
+            (s.description || '').toLowerCase().includes(q),
+        )
+      : shares
+    // 「只看有人连接」叠加在关键字之上（协议 Tab 已在 queryKey 层由主进程筛选）：
+    // 排查"谁还在用这个共享"时，不想在几十行里挑非零连接数
+    const byConnection = onlyConnected
+      ? byKeyword.filter((s) => (s.concurrentUsers ?? 0) > 0)
+      : byKeyword
+    if (!pinnedSet.size) return byConnection
+    // 置顶恒排最前，其余保持原有顺序（Array#sort 稳定，不引入二次抖动）
+    return [...byConnection].sort(
+      (a, b) => Number(pinnedSet.has(toKey(b))) - Number(pinnedSet.has(toKey(a))),
     )
-  }, [shares, keyword])
+  }, [shares, keyword, onlyConnected, pinnedSet])
 
   // 协议能力位
   const capOf = (p: Protocol): ProtocolCapabilities | null => caps[p]
@@ -506,9 +687,44 @@ export default function Shares() {
       key: 'name',
       title: '名称',
       dataIndex: 'name',
-      width: 160,
+      width: 220,
       fixed: 'left' as const,
-      ellipsis: true,
+      render: (name: string, r: Share) => {
+        const key = toKey(r)
+        const isPinned = pinnedSet.has(key)
+        const level = waterLevelOf(r.path)
+        return (
+          <Space size={4}>
+            <Tooltip title={isPinned ? '取消置顶' : '置顶（排到最前，重启后仍在）'}>
+              <Button
+                type="text"
+                size="small"
+                aria-label={`${isPinned ? '取消置顶' : '置顶'} ${name}`}
+                icon={
+                  isPinned ? (
+                    <StarFilled style={{ color: '#faad14' }} />
+                  ) : (
+                    <StarOutlined style={{ color: 'rgba(0,0,0,0.25)' }} />
+                  )
+                }
+                onClick={() => {
+                  void togglePin(key).catch((e) => message.error((e as Error).message))
+                }}
+              />
+            </Tooltip>
+            <span>{name}</span>
+            {level && (
+              <Tooltip
+                title={`${level.usage.drive} 剩余 ${level.usage.freeGB} GB / 共 ${level.usage.totalGB} GB（告警线 ${diskLowGb} GB）`}
+              >
+                <Tag color={DISK_TAG_COLOR[level.level]} className={`disk-${level.level}`}>
+                  剩 {level.usage.freeGB} GB
+                </Tag>
+              </Tooltip>
+            )}
+          </Space>
+        )
+      },
     },
     { key: 'path', title: '路径', dataIndex: 'path', width: 160, ellipsis: true },
     { key: 'description', title: '描述', dataIndex: 'description', width: 120, ellipsis: true },
@@ -641,6 +857,7 @@ export default function Shares() {
             <Tooltip title="详情">
               <Button
                 size="small"
+                aria-label={`详情 ${r.name}`}
                 icon={<InfoCircleOutlined />}
                 onClick={() => {
                   setDetailShare(r)
@@ -652,6 +869,7 @@ export default function Shares() {
               <Tooltip title={r.status === 'Enabled' ? '禁用' : '启用'}>
                 <Button
                   size="small"
+                  aria-label={`${r.status === 'Enabled' ? '禁用' : '启用'} ${r.name}`}
                   icon={r.status === 'Enabled' ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
                   onClick={() => handleToggle(r)}
                 />
@@ -660,6 +878,7 @@ export default function Shares() {
             <Tooltip title="编辑">
               <Button
                 size="small"
+                aria-label={`编辑 ${r.name}`}
                 icon={<EditOutlined />}
                 onClick={() => {
                   setEditShare(r)
@@ -687,6 +906,8 @@ export default function Shares() {
                 />
               </Tooltip>
             )}
+            {/* 集成方按共享注入的操作（如「诊断此共享」）：本页不实现其能力，只保证可挂载 */}
+            {rowActions?.(r)}
             <Popconfirm
               title="确认删除该共享？"
               description={
@@ -700,7 +921,7 @@ export default function Shares() {
               okButtonProps={{ danger: true }}
               onConfirm={() => handleDelete(r)}
             >
-              <Button size="small" danger icon={<DeleteOutlined />} />
+              <Button size="small" danger aria-label={`删除 ${r.name}`} icon={<DeleteOutlined />} />
             </Popconfirm>
           </Space>
         )
@@ -770,6 +991,8 @@ export default function Shares() {
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setShareCreateOpen(true)}>
             新建共享
           </Button>
+          {/* 集成挂载位：操作回收站 / 一键诊断入口由批1 组件注入，本页只提供插槽不实现其能力 */}
+          {toolbarSlots}
         </Space>
       </div>
       <ProtocolCapabilityBanner />
@@ -790,6 +1013,10 @@ export default function Shares() {
             onChange={(e) => setKeyword(e.target.value)}
             style={{ maxWidth: 320 }}
           />
+          {/* 与关键字/协议 Tab 叠加：排障时先隔离"正在被人用"的共享 */}
+          <Checkbox checked={onlyConnected} onChange={(e) => setOnlyConnected(e.target.checked)}>
+            只看有人连接
+          </Checkbox>
           {selectedShares.length > 0 && (
             <Space className="ml-auto">
               <span className="text-xs text-fog">已选 {selectedShares.length}</span>
@@ -800,60 +1027,7 @@ export default function Shares() {
               >
                 <Button>批量启停</Button>
               </Popconfirm>
-              <Button
-                danger
-                onClick={() => {
-                  const targets = selectedShares
-                    .map((key) => {
-                      const { protocol, name } = parseKey(key)
-                      return shares.find((s) => s.protocol === protocol && s.name === name)
-                    })
-                    .filter((s): s is Share => !!s)
-                  const impact = deleteImpactText(targets)
-                  modal.confirm({
-                    title: '批量删除共享',
-                    content: (
-                      <div>
-                        <p style={{ marginBottom: 6 }}>
-                          将对 {selectedShares.length} 个共享执行删除。
-                        </p>
-                        <p
-                          style={{
-                            marginBottom: 6,
-                            color: impact.danger ? '#d4380d' : undefined,
-                          }}
-                        >
-                          {impact.text}
-                        </p>
-                        <p className="text-xs text-fog" style={{ marginBottom: 0 }}>
-                          {undoHintText(targets)}
-                        </p>
-                      </div>
-                    ),
-                    okText: '删除',
-                    okType: 'danger',
-                    cancelText: '取消',
-                    onOk: async () => {
-                      const results = await Promise.allSettled(
-                        selectedShares.map((key) => {
-                          const { protocol, name } = parseKey(key)
-                          return api.adapter.delete(protocol, name)
-                        }),
-                      )
-                      const failed = results.filter((r) => r.status === 'rejected')
-                      if (failed.length) {
-                        message.error(
-                          `${selectedShares.length - failed.length} 个成功，${failed.length} 个失败`,
-                        )
-                      } else {
-                        message.success(`已删除 ${selectedShares.length} 个共享`)
-                      }
-                      setSelectedShares([])
-                      load()
-                    },
-                  })
-                }}
-              >
+              <Button danger onClick={() => confirmBatchDelete(selectedShares)}>
                 批量删除
               </Button>
             </Space>
@@ -938,7 +1112,7 @@ export default function Shares() {
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ protocol: 'smb', nfsPermission: 'rw' }}
+          initialValues={{ protocol: 'smb', nfsPermission: 'rw', readAccess: DEFAULT_READ_ACCESS }}
         >
           <Form.Item name="protocol" label="协议" rules={[{ required: true }]}>
             <Select
@@ -961,7 +1135,11 @@ export default function Shares() {
           <Form.Item noStyle shouldUpdate={(prev, cur) => prev.protocol !== cur.protocol}>
             {({ getFieldValue }) => {
               const proto = (getFieldValue('protocol') || 'smb') as Protocol
-              const list = CREATE_SCENARIO_PRESETS[proto]
+              // 新手模式：会写入隐藏高级参数的预设一并收敛（点了看不见改了啥，比不给更糟），
+              // 「私有加密」这类带 SMB 加密/按访问枚举文案的预设也随之消失
+              const list = CREATE_SCENARIO_PRESETS[proto].filter(
+                (p) => advancedMode || !presetUsesAdvanced(p.values),
+              )
               return (
                 <Form.Item label="常见预设" tooltip="一键填入该场景常用参数，填入后仍可逐项调整">
                   <Space wrap size={4}>
@@ -988,7 +1166,13 @@ export default function Shares() {
             label="共享名"
             rules={[{ required: true, message: '请输入共享名' }]}
           >
-            <Input placeholder="如 SharedDocs" />
+            <Input
+              placeholder="如 SharedDocs"
+              onChange={() => {
+                // 用户一旦手改过名字，路径变化就不再覆盖它
+                nameTouchedRef.current = true
+              }}
+            />
           </Form.Item>
           <Form.Item label="本地路径" required>
             <Space.Compact style={{ width: '100%' }}>
@@ -997,7 +1181,7 @@ export default function Shares() {
                 noStyle
                 rules={[{ required: true, message: '请输入或拖入路径' }]}
               >
-                <Input placeholder="如 D:\Share" />
+                <Input placeholder="如 D:\Share" onChange={handlePathInput} />
               </Form.Item>
               <Button icon={<FolderOpenOutlined />} onClick={handlePickFolder}>
                 浏览
@@ -1021,14 +1205,17 @@ export default function Shares() {
                       ))}
                     </Select>
                   </Form.Item>
-                  <Form.Item
-                    name="encrypted"
-                    label="启用 SMB 加密"
-                    valuePropName="checked"
-                    initialValue={false}
-                  >
-                    <Switch />
-                  </Form.Item>
+                  {/* 新手模式隐藏 SMB 加密开关：它的高级版语义（传输加密 vs 数据加密）在向导里只会造成困惑 */}
+                  {advancedMode && (
+                    <Form.Item
+                      name="encrypted"
+                      label="启用 SMB 加密"
+                      valuePropName="checked"
+                      initialValue={false}
+                    >
+                      <Switch />
+                    </Form.Item>
+                  )}
                   <Collapse
                     size="small"
                     className="mb-3"
@@ -1079,72 +1266,79 @@ export default function Shares() {
                       },
                     ]}
                   />
-                  <Collapse
-                    size="small"
-                    className="mb-3"
-                    items={[
-                      {
-                        key: 'advanced',
-                        label: '高级选项',
-                        children: (
-                          <>
-                            <Form.Item
-                              name="encryptData"
-                              label="共享级数据加密"
-                              valuePropName="checked"
-                              initialValue={false}
-                              tooltip="对通过此共享传输的数据进行加密，与 SMB 加密独立"
-                            >
-                              <Switch />
-                            </Form.Item>
-                            <Form.Item
-                              name="shareShadowCopy"
-                              label="卷影副本"
-                              valuePropName="checked"
-                              initialValue={false}
-                              tooltip="启用 VSS 卷影副本支持，允许客户端访问历史版本"
-                            >
-                              <Switch />
-                            </Form.Item>
-                            <Form.Item
-                              name="folderEnumerationMode"
-                              label="文件夹枚举模式"
-                              initialValue="Unrestricted"
-                            >
-                              <Select
-                                options={[
-                                  { label: '无限制（可见全部子项）', value: 'Unrestricted' },
-                                  { label: '基于访问（仅可见有权限的子项）', value: 'AccessBased' },
-                                ]}
-                              />
-                            </Form.Item>
-                            <Form.Item
-                              name="cachingMode"
-                              label="脱机缓存模式"
-                              initialValue="Manual"
-                            >
-                              <Select
-                                options={[
-                                  { label: '无', value: 'None' },
-                                  { label: '手动', value: 'Manual' },
-                                  { label: '文档', value: 'Documents' },
-                                  { label: '程序', value: 'Programs' },
-                                  { label: 'BranchCache', value: 'BranchCache' },
-                                ]}
-                              />
-                            </Form.Item>
-                            <Form.Item
-                              name="concurrentUserLimit"
-                              label="并发用户上限（0=无限制）"
-                              initialValue={0}
-                            >
-                              <InputNumber min={0} max={65535} style={{ width: '100%' }} />
-                            </Form.Item>
-                          </>
-                        ),
-                      },
-                    ]}
-                  />
+                  {/* 新手模式整体收敛：脱机缓存(含 BranchCache/租约语义)、按访问枚举、
+                      并发上限、数据加密、卷影副本都不出现，也不提交 */}
+                  {advancedMode && (
+                    <Collapse
+                      size="small"
+                      className="mb-3"
+                      items={[
+                        {
+                          key: 'advanced',
+                          label: '高级选项',
+                          children: (
+                            <>
+                              <Form.Item
+                                name="encryptData"
+                                label="共享级数据加密"
+                                valuePropName="checked"
+                                initialValue={false}
+                                tooltip="对通过此共享传输的数据进行加密，与 SMB 加密独立"
+                              >
+                                <Switch />
+                              </Form.Item>
+                              <Form.Item
+                                name="shareShadowCopy"
+                                label="卷影副本"
+                                valuePropName="checked"
+                                initialValue={false}
+                                tooltip="启用 VSS 卷影副本支持，允许客户端访问历史版本"
+                              >
+                                <Switch />
+                              </Form.Item>
+                              <Form.Item
+                                name="folderEnumerationMode"
+                                label="文件夹枚举模式"
+                                initialValue="Unrestricted"
+                              >
+                                <Select
+                                  options={[
+                                    { label: '无限制（可见全部子项）', value: 'Unrestricted' },
+                                    {
+                                      label: '基于访问（仅可见有权限的子项）',
+                                      value: 'AccessBased',
+                                    },
+                                  ]}
+                                />
+                              </Form.Item>
+                              <Form.Item
+                                name="cachingMode"
+                                label="脱机缓存模式"
+                                initialValue="Manual"
+                              >
+                                <Select
+                                  options={[
+                                    { label: '无', value: 'None' },
+                                    { label: '手动', value: 'Manual' },
+                                    { label: '文档', value: 'Documents' },
+                                    { label: '程序', value: 'Programs' },
+                                    { label: 'BranchCache', value: 'BranchCache' },
+                                  ]}
+                                />
+                              </Form.Item>
+                              <Form.Item
+                                name="concurrentUserLimit"
+                                label="并发用户上限（0=无限制）"
+                                initialValue={0}
+                              >
+                                <InputNumber min={0} max={65535} style={{ width: '100%' }} />
+                              </Form.Item>
+                            </>
+                          ),
+                        },
+                      ]}
+                    />
+                  )}
                 </>
               ) : null
             }
@@ -1170,28 +1364,33 @@ export default function Shares() {
                       <Radio value="ro">只读</Radio>
                     </Radio.Group>
                   </Form.Item>
-                  <Form.Item
-                    name="enableUnmappedAccess"
-                    label="启用未映射用户访问"
-                    valuePropName="checked"
-                    initialValue={false}
-                  >
-                    <Switch />
-                  </Form.Item>
-                  <Form.Item
-                    name="allowRootAccess"
-                    label="允许 root 访问"
-                    valuePropName="checked"
-                    initialValue={false}
-                  >
-                    <Switch />
-                  </Form.Item>
-                  <Form.Item name="anonymousUid" label="匿名 UID（0=默认）" initialValue={0}>
-                    <InputNumber min={-1} max={65535} style={{ width: '100%' }} />
-                  </Form.Item>
-                  <Form.Item name="anonymousGid" label="匿名 GID（0=默认）" initialValue={0}>
-                    <InputNumber min={-1} max={65535} style={{ width: '100%' }} />
-                  </Form.Item>
+                  {/* 未映射访问 / root 访问 / 匿名 UID·GID 是 NFS 深水区：新手模式隐藏且不提交 */}
+                  {advancedMode && (
+                    <>
+                      <Form.Item
+                        name="enableUnmappedAccess"
+                        label="启用未映射用户访问"
+                        valuePropName="checked"
+                        initialValue={false}
+                      >
+                        <Switch />
+                      </Form.Item>
+                      <Form.Item
+                        name="allowRootAccess"
+                        label="允许 root 访问"
+                        valuePropName="checked"
+                        initialValue={false}
+                      >
+                        <Switch />
+                      </Form.Item>
+                      <Form.Item name="anonymousUid" label="匿名 UID（0=默认）" initialValue={0}>
+                        <InputNumber min={-1} max={65535} style={{ width: '100%' }} />
+                      </Form.Item>
+                      <Form.Item name="anonymousGid" label="匿名 GID（0=默认）" initialValue={0}>
+                        <InputNumber min={-1} max={65535} style={{ width: '100%' }} />
+                      </Form.Item>
+                    </>
+                  )}
                 </>
               ) : null
             }
@@ -1273,9 +1472,12 @@ export default function Shares() {
                   <Radio value="ro">只读</Radio>
                 </Radio.Group>
               </Form.Item>
-              <Form.Item name="allowRootAccess" label="允许 root 访问" valuePropName="checked">
-                <Switch />
-              </Form.Item>
+              {/* root 访问属高级项：新手模式隐藏，保存时也不提交（隐藏值不得覆盖现网配置） */}
+              {advancedMode && (
+                <Form.Item name="allowRootAccess" label="允许 root 访问" valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              )}
             </>
           )}
           {editShare?.protocol === 'ftp' && (

@@ -94,6 +94,26 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         action: () => useUiStore.getState().triggerRefresh(),
       },
       {
+        key: 'act-diagnose',
+        label: '一键诊断共享连通性',
+        hint: '服务/端口/路径/NTFS/权限/防火墙逐项体检',
+        group: 'action',
+        action: () => {
+          navigate('/shares')
+          useUiStore.getState().requestOpenDiagnose()
+        },
+      },
+      {
+        key: 'act-journal',
+        label: '打开操作回收站',
+        hint: '撤销最近的删除 / 禁用 / 权限变更',
+        group: 'action',
+        action: () => {
+          navigate('/shares')
+          useUiStore.getState().requestOpenJournal()
+        },
+      },
+      {
         key: 'act-redetect',
         label: '重新检测协议能力',
         hint: '刷新 SMB/NFS/FTP/WebDAV 安装状态',

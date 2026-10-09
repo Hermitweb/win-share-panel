@@ -8,7 +8,26 @@ import type { DesiredRule, FirewallRule } from '../types'
 
 export const FW_GROUP = 'WinShare Panel'
 
-const NAME_RE = /^[\w ()\-.]{1,100}$/
+// 规则名字符白名单。必须放行 "/"：presetRules 产出的预设名形如
+// "WinShare SMB (445/TCP)"，早先白名单没有 "/" 导致 ensureRules(presetRules(kind))
+// 恒抛 INVALID_PARAM——一键诊断的防火墙修复项与预设建/删规则在运行时全挂（qa-main t1 复现）。
+// 安全性不变：这些名字最终经 psQuote 进 PowerShell 单引号字符串上下文，
+// 单引号内无插值、"/" 与 "(" ")" 均为惰性字符，而真正的注入载体 "'" 仍被白名单挡在外面。
+const NAME_RE = /^[\w ().\-/]{1,100}$/
+
+/** 端口白名单：仅数字、逗号、连字符（范围）；先全量校验再写入，避免部分提交 */
+const PORTS_RE = /^[\d,-]+$/
+
+function validateDesired(r: DesiredRule): string {
+  if (!NAME_RE.test(r.name ?? '')) throw Errors.invalidParam(`规则名非法：${r.name}`)
+  if (!PORTS_RE.test(r.ports ?? '')) throw Errors.invalidParam(`端口格式非法：${r.ports}`)
+  // 校验入参而不是归一化结果：原来写的是 proto !== 'TCP' && proto !== 'UDP'，
+  // 上一行三元已把一切值归一成 TCP/UDP，那条判断永远为假（死分支，校验意图未落实）
+  if (r.protocol !== undefined && r.protocol !== 'TCP' && r.protocol !== 'UDP') {
+    throw Errors.invalidParam('协议非法')
+  }
+  return r.protocol === 'UDP' ? 'UDP' : 'TCP'
+}
 
 export async function listManagedRules(): Promise<FirewallRule[]> {
   const raw = await runPowerShell<any | any[]>(
@@ -31,13 +50,12 @@ export async function listManagedRules(): Promise<FirewallRule[]> {
 export async function ensureRules(desired: DesiredRule[]): Promise<string[]> {
   if (!Array.isArray(desired) || desired.length === 0) return []
   if (desired.length > 20) throw Errors.invalidParam('单次规则请求过多')
-  const existing = new Set((await listManagedRules()).map((r) => r.name))
+  // 先全量校验再发起任何写命令：原实现校验与写入在同一循环里交错，
+  // [合法A, 非法B] 会先创建 A 再对 B 抛错——留下"部分提交"的中间态（qa-main t1 finding 2）
+  const validated = desired.map((r) => ({ r, proto: validateDesired(r) }))
+  const existing = new Set((await listManagedRules()).map((rule) => rule.name))
   const created: string[] = []
-  for (const r of desired) {
-    if (!NAME_RE.test(r.name ?? '')) throw Errors.invalidParam(`规则名非法：${r.name}`)
-    if (!/^[\d,-]+$/.test(r.ports ?? '')) throw Errors.invalidParam(`端口格式非法：${r.ports}`)
-    const proto = r.protocol === 'UDP' ? 'UDP' : 'TCP'
-    if (proto !== 'TCP' && proto !== 'UDP') throw Errors.invalidParam('协议非法')
+  for (const { r, proto } of validated) {
     if (existing.has(r.name)) continue
     const ports = r.ports
       .split(',')

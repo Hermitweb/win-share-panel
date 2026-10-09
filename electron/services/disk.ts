@@ -20,14 +20,27 @@ export async function getDiskUsages(): Promise<DiskUsage[]> {
   return arr
     .filter((d) => d && typeof d.Name === 'string' && /^[A-Za-z]$/.test(d.Name))
     .map((d) => {
-      const total = (d.Free ?? 0) + (d.Used ?? 0)
+      // PowerShell 数字在 JSON 化后可能是字符串/Infinity，仅 `?? 0` 挡不住非数值，
+      // 会产出 freeGB=NaN 并在 UI 显示 "NaN GB"（qa-main t1 finding 3）
+      const free = toFiniteGB(d.Free)
+      const used = toFiniteGB(d.Used)
+      const total = free + used
       return {
-        drive: `${d.Name}:`,
-        freeGB: Math.round(((d.Free ?? 0) / 1e9) * 10) / 10,
-        totalGB: Math.round((total / 1e9) * 10) / 10,
-        freePct: total > 0 ? Math.round(((d.Free ?? 0) / total) * 100) : 100,
+        drive: `${d.Name.toUpperCase()}:`,
+        freeGB: round1(free),
+        totalGB: round1(total),
+        freePct: total > 0 ? Math.round((free / total) * 100) : 100,
       }
     })
+}
+
+function toFiniteGB(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+function round1(bytes: number): number {
+  return Math.round((bytes / 1e9) * 10) / 10
 }
 
 /** 从共享路径提取盘符（"E:\\share\\x" → "E:"），非法返回 null */
