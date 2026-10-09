@@ -2,10 +2,27 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    // electron：主进程既有测试；src：渲染层纯逻辑首批单测（node 环境可测的 utils/stores/api）
-    include: ['electron/**/*.test.ts', 'src/**/*.test.ts'],
-    environment: 'node',
     globals: false,
+    // vitest 4 projects：node 组=主进程+渲染层纯逻辑；dom 组=React 组件测试（B3）
+    // setupFiles 需逐 project 声明（vitest 4 顶层不向 projects 继承）
+    projects: [
+      {
+        test: {
+          name: 'node',
+          environment: 'node',
+          setupFiles: ['./src/test/setup.ts'],
+          include: ['electron/**/*.test.ts', 'src/**/*.test.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'dom',
+          environment: 'jsdom',
+          setupFiles: ['./src/test/setup.ts'],
+          include: ['src/**/*.test.tsx'],
+        },
+      },
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
@@ -17,6 +34,8 @@ export default defineConfig({
         'electron/**/*.test.ts',
         'electron/types.ts', // 纯类型声明，无运行时语句
         'src/**/*.test.ts',
+        'src/**/*.test.tsx',
+        'src/test/**',
         'src/types.ts', // 纯 re-export
         'src/vite-env.d.ts',
       ],
