@@ -4,6 +4,13 @@
 
 ## [1.1.0] - 2026-10-09
 
+### 🖥 系统版本适配（OS matrix）
+
+- **运行时功能探测 `system:osInfo`**：单次 PowerShell 往返获取 OS caption/build/SKU + 功能矩阵（SMB 模块 / NFS 服务端 cmdlet / IIS 可承载性（Server 恒真、Home SKU 恒假）/ SMB QUIC 属性），主进程缓存；新增 `docs/COMPATIBILITY.md` 完整矩阵与手工回归清单
+- **SMB 服务器配置"按机过滤"下发**：保存前探测本机 `Get-SmbServerConfiguration` 实际属性集，旧系统（Server 2016/2019、Win10）不存在的 `EnableSMBQUIC`/`SilentAU`/`SessionTimeoutSeconds` 等自动跳过并日志留痕，不再报"找不到参数"；全部被跳过时明确拒绝而非空命令
+- **UI 适配呈现**：设置页新增"系统环境"卡（OS + 功能矩阵 + 家庭版 IIS 不可用提示）；QUIC 开关不支持时禁用+tooltip；新建共享弹窗按探测结果禁用不适协议选项（客户端系统禁 NFS 创建标注"客户端仅"、无 IIS 系统禁 FTP/WebDAV 标注）
+- 新增适配测试 8 个（smb 过滤 4 + osInfo 探测/映射/缓存 4），总用例 256
+
 ### 🔁 架构演进 / Architecture（B1）
 
 - **数据层迁移 react-query（@tanstack/react-query 5）**：5 个页面（仪表板/共享管理/用户权限/会话监控/服务配置）+ 3 个协议配置面板统一 `useQuery` 拉取；轮询/并发去重/缓存失效内建，替代手写 `load + inflight 守卫 + 定时器` 链；`load()` 名称保留、语义=invalidate（变更回调零改动）；`refetchOnWindowFocus:false`/`retry:0` 适配 IPC 语义；F5 与托盘刷新经 store tick → invalidate 桥接

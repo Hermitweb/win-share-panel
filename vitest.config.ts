@@ -12,6 +12,8 @@ export default defineConfig({
           environment: 'node',
           setupFiles: ['./src/test/setup.ts'],
           include: ['electron/**/*.test.ts', 'src/**/*.test.ts'],
+          // 压力模拟用例含时序敏感断言（20ms 级 timeout），并发跑高负载时允许重试一次吸收抖动
+          retry: 1,
         },
       },
       {

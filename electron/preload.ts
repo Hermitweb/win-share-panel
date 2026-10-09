@@ -18,6 +18,7 @@ import type {
   UserInfo,
   DashboardStats,
   SmbSnapshotMeta,
+  OsInfo,
   Protocol,
   ProtocolSession,
   ProtocolDetectionResult,
@@ -156,6 +157,7 @@ const api = {
     dashboard: (): Promise<DashboardStats> => ipcRenderer.invoke('system:dashboard'),
     auditLog: (): Promise<string> => ipcRenderer.invoke('system:auditLog'),
     health: (): Promise<{ ok: boolean; detail: string }> => ipcRenderer.invoke('system:health'),
+    osInfo: (): Promise<OsInfo> => ipcRenderer.invoke('system:osInfo'),
     // 原生文件夹选择（主进程 dialog.showOpenDialog）
     selectFolder: (): Promise<string | null> => ipcRenderer.invoke('system:selectFolder'),
     // 打开日志文件夹：成功返回空串，失败返回错误信息

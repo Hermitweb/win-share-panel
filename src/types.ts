@@ -28,6 +28,8 @@ import type {
   ProtocolCapabilities,
   CreateShareInput,
   UpdateShareInput,
+  OsInfo,
+  OsFeatures,
 } from '../electron/types'
 
 export type {
@@ -60,6 +62,8 @@ export type {
   ProtocolCapabilities,
   CreateShareInput,
   UpdateShareInput,
+  OsInfo,
+  OsFeatures,
 }
 
 // 共享连接信息
@@ -175,6 +179,7 @@ export interface WinShareApi {
     dashboard: () => Promise<DashboardStats>
     auditLog: () => Promise<string>
     health: () => Promise<{ ok: boolean; detail: string }>
+    osInfo: () => Promise<OsInfo>
     selectFolder: () => Promise<string | null>
     openLogFolder: () => Promise<string>
     pathForFile: (file: File) => string

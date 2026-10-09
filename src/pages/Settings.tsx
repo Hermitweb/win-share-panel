@@ -36,6 +36,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, call } from '../api'
 import type { PermissionPreset, SmbSnapshotMeta, SmbServerConfig } from '../types'
 import ConfigPresetBar from '../components/ConfigPresetBar'
+import OsCompatCard from '../components/OsCompatCard'
 import { SMB_CONFIG_PRESETS } from '../utils/configPresets'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
@@ -55,6 +56,12 @@ export default function Settings() {
 
   // B1：数据层 react-query 统一六项拉取；load 保留名称、语义=失效重取（12 处调用零改动）
   const queryClient = useQueryClient()
+  // 版本适配：OS 功能探测（与 OsCompatCard 共享同一 query 缓存）
+  const { data: osInfo } = useQuery({
+    queryKey: ['os-info'],
+    queryFn: () => api.system.osInfo(),
+    staleTime: 5 * 60 * 1000,
+  })
   const { data, error } = useQuery({
     queryKey: ['settings'],
     queryFn: async () => {
@@ -356,6 +363,8 @@ export default function Settings() {
           刷新
         </Button>
       </div>
+      {/* 版本适配环境卡：运行时功能探测（SMB/NFS/IIS/QUIC），配置页按结果降级 */}
+      <OsCompatCard />
       <Tabs
         items={[
           {
@@ -486,8 +495,13 @@ export default function Settings() {
                               name="enableSMBQUIC"
                               label="SMB QUIC"
                               valuePropName="checked"
+                              tooltip={
+                                osInfo && !osInfo.features.smbQuicConfig
+                                  ? '需 Server 2022 / Win11 23H2+；本机探测不支持，保存时将自动跳过'
+                                  : undefined
+                              }
                             >
-                              <Switch />
+                              <Switch disabled={osInfo ? !osInfo.features.smbQuicConfig : false} />
                             </Form.Item>
                             <Form.Item
                               name="announceServer"

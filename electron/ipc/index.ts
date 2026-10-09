@@ -274,6 +274,8 @@ export function registerIpc(): void {
   ipcMain.handle('system:dashboard', () => system.getDashboardStats())
   ipcMain.handle('system:auditLog', () => system.getAuditLog())
   ipcMain.handle('system:health', () => system.healthCheck())
+  // 版本适配：OS + 功能探测（供设置页环境卡与 UI 降级）
+  ipcMain.handle('system:osInfo', () => system.getOsInfo())
   // 路径选择修复：preload 早已暴露 selectFolder，但主进程从未注册 handler（调用必
   // "No handler registered"）——补原生文件夹选择对话框；取消返回 null，不回传任何敏感信息
   ipcMain.handle('system:selectFolder', async (e) => {

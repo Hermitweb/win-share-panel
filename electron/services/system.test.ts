@@ -40,7 +40,7 @@ vi.mock('electron', () => ({ app: { isPackaged: false, quit: vi.fn() } }))
 // Mock audit（同模块其他导出引用，不影响 getDashboardStats）
 vi.mock('../lib/audit', () => ({ readAuditLog: vi.fn().mockResolvedValue('') }))
 
-import { getDashboardStats } from './system'
+import { getDashboardStats, getOsInfo } from './system'
 import type { Share } from '../types'
 
 function makeShare(name: string, protocol: Share['protocol'], users = 0): Share {
@@ -232,5 +232,73 @@ describe('getDashboardStats - 并行化与容错', () => {
 
     expect(stats.shareCount).toBe(1) // 仅 normal
     expect(stats.topShares).toHaveLength(1)
+  })
+})
+
+// ===== 版本适配（OS matrix）：getOsInfo 探测与映射 =====
+describe('getOsInfo 版本探测', () => {
+  const probe = (over: Record<string, unknown> = {}) => ({
+    Caption: 'Microsoft Windows 11 Pro',
+    Build: 26100,
+    SKU: 161,
+    SmbShare: true,
+    NfsServer: false,
+    IisModule: false,
+    IisFeature: true,
+    Quic: true,
+    ...over,
+  })
+
+  it('客户端 Pro：非 Server、IIS 可选功能存在 → iisAvailable 真、QUIC 支持', async () => {
+    mockedRunPowerShell.mockResolvedValueOnce(probe())
+    const info = await getOsInfo({ refresh: true })
+    expect(info.isServer).toBe(false)
+    expect(info.isHomeEdition).toBe(false)
+    expect(info.buildNumber).toBe(26100)
+    expect(info.features.iisAvailable).toBe(true)
+    expect(info.features.smbQuicConfig).toBe(true)
+    expect(info.features.smbShareModule).toBe(true)
+    expect(info.features.nfsServerCmdlets).toBe(false)
+  })
+
+  it('Server 2022：caption 判型、IIS 恒可承载（功能探测失败也 true）、NFS 服务端角色标记', async () => {
+    mockedRunPowerShell.mockResolvedValueOnce(
+      probe({
+        Caption: 'Microsoft Windows Server 2022 Standard',
+        SKU: 12,
+        NfsServer: true,
+        IisFeature: false,
+        Quic: false,
+      }),
+    )
+    const info = await getOsInfo({ refresh: true })
+    expect(info.isServer).toBe(true)
+    expect(info.features.iisAvailable).toBe(true)
+    expect(info.features.nfsServerCmdlets).toBe(true)
+    expect(info.features.smbQuicConfig).toBe(false)
+  })
+
+  it('家庭版：SKU 映射 Home、isHomeEdition、无 IIS → FTP/WebDAV 不可用', async () => {
+    mockedRunPowerShell.mockResolvedValueOnce(
+      probe({ Caption: 'Microsoft Windows 11 家庭中文版', SKU: 101, IisFeature: false }),
+    )
+    const info = await getOsInfo({ refresh: true })
+    expect(info.skuName).toBe('Home')
+    expect(info.isHomeEdition).toBe(true)
+    expect(info.features.iisAvailable).toBe(false)
+  })
+
+  it('进程内缓存：非 refresh 不重复探测', async () => {
+    const before = mockedRunPowerShell.mock.calls.filter((c: unknown[]) =>
+      String(c[0]).includes('Win32_OperatingSystem'),
+    ).length
+    mockedRunPowerShell.mockResolvedValueOnce(probe())
+    await getOsInfo({ refresh: true }) // 强制刷新：恰好一次探测
+    const b = await getOsInfo() // 命中缓存：不再探测
+    expect(b).toBeTruthy()
+    const after = mockedRunPowerShell.mock.calls.filter((c: unknown[]) =>
+      String(c[0]).includes('Win32_OperatingSystem'),
+    ).length
+    expect(after - before).toBe(1)
   })
 })

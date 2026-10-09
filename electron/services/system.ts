@@ -6,7 +6,7 @@ import { readAuditLog } from '../lib/audit'
 import { Errors } from '../lib/errors'
 import { getServiceStatus } from './smb'
 import { adapterList, adapterSessions } from './protocol/registry'
-import type { UserInfo, DashboardStats, Protocol, Share } from '../types'
+import type { UserInfo, DashboardStats, Protocol, Share, OsInfo } from '../types'
 
 // 协议白名单（与 types.ts 声明一致），IPC 边界运行时校验
 const PROTOCOLS = new Set<Protocol>(['smb', 'nfs', 'ftp', 'webdav'])
@@ -131,4 +131,77 @@ export async function healthCheck(): Promise<{ ok: boolean; detail: string }> {
   } catch (e) {
     return { ok: false, detail: (e as Error).message }
   }
+}
+
+// ===== 版本适配（OS matrix）：单次 PowerShell 往返探测 OS + 功能可用性，进程内缓存 =====
+// 设计原则：以"功能是否可用"驱动 UI/写入降级，不硬编码版本号判断——
+// 同一版本不同 SKU（Home 无 IIS）、Server 各版本（2016 无 QUIC）差异全部经探测吸收。
+const SKU_NAMES: Record<number, string> = {
+  2: 'Home Basic',
+  3: 'Home Premium',
+  4: 'Enterprise',
+  6: 'Business (Server)',
+  7: 'Enterprise (Server)',
+  8: 'Datacenter (Server)',
+  9: 'Web Server (Server)',
+  12: 'Storage Server',
+  28: 'Standard (Server)',
+  39: 'Datacenter (Server)',
+  51: 'Essentials (Server)',
+  61: 'Business (Server)',
+  62: 'Enterprise (Server)',
+  63: 'Datacenter (Server)',
+  101: 'Home',
+  102: 'Home (N)',
+  103: 'Home 单语言版',
+  104: 'Home (中国)',
+  105: 'Home (N) 单语言版',
+  109: 'Home',
+  110: 'Home 单语言版',
+  111: 'Education',
+  121: 'Pro Education',
+  122: 'Pro for Workstations',
+  161: 'Pro Workstations (Server)?',
+  175: 'SE 单语言版',
+}
+// 家庭系 SKU：无 IIS（FTP/WebDAV 不可用），无客户端 NFS
+const HOME_SKUS = new Set([101, 102, 103, 104, 105, 109, 110])
+
+let osInfoCache: OsInfo | null = null
+
+export async function getOsInfo(opts: { refresh?: boolean } = {}): Promise<OsInfo> {
+  if (osInfoCache && !opts.refresh) return osInfoCache
+  const raw = await runPowerShell<any>(
+    '$os = Get-CimInstance Win32_OperatingSystem; ' +
+      '$build = if ($os.BuildNumber) { [int]$os.BuildNumber } else { [Environment]::OSVersion.Version.Build }; ' +
+      '$quic = $false; try { $quic = ((Get-SmbServerConfiguration).PSObject.Properties.Name -contains "EnableSMBQUIC") } catch {}; ' +
+      '$iisFeat = $false; try { $null = Get-WindowsOptionalFeature -Online -FeatureName IIS-WebServer -ErrorAction Stop; $iisFeat = $true } catch {}; ' +
+      '[PSCustomObject]@{ Caption = $os.Caption; Build = $build; SKU = [int]$os.OperatingSystemSKU; ' +
+      'SmbShare = [bool](Get-Command Get-SmbShare -ErrorAction SilentlyContinue); ' +
+      'NfsServer = [bool](Get-Command Get-NfsShare -ErrorAction SilentlyContinue); ' +
+      'IisModule = [bool](Get-Module -ListAvailable -Name WebAdministration); ' +
+      'IisFeature = $iisFeat; Quic = [bool]$quic }',
+    { retries: 0 },
+  )
+  const caption = String(raw?.Caption ?? '')
+  const isServer = /server/i.test(caption)
+  const skuId = Number(raw?.SKU ?? 0)
+  const info: OsInfo = {
+    caption: caption.trim() || 'Windows（未知版本）',
+    buildNumber: Number(raw?.Build ?? 0),
+    skuId,
+    skuName: SKU_NAMES[skuId] ?? `SKU ${skuId}`,
+    isServer,
+    isHomeEdition: HOME_SKUS.has(skuId),
+    hostname: hostname(),
+    features: {
+      smbShareModule: Boolean(raw?.SmbShare),
+      nfsServerCmdlets: Boolean(raw?.NfsServer),
+      // Server 恒可承载 IIS；客户端看 IIS 可选功能是否存在（Home 查询失败→false）
+      iisAvailable: isServer || Boolean(raw?.IisModule) || Boolean(raw?.IisFeature),
+      smbQuicConfig: Boolean(raw?.Quic),
+    },
+  }
+  osInfoCache = info
+  return info
 }

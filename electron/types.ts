@@ -227,6 +227,30 @@ export interface UserInfo {
   computerName: string
 }
 
+// ===== 版本适配（OS matrix）：运行时功能探测，而非硬编码版本号 =====
+export interface OsFeatures {
+  /** SMB 共享管理 cmdlet（Get-SmbShare）——Win8+ 全 SKU 含 Home */
+  smbShareModule: boolean
+  /** NFS 服务端 cmdlet（Get-NfsShare）——仅 Windows Server 装了 FS-NFS-Service */
+  nfsServerCmdlets: boolean
+  /** 本机可承载 IIS（FTP/WebDAV 前置）：Server 恒真；客户端 Home SKU 恒假 */
+  iisAvailable: boolean
+  /** SMB QUIC 配置属性存在（EnableSMBQUIC）——Server 2022 / Win11 23H2+ */
+  smbQuicConfig: boolean
+}
+
+export interface OsInfo {
+  /** Win32_OperatingSystem.Caption，如 "Microsoft Windows Server 2022 Standard" */
+  caption: string
+  buildNumber: number
+  skuId: number
+  skuName: string
+  isServer: boolean
+  isHomeEdition: boolean
+  hostname: string
+  features: OsFeatures
+}
+
 export interface DashboardStats {
   shareCount: number
   activeSessions: number

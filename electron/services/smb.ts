@@ -1,3 +1,4 @@
+import { log } from '../lib/logger'
 import {
   runPowerShell,
   runPowerShellVoid,
@@ -127,12 +128,23 @@ const FIELD_MAP: Record<string, string> = {
 // RequestCompression 合法枚举值（Set-SmbServerConfiguration -RequestCompression）
 const COMPRESSION_OPTIONS = new Set(['Off', 'OptimizeForSpeed', 'OptimizeForSize'])
 
-function buildSetCmd(config: Partial<SmbServerConfig>): string {
+// 版本适配（OS matrix）：不同 Windows 版本的 Set-SmbServerConfiguration 参数集不同——
+// EnableSMBQUIC（Server 2022/Win11 23H2+）、SessionTimeoutSeconds/MaxThreadsPerQueue 等
+// 扩展项在旧系统（Server 2016/2019、Win10）不存在，直发会报"找不到与参数名称匹配"。
+// supported=本机 Get-SmbServerConfiguration 实际属性集；null=探测失败回退全量下发（旧行为）。
+function buildSetCmd(config: Partial<SmbServerConfig>, supported: Set<string> | null): string {
+  const skipped: string[] = []
+  const can = (psName: string): boolean => {
+    if (!supported || supported.has(psName)) return true
+    skipped.push(psName)
+    return false
+  }
   const parts = ['Set-SmbServerConfiguration']
   // 布尔/数值字段映射（运行时类型校验，防止渲染进程传入非法类型注入命令）
   for (const key of Object.keys(FIELD_MAP)) {
     const k = key as keyof SmbServerConfig
     if (config[k] === undefined) continue
+    if (!can(FIELD_MAP[key])) continue
     const v = config[k]
     const bv = psBool(v)
     if (bv) {
@@ -143,36 +155,39 @@ function buildSetCmd(config: Partial<SmbServerConfig>): string {
     if (nv) parts.push(`-${FIELD_MAP[key]} ${nv}`)
   }
   // 数值字段
-  if (config.unauthenticatedUsersTimeLimit !== undefined) {
+  if (config.unauthenticatedUsersTimeLimit !== undefined && can('UnauthenticatedUsersTimeLimit')) {
     const nv = psNumber(config.unauthenticatedUsersTimeLimit)
     if (nv) parts.push(`-UnauthenticatedUsersTimeLimit ${nv}`)
   }
-  if (config.sessionTimeoutSeconds !== undefined) {
+  if (config.sessionTimeoutSeconds !== undefined && can('SessionTimeoutSeconds')) {
     const nv = psNumber(config.sessionTimeoutSeconds)
     if (nv) parts.push(`-SessionTimeoutSeconds ${nv}`)
   }
-  if (config.maxSessionPerConnection !== undefined) {
+  if (config.maxSessionPerConnection !== undefined && can('MaxSessionPerConnection')) {
     const nv = psNumber(config.maxSessionPerConnection)
     if (nv) parts.push(`-MaxSessionPerConnection ${nv}`)
   }
-  if (config.maxMpxCount !== undefined) {
+  if (config.maxMpxCount !== undefined && can('MaxMpxCount')) {
     const nv = psNumber(config.maxMpxCount)
     if (nv) parts.push(`-MaxMpxCount ${nv}`)
   }
-  if (config.maxWorkItems !== undefined) {
+  if (config.maxWorkItems !== undefined && can('MaxWorkItems')) {
     const nv = psNumber(config.maxWorkItems)
     if (nv) parts.push(`-MaxWorkItems ${nv}`)
   }
-  if (config.maxThreadsPerQueue !== undefined) {
+  if (config.maxThreadsPerQueue !== undefined && can('MaxThreadsPerQueue')) {
     const nv = psNumber(config.maxThreadsPerQueue)
     if (nv) parts.push(`-MaxThreadsPerQueue ${nv}`)
   }
   // 枚举字段（白名单校验 + 引号包裹）
-  if (config.requestCompression !== undefined) {
+  if (config.requestCompression !== undefined && can('RequestCompression')) {
     const ev = psEnum(config.requestCompression, COMPRESSION_OPTIONS)
     if (ev) parts.push(`-RequestCompression ${psQuote(ev)}`)
   }
   parts.push('-Force')
+  if (skipped.length) {
+    log.info('smb', `版本适配：本机不支持以下配置项，已跳过：${skipped.join(', ')}`)
+  }
   return parts.join(' ')
 }
 
@@ -195,8 +210,18 @@ export async function setConfig(config: Partial<SmbServerConfig>): Promise<void>
     }
     skipNextSnapshot = false
 
-    const cmd = buildSetCmd(config)
-    if (cmd.split(' ').length <= 2) throw Errors.invalidParam('未提供任何配置项')
+    // 版本适配：读取本机 SMB 服务器配置的实际属性集（旧系统缺少 QUIC/SilentAU 等），
+    // 下发前据此过滤；探测失败则 supported=null 回退全量下发（错误照实上抛）
+    let supported: Set<string> | null = null
+    try {
+      const raw = await runPowerShell<any>('Get-SmbServerConfiguration')
+      supported = new Set(Object.keys(raw ?? {}))
+    } catch {
+      supported = null
+    }
+    const cmd = buildSetCmd(config, supported)
+    if (cmd.split(' ').length <= 2)
+      throw Errors.invalidParam('未提供任何配置项（本机可能不支持所改字段）')
     await runPowerShellVoid(cmd)
   }
   // 排入串行队列：前一次 setConfig 完成（含 await）后才执行本次

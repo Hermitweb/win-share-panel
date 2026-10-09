@@ -161,6 +161,16 @@ export default function Shares() {
 
   const queryClient = useQueryClient()
 
+  // 版本适配：OS 功能探测（与设置页环境卡共享 'os-info' 缓存）——
+  // Win10/11 仅客户端 NFS（installType client-only）与家庭版无 IIS 时禁用对应协议创建选项
+  const { data: osInfo } = useQuery({
+    queryKey: ['os-info'],
+    queryFn: () => api.system.osInfo(),
+    staleTime: 5 * 60 * 1000,
+  })
+  const nfsBlocked = protocolCaps?.nfs?.installType === 'client-only'
+  const iisBlocked = osInfo ? !osInfo.features.iisAvailable : false
+
   // B1：数据层 react-query（shares 列表随协议筛选=queryKey；presets/能力/用户/组同批拉取）。
   // load 保留名称、语义=失效重取，12 处变更回调零改动。
   const { data, isFetching, error } = useQuery({
@@ -895,9 +905,15 @@ export default function Shares() {
               }}
             >
               <Select.Option value="smb">SMB（Windows 文件共享）</Select.Option>
-              <Select.Option value="nfs">NFS（网络文件系统）</Select.Option>
-              <Select.Option value="ftp">FTP（IIS FTP 站点）</Select.Option>
-              <Select.Option value="webdav">WebDAV（IIS WebDAV 站点）</Select.Option>
+              <Select.Option value="nfs" disabled={nfsBlocked}>
+                NFS（网络文件系统）{nfsBlocked ? ' — 本机为 NFS 客户端系统，不支持创建' : ''}
+              </Select.Option>
+              <Select.Option value="ftp" disabled={iisBlocked}>
+                FTP（IIS FTP 站点）{iisBlocked ? ' — 本机系统不支持 IIS' : ''}
+              </Select.Option>
+              <Select.Option value="webdav" disabled={iisBlocked}>
+                WebDAV（IIS WebDAV 站点）{iisBlocked ? ' — 本机系统不支持 IIS' : ''}
+              </Select.Option>
             </Select>
           </Form.Item>
           <Form.Item noStyle shouldUpdate={(prev, cur) => prev.protocol !== cur.protocol}>
