@@ -144,9 +144,9 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h1 className="text-xl font-semibold">仪表板</h1>
-        <Space>
+        <Space wrap>
           <Button icon={<FileImageOutlined />} onClick={exportPng} disabled={!stats}>
             导出 PNG
           </Button>

@@ -267,9 +267,9 @@ export default function Sessions() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h1 className="text-xl font-semibold">会话监控</h1>
-        <Space>
+        <Space wrap>
           <span className="text-xs text-fog">刷新间隔</span>
           <Select
             value={intervalSec}
@@ -327,6 +327,7 @@ export default function Sessions() {
                         loading={loading}
                         size="middle"
                         pagination={{ pageSize: 10 }}
+                        scroll={{ x: 'max-content' }}
                         rowSelection={{
                           selectedRowKeys: selectedSessions,
                           onChange: (keys) => setSelectedSessions(keys as string[]),
@@ -347,6 +348,7 @@ export default function Sessions() {
                         loading={loading}
                         size="middle"
                         pagination={{ pageSize: 10 }}
+                        scroll={{ x: 'max-content' }}
                         columns={fileColumns}
                       />
                     </div>
@@ -378,6 +380,7 @@ export default function Sessions() {
                           loading={loading}
                           size="middle"
                           pagination={{ pageSize: 10 }}
+                          scroll={{ x: 'max-content' }}
                           rowSelection={{
                             selectedRowKeys: selectedSessions,
                             onChange: (keys) => setSelectedSessions(keys as string[]),

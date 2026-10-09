@@ -403,11 +403,19 @@ export default function Shares() {
             title: '协议',
             dataIndex: 'protocol',
             width: 80,
+            fixed: 'left' as const,
             render: (p: Protocol) => <Tag color={PROTOCOL_COLOR[p]}>{p.toUpperCase()}</Tag>,
           },
         ]
       : []),
-    { key: 'name', title: '名称', dataIndex: 'name', width: 160 },
+    {
+      key: 'name',
+      title: '名称',
+      dataIndex: 'name',
+      width: 160,
+      fixed: 'left' as const,
+      ellipsis: true,
+    },
     { key: 'path', title: '路径', dataIndex: 'path', width: 160, ellipsis: true },
     { key: 'description', title: '描述', dataIndex: 'description', width: 120, ellipsis: true },
     // FTP 专有列（前置到路径/描述之后、连接数之前，便于 FTP 管理）
@@ -531,6 +539,7 @@ export default function Shares() {
       key: 'actions',
       title: '操作',
       width: 220,
+      fixed: 'right' as const,
       render: (_: unknown, r: Share) => (
         <Space>
           <Tooltip title="详情">
@@ -631,15 +640,15 @@ export default function Shares() {
 
   return (
     <div onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-      <div className="flex items-center justify-between mb-4">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold">共享管理</h1>
           <p className="text-xs text-fog mt-1">
             提示：拖拽文件夹到本页可快速创建共享 · Ctrl+N 新建 · Del 批量删除 · Space 批量启停 · F5
             刷新
           </p>
         </div>
-        <Space>
+        <Space wrap>
           <Button icon={<ReloadOutlined />} onClick={load}>
             刷新
           </Button>
@@ -663,7 +672,7 @@ export default function Shares() {
           size="small"
           className="mb-3"
         />
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <Input
             allowClear
             prefix={<SearchOutlined className="text-fog" />}
@@ -725,9 +734,11 @@ export default function Shares() {
             loading={loading}
             pagination={{ pageSize: 10 }}
             size="middle"
+            scroll={{ x: 'max-content' }}
             rowSelection={{
               selectedRowKeys: selectedShares,
               onChange: (keys) => setSelectedShares(keys as string[]),
+              fixed: 'left',
             }}
           />
         ) : (

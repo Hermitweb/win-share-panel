@@ -307,7 +307,7 @@ export default function Settings() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h1 className="text-xl font-semibold">服务器配置</h1>
         <Button icon={<ReloadOutlined />} onClick={load}>
           刷新
@@ -585,6 +585,7 @@ export default function Settings() {
                           rowKey="id"
                           size="middle"
                           pagination={false}
+                          scroll={{ x: 'max-content' }}
                           columns={presetColumns}
                         />
                       </div>
@@ -644,6 +645,7 @@ export default function Settings() {
                           rowKey="id"
                           size="middle"
                           pagination={{ pageSize: 10 }}
+                          scroll={{ x: 'max-content' }}
                           locale={{ emptyText: '暂无快照' }}
                           columns={[
                             {

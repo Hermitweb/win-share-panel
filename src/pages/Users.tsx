@@ -371,9 +371,9 @@ export default function Users() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h1 className="text-xl font-semibold">用户与权限</h1>
-        <Space>
+        <Space wrap>
           <Button icon={<ReloadOutlined />} onClick={load}>
             刷新
           </Button>
@@ -498,6 +498,7 @@ export default function Users() {
                   loading={loading}
                   size="middle"
                   pagination={{ pageSize: 10 }}
+                  scroll={{ x: 'max-content' }}
                   columns={groupColumns}
                 />
               </div>
