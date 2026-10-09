@@ -44,7 +44,15 @@
 - **A4 审计日志 Tab 美化**：JSONL 解析为结构化行（时间/操作/对象/原因/成败 Tag）+ 复制按钮，末 200 条
 - **A5 文档同步**：README 环境要求修正（pnpm 11 → 9.x 与 packageManager 同源）、质量门禁命令表、管理员终端提示、日志系统说明
 - **新建共享常见预设**：协议感知场景 chips 一键填入表单（SMB：团队协作/公开只读/私有加密；NFS：只读发布/读写共享/Kerberos 安全共享；FTP：安全分发/匿名下载/内网共享；WebDAV：只读发布/匿名投递），填入后仍可逐项调整
-- 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）、jsdom 组件测试基建
+- **合并说明（NFS 会话）**：采纳 origin/main v1.0.1 的语义修正——listSessions 改用 `Get-NfsSession`（MSFT_NfsSession 仅 SessionId/NetworkName/State/ClientId，相应字段留空），closeSession 改用 `Disconnect-NfsSession -SessionId`；统一为 logger 风格
+- 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）
+
+## [v1.0.1] - 2026-09
+
+> 本节为合并 origin/main 时补记（远端发布时未更新 CHANGELOG）。
+
+- 多架构打包支持：nsis / portable / msi × x64 / ia32（electron-builder arch 矩阵，产物名含 `${arch}`），引入 `resedit` 用于资源编辑
+- CI 修复：`EP_PUBLISH=never` 禁用 electron-builder 自动发布，避免 Release 资产重复上传
 
 ## [v1.0.0] - 2026-08-08
 

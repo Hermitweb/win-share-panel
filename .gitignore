@@ -10,3 +10,7 @@ release/
 coverage/
 .agent-teams/
 .dsh-vision-toolkit/
+
+# build environment artifacts
+.pnpm-store/
+*.deb
