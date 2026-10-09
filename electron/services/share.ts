@@ -12,6 +12,7 @@ import {
   validatePath,
 } from '../lib/powershell'
 import { Errors } from '../lib/errors'
+import { addJournal } from '../lib/stateStore'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
@@ -88,6 +89,8 @@ interface DisabledRecord {
   cachingMode?: CreateShareOpts['cachingMode']
   folderEnumerationMode?: CreateShareOpts['folderEnumerationMode']
 }
+// 与跨层契约 ShareSnapshot 同形（types.ts 为真相源）；供 journal 撤销与 disabled.json 存档共用
+export type ShareDisabledRecord = DisabledRecord
 function readDisabled(): DisabledRecord[] {
   try {
     if (!existsSync(disabledFile())) return []
@@ -175,6 +178,13 @@ export async function createShare(opts: CreateShareOpts): Promise<Share> {
       )
     }
     log.info('share', '[createShare:smb] 共享创建完成:', opts.name)
+    addJournal({
+      action: 'create',
+      protocol: 'smb',
+      name: opts.name,
+      detail: `路径 ${opts.path}`,
+      undoable: false,
+    })
     return mapShare(raw)
   } catch (e) {
     log.error('share', '[createShare:smb] 创建失败:', opts.name, (e as Error).message)
@@ -236,7 +246,73 @@ export async function deleteShare(name: string): Promise<void> {
   if (SYSTEM_SPECIAL_SHARES.has(name.toLowerCase())) {
     throw Errors.invalidParam(`系统特殊共享 ${name} 不允许删除`)
   }
+  // 操作日志（撤销底座）：删除前尽力捕获快照（失败不阻塞删除本身）
+  let snapshot: DisabledRecord | undefined
+  try {
+    const shares = await listShares()
+    const s = shares.find((x) => x.name === name)
+    if (s) {
+      const [perms, advanced] = await Promise.all([
+        getSharePermissions(name).catch(() => [] as SharePermission[]),
+        // getShareAdvanced 内部已 try/catch 返回 {}，此处无需再 catch（加了会让类型并上 {}）
+        getShareAdvanced(name),
+      ])
+      snapshot = {
+        name,
+        path: s.path,
+        description: s.description,
+        permissions: perms,
+        encrypted: s.encrypted,
+        concurrentUserLimit: advanced.concurrentUserLimit,
+        cachingMode: advanced.cachingMode,
+        folderEnumerationMode: advanced.folderEnumerationMode,
+      }
+    }
+  } catch {
+    snapshot = undefined
+  }
   await runPowerShellVoid(`Remove-SmbShare -Name ${psQuote(name)} -Force`)
+  addJournal({
+    action: 'delete',
+    protocol: 'smb',
+    name,
+    detail: snapshot
+      ? `路径 ${snapshot.path}，${snapshot.permissions.length} 条授权已存档`
+      : '快照捕获失败',
+    // 有快照才可撤销；快照捕获失败时诚实标记为不可撤销
+    undoable: Boolean(snapshot),
+    snapshot,
+  })
+}
+
+/** 从禁用/删除快照还原共享（toggle 恢复与 journal 撤销共用） */
+export async function restoreShare(r: DisabledRecord): Promise<void> {
+  const allow = r.permissions.filter((p) => !p.deny)
+  // M-6：恢复路径失败给出场景化提示（区别于新建失败），保留底层原因摘要
+  await createShare({
+    name: r.name,
+    path: r.path,
+    description: r.description,
+    fullAccess: allow.filter((p) => p.access === 'Full').map((p) => p.account),
+    changeAccess: allow.filter((p) => p.access === 'Change').map((p) => p.account),
+    readAccess: allow.filter((p) => p.access === 'Read').map((p) => p.account),
+    encrypted: r.encrypted,
+    concurrentUserLimit: r.concurrentUserLimit,
+    cachingMode: r.cachingMode,
+    folderEnumerationMode: r.folderEnumerationMode,
+  })
+  // 补回 deny 条目（New-SmbShare 仅支持 allow 列表，deny 需 Block-SmbShareAccess）
+  const deny = r.permissions.filter((p) => p.deny && p.account)
+  for (const p of deny) {
+    try {
+      await runPowerShellVoid(
+        `Block-SmbShareAccess -Name ${psQuote(r.name)} -AccountName ${psQuote(p.account)} -Force`,
+        { retries: 0 },
+      )
+    } catch {
+      // best-effort：单个 deny 失败不阻断恢复
+    }
+  }
 }
 
 export async function toggleShare(name: string, enabled: boolean): Promise<void> {
@@ -256,54 +332,38 @@ export async function toggleShare(name: string, enabled: boolean): Promise<void>
     // 先删除共享，成功后再落盘禁用记录，避免 Remove 失败时残留脏记录
     await runPowerShellVoid(`Remove-SmbShare -Name ${psQuote(name)} -Force`)
     const list = readDisabled()
+    const rec: DisabledRecord = {
+      name,
+      path: s.path,
+      description: s.description,
+      permissions: perms,
+      encrypted: s.encrypted,
+      concurrentUserLimit: advanced.concurrentUserLimit,
+      cachingMode: advanced.cachingMode,
+      folderEnumerationMode: advanced.folderEnumerationMode,
+    }
     if (!list.find((x) => x.name === name)) {
-      list.push({
-        name,
-        path: s.path,
-        description: s.description,
-        permissions: perms,
-        encrypted: s.encrypted,
-        concurrentUserLimit: advanced.concurrentUserLimit,
-        cachingMode: advanced.cachingMode,
-        folderEnumerationMode: advanced.folderEnumerationMode,
-      })
+      list.push(rec)
       writeDisabled(list)
     }
+    addJournal({
+      action: 'toggle-off',
+      protocol: 'smb',
+      name,
+      detail: `禁用（${perms.length} 条授权已存档，可恢复）`,
+      undoable: true,
+      snapshot: rec,
+    })
   } else {
     const list = readDisabled()
     const idx = list.findIndex((x) => x.name === name)
     if (idx < 0) throw Errors.commandFailed('未找到该共享的禁用记录，无法恢复')
     const r = list[idx]
-    // 还原共享：保留高级选项；allow 列表用 New-SmbShare 参数，deny 条目随后用 Block-SmbShareAccess 补回
-    const allow = r.permissions.filter((p) => !p.deny)
-    // M-6：恢复路径失败给出场景化提示（区别于新建失败），保留底层原因摘要
+    // 复用 restoreShare（journal 撤销同路径）；M-6 场景化提示在包装层保留
     try {
-      await createShare({
-        name: r.name,
-        path: r.path,
-        description: r.description,
-        fullAccess: allow.filter((p) => p.access === 'Full').map((p) => p.account),
-        changeAccess: allow.filter((p) => p.access === 'Change').map((p) => p.account),
-        readAccess: allow.filter((p) => p.access === 'Read').map((p) => p.account),
-        encrypted: r.encrypted,
-        concurrentUserLimit: r.concurrentUserLimit,
-        cachingMode: r.cachingMode,
-        folderEnumerationMode: r.folderEnumerationMode,
-      })
+      await restoreShare(r)
     } catch (e) {
       throw Errors.commandFailed(`恢复共享"${name}"失败：${(e as Error).message.slice(0, 200)}`)
-    }
-    // 补回 deny 条目（New-SmbShare 仅支持 allow 列表，deny 需 Block-SmbShareAccess）
-    const deny = r.permissions.filter((p) => p.deny && p.account)
-    for (const p of deny) {
-      try {
-        await runPowerShellVoid(
-          `Block-SmbShareAccess -Name ${psQuote(r.name)} -AccountName ${psQuote(p.account)} -Force`,
-          { retries: 0 },
-        )
-      } catch {
-        // best-effort：单个 deny 失败不阻断恢复
-      }
     }
     list.splice(idx, 1)
     writeDisabled(list)

@@ -266,6 +266,127 @@ export interface ServiceStatus {
   startType: string
 }
 
+// ===== 批1 用户体验底座类型 =====
+// 约定：electron/types.ts 是跨层契约的唯一真相源（保持零 import），
+// 各服务（stateStore/disk/security/firewall/diagnose）从此处取类型，不得反向依赖，
+// 否则渲染层 typecheck（tsconfig.json，无 node types）会把实现文件拖进类型图。
+
+/** 告警规则（可配置化：默认仅新连接气泡，此处扩展为规则开关集） */
+export interface AlertRules {
+  /** 空闲 N 分钟以上的会话出现在监控时提示；null=关闭 */
+  idleAlertMinutes: number | null
+  smb1Alert: boolean
+  weakPasswordAlert: boolean
+  /** 共享所在盘剩余空间低于该 GB 数列黄标/详情告警 */
+  diskLowGb: number
+}
+
+/** 仪表板连接数采样点（定时采样，供 24h 趋势折线） */
+export interface HistoryPoint {
+  ts: number
+  sessions: number
+  openFiles: number
+}
+
+/** 共享可恢复快照：disabled.json 记录与操作日志撤销共用同一形状 */
+export interface ShareSnapshot {
+  name: string
+  path: string
+  description: string
+  permissions: SharePermission[]
+  encrypted: boolean
+  concurrentUserLimit?: number
+  cachingMode?: CreateShareOpts['cachingMode']
+  folderEnumerationMode?: CreateShareOpts['folderEnumerationMode']
+}
+
+/** 操作日志条目（"操作回收站"：最近 N 条 + 一键撤销的底座） */
+export interface JournalEntry {
+  id: string
+  ts: number
+  action: 'create' | 'delete' | 'toggle-off' | 'permset'
+  protocol: Protocol
+  name: string
+  detail?: string
+  /** delete/toggle-off/permset 携带撤销所需快照（share=ShareSnapshot，permset=权限数组） */
+  snapshot?: ShareSnapshot | SharePermission[]
+  /** 撤销动作所需的协议（adapter 路由撤销时用） */
+  undoable: boolean
+}
+
+/** 应用级持久状态（UI 偏好/告警规则/置顶/连接历史/操作日志） */
+export interface AppState {
+  theme: 'light' | 'dark'
+  /** false=新手模式（隐藏 SMB1/枚举/租约等高级概念） */
+  advancedMode: boolean
+  /** `${protocol}:${name}` 复合 key */
+  pinned: string[]
+  alertRules: AlertRules
+  autoStart: boolean
+  dashboardHistory: HistoryPoint[]
+  journal: JournalEntry[]
+}
+
+/**
+ * 状态补丁：alertRules 允许逐键更新（设置面板改一个开关不该重置其他规则），
+ * 由主进程与既有值浅合并。
+ */
+export type AppStatePatch = Omit<Partial<AppState>, 'alertRules'> & {
+  alertRules?: Partial<AlertRules>
+}
+
+/** 磁盘水位（单卷） */
+export interface DiskUsage {
+  /** 如 "E:" */
+  drive: string
+  freeGB: number
+  totalGB: number
+  freePct: number
+}
+
+/** 账号安全体检的单项问题 */
+export interface SecurityIssue {
+  user: string
+  level: 'fail' | 'warn'
+  issue: string
+}
+
+/** 账号安全体检报告 */
+export interface SecurityReport {
+  checked: number
+  issues: SecurityIssue[]
+  /** 探测时间戳 */
+  at: number
+}
+
+/** 本应用创建的防火墙规则（仅 WinShare Panel 组内） */
+export interface FirewallRule {
+  name: string
+  enabled: boolean
+  ports: string
+}
+
+/** 期望态防火墙规则（ensure 幂等输入） */
+export interface DesiredRule {
+  /** DisplayName，同时作为幂等键 */
+  name: string
+  /** 单端口 "21" 或范围 "50000-51000" */
+  ports: string
+  protocol?: 'TCP' | 'UDP'
+}
+
+/** 一键诊断的可自动修复项键 */
+export type DiagnoseFixKind = 'service:lanman' | 'firewall:smb' | 'acl:read-everyone'
+
+/** 一键诊断的单项结果（fix=可自动修复的键，UI 呈现修复按钮） */
+export interface DiagnoseItem {
+  key: string
+  label: string
+  status: 'pass' | 'warn' | 'fail'
+  detail: string
+  fix?: DiagnoseFixKind
+}
+
 export interface SmbSnapshot {
   id: string
   ts: string

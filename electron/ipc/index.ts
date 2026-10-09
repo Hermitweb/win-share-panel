@@ -1,5 +1,5 @@
 import { log, logDir, normalizeLevel, readLogTail, writeLog } from '../lib/logger'
-import { dialog, ipcMain, BrowserWindow, shell } from 'electron'
+import { app, dialog, ipcMain, BrowserWindow, shell } from 'electron'
 import { audit } from '../lib/audit'
 import { Errors } from '../lib/errors'
 import { validateShareName, validatePath } from '../lib/powershell'
@@ -26,7 +26,32 @@ import {
   getCapabilitiesMap,
 } from '../services/protocol/registry'
 import { detectProtocols, installProtocol } from '../services/protocol/detect'
-import type { Protocol, CreateShareInput, UpdateShareInput, SharePermission } from '../types'
+// ===== 批1 UX 底座：应用状态 / 磁盘水位 / 安全体检 / 防火墙 / 一键诊断 =====
+import { loadState, saveState } from '../lib/stateStore'
+import { listJournal, undoJournal, clearJournal } from '../services/journal'
+import { getDiskUsages, suggestRoot } from '../services/disk'
+import { securityReport } from '../services/security'
+import {
+  FW_GROUP,
+  listManagedRules,
+  ensureRules,
+  removeRule,
+  presetRules,
+} from '../services/firewall'
+import { runDiagnose, applyFix } from '../services/diagnose'
+import type {
+  Protocol,
+  CreateShareInput,
+  UpdateShareInput,
+  SharePermission,
+  AppStatePatch,
+  AlertRules,
+  DesiredRule,
+  DiagnoseFixKind,
+} from '../types'
+
+// 防火墙预设白名单（渲染层只能选其一，端口范围另经 opts 校验）
+const PRESET_KINDS = new Set(['smb', 'ftp', 'ftpPassive', 'webdav', 'quic'])
 
 // 统一包装：审计 + 错误透传
 function wrap<T>(fn: () => Promise<T>, action: string, target: string): Promise<T> {
@@ -89,6 +114,86 @@ function requireTextField(v: unknown, what: string, maxLen: number): void {
 function requireBooleanField(v: unknown, what: string): void {
   if (v === undefined || v === null) return
   if (typeof v !== 'boolean') throw Errors.invalidParam(`${what}必须为布尔值`)
+}
+
+// === 批1 UX 底座入参守卫 ===
+// 应用状态补丁：只接受白名单字段，且逐字段类型收敛（渲染层可传任意形状）
+function requireStatePatch(v: unknown): AppStatePatch {
+  const o = requirePlainObject(v, '应用状态补丁')
+  const out: AppStatePatch = {}
+  if (o.theme !== undefined) {
+    if (o.theme !== 'light' && o.theme !== 'dark') throw Errors.invalidParam('theme 非法')
+    out.theme = o.theme
+  }
+  if (o.advancedMode !== undefined) {
+    if (typeof o.advancedMode !== 'boolean') throw Errors.invalidParam('advancedMode 必须为布尔值')
+    out.advancedMode = o.advancedMode
+  }
+  if (o.autoStart !== undefined) {
+    if (typeof o.autoStart !== 'boolean') throw Errors.invalidParam('autoStart 必须为布尔值')
+    out.autoStart = o.autoStart
+  }
+  if (o.pinned !== undefined) {
+    const pinned = requireStringArray(o.pinned) ?? []
+    if (pinned.length > 100) throw Errors.invalidParam('置顶数量过多')
+    out.pinned = pinned
+  }
+  if (o.alertRules !== undefined) {
+    const a = requirePlainObject(o.alertRules, '告警规则')
+    // 逐键按需带上：未提供的键不写进补丁，stateStore 浅合并会保留原值
+    const rules: Partial<AlertRules> = {}
+    if (a.idleAlertMinutes !== undefined) {
+      if (!(
+        a.idleAlertMinutes === null ||
+        (typeof a.idleAlertMinutes === 'number' && a.idleAlertMinutes > 0)
+      )) {
+        throw Errors.invalidParam('idleAlertMinutes 必须为正数或 null')
+      }
+      rules.idleAlertMinutes = a.idleAlertMinutes as number | null
+    }
+    if (a.smb1Alert !== undefined) {
+      requireBooleanField(a.smb1Alert, 'smb1Alert')
+      rules.smb1Alert = a.smb1Alert as boolean
+    }
+    if (a.weakPasswordAlert !== undefined) {
+      requireBooleanField(a.weakPasswordAlert, 'weakPasswordAlert')
+      rules.weakPasswordAlert = a.weakPasswordAlert as boolean
+    }
+    if (a.diskLowGb !== undefined) {
+      if (!(typeof a.diskLowGb === 'number' && a.diskLowGb >= 0)) {
+        throw Errors.invalidParam('diskLowGb 必须为非负数')
+      }
+      rules.diskLowGb = a.diskLowGb as number
+    }
+    out.alertRules = rules
+  }
+  if (Object.keys(out).length === 0) throw Errors.invalidParam('补丁无有效字段')
+  return out
+}
+
+function requireDiagnoseFix(v: unknown): DiagnoseFixKind {
+  const allowed: DiagnoseFixKind[] = ['service:lanman', 'firewall:smb', 'acl:read-everyone']
+  if (!allowed.includes(v as DiagnoseFixKind)) throw Errors.invalidParam('修复项非法')
+  return v as DiagnoseFixKind
+}
+
+function requireDesiredRules(v: unknown): DesiredRule[] {
+  if (!Array.isArray(v) || v.length === 0 || v.length > 20) {
+    throw Errors.invalidParam('防火墙规则列表必须为 1-20 条')
+  }
+  return v.map((raw) => {
+    const o = requirePlainObject(raw, '防火墙规则')
+    requireTextField(o.name, '规则名', 100)
+    requireTextField(o.ports, '端口', 64)
+    if (o.protocol !== undefined && o.protocol !== 'TCP' && o.protocol !== 'UDP') {
+      throw Errors.invalidParam('协议非法')
+    }
+    return {
+      name: o.name as string,
+      ports: o.ports as string,
+      protocol: o.protocol as 'TCP' | 'UDP' | undefined,
+    }
+  })
 }
 
 export function registerIpc(): void {
@@ -289,6 +394,29 @@ export function registerIpc(): void {
   })
   // 打开日志文件夹（命令面板"打开日志文件夹"命令使用）；成功返回 ''，失败返回错误串
   ipcMain.handle('system:openLogFolder', () => shell.openPath(logDir()))
+  // 开机自启（服务器/NAS 常驻托管）：读写系统登录项设置，Win 下走 HKCU Run 键
+  ipcMain.handle('system:autoStart', () => {
+    try {
+      return app.getLoginItemSettings().openAtLogin
+    } catch {
+      return null // 平台不支持时返回 null，UI 隐藏该项
+    }
+  })
+  ipcMain.handle('system:setAutoStart', (_e, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') throw Errors.invalidParam('enabled 必须为布尔值')
+    return wrap(
+      async () => {
+        try {
+          app.setLoginItemSettings({ openAtLogin: enabled })
+          return app.getLoginItemSettings().openAtLogin
+        } catch (e) {
+          throw Errors.commandFailed(`设置开机自启失败：${(e as Error).message}`)
+        }
+      },
+      'setAutoStart',
+      String(enabled),
+    )
+  })
 
   // === app: 日志系统（E6）===
   // 渲染层错误/事件转发主进程持久化；边界守卫：level 白名单、长度截断、简单限流
@@ -434,4 +562,75 @@ export function registerIpc(): void {
   ipcMain.handle('protocol:install', (_e, protocol: Protocol) =>
     wrap(() => installProtocol(protocol), 'install', protocol),
   )
+
+  // === state: 应用级持久状态（UI 偏好/告警规则/置顶/操作回收站）===
+  // 读操作不包 wrap（不写系统状态，无需审计噪音）；写操作走审计。
+  ipcMain.handle('state:get', () => loadState())
+  ipcMain.handle('state:patch', (_e, patch) =>
+    wrap(() => Promise.resolve(saveState(requireStatePatch(patch))), 'statePatch', 'appState'),
+  )
+  ipcMain.handle('state:journalList', () => listJournal())
+  ipcMain.handle('state:journalUndo', (_e, id: unknown) => {
+    if (typeof id !== 'string' || !id || id.length > 64) throw Errors.invalidParam('记录 id 非法')
+    return wrap(() => undoJournal(id), 'journalUndo', id)
+  })
+  ipcMain.handle('state:journalClear', () =>
+    wrap(() => Promise.resolve(clearJournal()), 'journalClear', 'journal'),
+  )
+
+  // === disk: 磁盘水位 ===
+  ipcMain.handle('disk:usages', () => wrap(getDiskUsages, 'diskUsages', 'drives'))
+  // 新建共享的路径智能默认值（非系统盘剩余空间最大者）
+  ipcMain.handle('disk:suggestRoot', () => suggestRoot())
+
+  // === security: 账号安全体检（空口令/永不过期/长期未改）===
+  ipcMain.handle('security:report', () => wrap(securityReport, 'securityReport', 'localUsers'))
+
+  // === firewall: 本应用组内入站规则 ===
+  ipcMain.handle('firewall:list', () => wrap(listManagedRules, 'fwList', FW_GROUP))
+  // 逐条守卫后再交给 ensureRules（幂等创建；服务层同样有自己的白名单校验）
+  ipcMain.handle('firewall:ensure', (_e, rules: unknown) => {
+    const desired = requireDesiredRules(rules)
+    return wrap(() => ensureRules(desired), 'fwEnsure', FW_GROUP)
+  })
+  ipcMain.handle('firewall:remove', (_e, name: string) => {
+    requireTextField(name, '规则名', 100)
+    return wrap(() => removeRule(name), 'fwRemove', `${FW_GROUP}:${name}`)
+  })
+  ipcMain.handle('firewall:preset', (_e, kind: unknown, opts: unknown) => {
+    if (typeof kind !== 'string' || !PRESET_KINDS.has(kind)) throw Errors.invalidParam('预设名非法')
+    const o = opts === undefined || opts === null ? {} : requirePlainObject(opts, '预设参数')
+    return wrap(
+      () => Promise.resolve(presetRules(kind, o as { passiveFrom?: number; passiveTo?: number })),
+      'fwPreset',
+      kind,
+    )
+  })
+
+  // === diagnose: 一键诊断 + 自动修复 ===
+  ipcMain.handle('diagnose:run', (_e, opts: unknown) => {
+    const o = opts === undefined || opts === null ? {} : requirePlainObject(opts, '诊断参数')
+    const rawName = o.shareName
+    if (rawName !== undefined && rawName !== null && typeof rawName !== 'string') {
+      throw Errors.invalidParam('shareName 必须为字符串')
+    }
+    const shareName: string | undefined =
+      typeof rawName === 'string' && rawName ? rawName : undefined
+    if (shareName && !validateShareName(shareName)) {
+      throw Errors.invalidParam('共享名非法')
+    }
+    return wrap(() => runDiagnose({ shareName }), 'diagnose', shareName || 'all')
+  })
+  ipcMain.handle('diagnose:applyFix', (_e, fix: unknown, args: unknown) => {
+    const kind = requireDiagnoseFix(fix)
+    let shareName: string | undefined
+    if (args !== undefined && args !== null) {
+      const o = requirePlainObject(args, '修复参数')
+      if (typeof o.shareName === 'string' && o.shareName) {
+        if (!validateShareName(o.shareName)) throw Errors.invalidParam('共享名非法')
+        shareName = o.shareName
+      }
+    }
+    return wrap(() => applyFix(kind, { shareName }), 'diagnoseFix', `${kind}:${shareName || ''}`)
+  })
 }

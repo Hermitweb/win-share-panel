@@ -30,6 +30,19 @@ import type {
   UpdateShareInput,
   OsInfo,
   OsFeatures,
+  AppState,
+  AppStatePatch,
+  AlertRules,
+  JournalEntry,
+  HistoryPoint,
+  ShareSnapshot,
+  DiskUsage,
+  SecurityReport,
+  SecurityIssue,
+  FirewallRule,
+  DesiredRule,
+  DiagnoseItem,
+  DiagnoseFixKind,
 } from '../electron/types'
 
 export type {
@@ -64,6 +77,19 @@ export type {
   UpdateShareInput,
   OsInfo,
   OsFeatures,
+  AppState,
+  AppStatePatch,
+  AlertRules,
+  JournalEntry,
+  HistoryPoint,
+  ShareSnapshot,
+  DiskUsage,
+  SecurityReport,
+  SecurityIssue,
+  FirewallRule,
+  DesiredRule,
+  DiagnoseItem,
+  DiagnoseFixKind,
 }
 
 // 共享连接信息
@@ -182,6 +208,8 @@ export interface WinShareApi {
     osInfo: () => Promise<OsInfo>
     selectFolder: () => Promise<string | null>
     openLogFolder: () => Promise<string>
+    autoStart: () => Promise<boolean | null>
+    setAutoStart: (enabled: boolean) => Promise<boolean>
     pathForFile: (file: File) => string
   }
   log: {
@@ -242,5 +270,33 @@ export interface WinShareApi {
   protocol: {
     detect: () => Promise<ProtocolDetectionResult>
     install: (protocol: Protocol) => Promise<void>
+  }
+  // 批1 UX 底座
+  state: {
+    get: () => Promise<AppState>
+    patch: (patch: AppStatePatch) => Promise<AppState>
+    journalList: () => Promise<JournalEntry[]>
+    journalUndo: (id: string) => Promise<string>
+    journalClear: () => Promise<number>
+  }
+  disk: {
+    usages: () => Promise<DiskUsage[]>
+    suggestRoot: () => Promise<string>
+  }
+  security: {
+    report: () => Promise<SecurityReport>
+  }
+  firewall: {
+    list: () => Promise<FirewallRule[]>
+    ensure: (rules: DesiredRule[]) => Promise<string[]>
+    remove: (name: string) => Promise<void>
+    preset: (
+      kind: 'smb' | 'ftp' | 'ftpPassive' | 'webdav' | 'quic',
+      opts?: { passiveFrom?: number; passiveTo?: number },
+    ) => Promise<DesiredRule[]>
+  }
+  diagnose: {
+    run: (shareName?: string) => Promise<DiagnoseItem[]>
+    applyFix: (fix: DiagnoseFixKind, args?: { shareName?: string }) => Promise<string>
   }
 }

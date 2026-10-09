@@ -9,6 +9,7 @@ import {
   validatePath,
 } from '../lib/powershell'
 import { Errors } from '../lib/errors'
+import { addJournal } from '../lib/stateStore'
 import type {
   LocalUser,
   LocalGroup,
@@ -452,6 +453,15 @@ export async function setSharePermissions(
       `部分权限设置失败（${failed.length} 个账号：${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ' 等' : ''}），已回滚到原状态`,
     )
   }
+  // 操作日志：全部成功才记账，携带改前权限快照（撤销=恢复该快照）
+  addJournal({
+    action: 'permset',
+    protocol: 'smb',
+    name: shareName,
+    detail: `${perms.length} 条授权已生效`,
+    undoable: true,
+    snapshot: backup,
+  })
 }
 
 export async function getNtfsPermissions(path: string): Promise<NtfsAcl> {

@@ -19,6 +19,7 @@ import {
   firstOrNull,
 } from '../../../lib/powershell'
 import { Errors } from '../../../lib/errors'
+import { addJournal } from '../../../lib/stateStore'
 import * as ftp from '../../ftp'
 
 // SSL 策略白名单（与 types.ts 声明一致），拼入命令前运行时校验，杜绝注入
@@ -201,6 +202,13 @@ export const ftpAdapter: ProtocolAdapter = {
       throw Errors.commandFailed('FTP 站点创建后未能读取，已自动清理孤儿站点')
     }
     log.info('adapter:ftpAdapter', '[createShare:ftp] 共享创建完成:', input.name)
+    addJournal({
+      action: 'create',
+      protocol: 'ftp',
+      name: input.name,
+      detail: `路径 ${input.path}`,
+      undoable: false,
+    })
     return site
   },
 
@@ -214,6 +222,15 @@ export const ftpAdapter: ProtocolAdapter = {
     try {
       await runPowerShellVoid(cmd)
       log.info('adapter:ftpAdapter', '[deleteShare:ftp] 删除成功:', name)
+      // 操作日志：FTP 站点配置（绑定/SSL/授权规则）无通用快照还原，
+      // 因此记录留档但标记不可撤销——UI 会明示原因，不做假承诺
+      addJournal({
+        action: 'delete',
+        protocol: 'ftp',
+        name,
+        detail: '站点已删除（FTP 站点配置不支持一键撤销，请按留档手工重建）',
+        undoable: false,
+      })
     } catch (e) {
       log.error('adapter:ftpAdapter', '[deleteShare:ftp] 删除失败:', name, (e as Error).message)
       throw e

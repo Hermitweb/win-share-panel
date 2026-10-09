@@ -12,7 +12,31 @@ import { join } from 'path'
 import { existsSync, rmSync } from 'fs'
 import { registerIpc } from './ipc'
 import { prewarmPool, shutdownPool } from './lib/powershellPool'
-import { logDir } from './lib/logger'
+import { logDir, log } from './lib/logger'
+import { pushHistory, loadState } from './lib/stateStore'
+import { getDashboardStats } from './services/system'
+
+// ===== 连接数 24h 趋势采样 =====
+// 主进程定时采样（渲染层关闭也继续采），5min × 288 点 = 24h，落 appstate.json。
+// 服务未起/查询失败时静默跳过本轮，不写垃圾点；容量上限由 stateStore 负责。
+const SAMPLE_MS = 5 * 60 * 1000
+let sampleTimer: NodeJS.Timeout | null = null
+
+function startHistorySampler(): void {
+  if (sampleTimer) return
+  const sample = async (): Promise<void> => {
+    try {
+      const s = await getDashboardStats()
+      if (s.serviceStatus !== 'Running') return // 服务停了采到的是 0，会把趋势线拉假
+      pushHistory({ ts: Date.now(), sessions: s.activeSessions, openFiles: s.openFiles })
+    } catch (e) {
+      log.warn('main', '[historySampler] 采样失败，跳过本轮:', (e as Error).message)
+    }
+  }
+  // 启动后先采一次（首屏趋势不至于空白），之后每 5 分钟一次
+  void sample()
+  sampleTimer = setInterval(() => void sample(), SAMPLE_MS)
+}
 
 // 禁用 GPU 着色器磁盘缓存：控制面板应用无需 GPU 缓存，
 // 且 Windows 上 GPUCache 目录常因文件锁/Archive 属性导致 "Unable to move the cache: 拒绝访问 (0x5)" 警告
@@ -113,6 +137,15 @@ function createTray(): void {
 }
 
 function registerWindowIpc(): void {
+  // 开机自启：按持久化的用户意愿同步系统登录项（平台不支持则跳过）
+  try {
+    const want = loadState().autoStart
+    const actual = app.getLoginItemSettings().openAtLogin
+    if (want !== actual) app.setLoginItemSettings({ openAtLogin: want })
+  } catch (e) {
+    log.warn('main', '[autoStart] 同步登录项失败:', (e as Error).message)
+  }
+
   ipcMain.handle('window:minimize', () => mainWindow?.minimize())
   ipcMain.handle('window:toggleMaximize', (): boolean => {
     if (!mainWindow) return false
@@ -163,10 +196,16 @@ if (!gotTheLock) {
     createTray()
     // 后台预热 PowerShell 进程池（不阻塞首屏）；worker 懒 spawn，预热仅提前起 1 个
     prewarmPool()
+    // 连接数趋势采样（渲染层关闭也持续采，供仪表板 24h 折线）
+    startHistorySampler()
   })
 
   app.on('before-quit', () => {
     isQuitting = true
+    if (sampleTimer) {
+      clearInterval(sampleTimer)
+      sampleTimer = null
+    }
     tray?.destroy()
     // 关闭常驻 PowerShell worker，避免残留子进程
     shutdownPool()

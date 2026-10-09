@@ -25,6 +25,15 @@ import type {
   ProtocolCapabilities,
   CreateShareInput,
   UpdateShareInput,
+  AppState,
+  AppStatePatch,
+  JournalEntry,
+  DiskUsage,
+  SecurityReport,
+  FirewallRule,
+  DesiredRule,
+  DiagnoseItem,
+  DiagnoseFixKind,
 } from './types'
 
 const api = {
@@ -162,6 +171,10 @@ const api = {
     selectFolder: (): Promise<string | null> => ipcRenderer.invoke('system:selectFolder'),
     // 打开日志文件夹：成功返回空串，失败返回错误信息
     openLogFolder: (): Promise<string> => ipcRenderer.invoke('system:openLogFolder'),
+    // 开机自启：读取/写入系统登录项（平台不支持时读返回 null）
+    autoStart: (): Promise<boolean | null> => ipcRenderer.invoke('system:autoStart'),
+    setAutoStart: (enabled: boolean): Promise<boolean> =>
+      ipcRenderer.invoke('system:setAutoStart', enabled),
     // 拖拽取路径：Electron 32+ 已移除 sandbox 渲染进程的 File.path，官方替代为 webUtils；
     // 无本地路径的 File（如网页数据）返回空串，由调用方回退处理
     pathForFile: (file: unknown): string => {
@@ -252,6 +265,43 @@ const api = {
     detect: (): Promise<ProtocolDetectionResult> => ipcRenderer.invoke('protocol:detect'),
     install: (protocol: Protocol): Promise<void> =>
       ipcRenderer.invoke('protocol:install', protocol),
+  },
+  // === 批1 UX 底座 ===
+  // 应用级持久状态（主题/新手模式/置顶/告警规则/操作回收站）
+  state: {
+    get: (): Promise<AppState> => ipcRenderer.invoke('state:get'),
+    patch: (patch: AppStatePatch): Promise<AppState> => ipcRenderer.invoke('state:patch', patch),
+    journalList: (): Promise<JournalEntry[]> => ipcRenderer.invoke('state:journalList'),
+    journalUndo: (id: string): Promise<string> => ipcRenderer.invoke('state:journalUndo', id),
+    journalClear: (): Promise<number> => ipcRenderer.invoke('state:journalClear'),
+  },
+  // 磁盘水位（共享所在盘剩余空间）
+  disk: {
+    usages: (): Promise<DiskUsage[]> => ipcRenderer.invoke('disk:usages'),
+    // 新建共享的路径智能默认值
+    suggestRoot: (): Promise<string> => ipcRenderer.invoke('disk:suggestRoot'),
+  },
+  // 账号安全体检（空口令/永不过期/长期未改）
+  security: {
+    report: (): Promise<SecurityReport> => ipcRenderer.invoke('security:report'),
+  },
+  // 本应用组内防火墙规则
+  firewall: {
+    list: (): Promise<FirewallRule[]> => ipcRenderer.invoke('firewall:list'),
+    ensure: (rules: DesiredRule[]): Promise<string[]> =>
+      ipcRenderer.invoke('firewall:ensure', rules),
+    remove: (name: string): Promise<void> => ipcRenderer.invoke('firewall:remove', name),
+    preset: (
+      kind: 'smb' | 'ftp' | 'ftpPassive' | 'webdav' | 'quic',
+      opts?: { passiveFrom?: number; passiveTo?: number },
+    ): Promise<DesiredRule[]> => ipcRenderer.invoke('firewall:preset', kind, opts),
+  },
+  // 一键诊断（"客户打不开共享"自助排查）
+  diagnose: {
+    run: (shareName?: string): Promise<DiagnoseItem[]> =>
+      ipcRenderer.invoke('diagnose:run', { shareName }),
+    applyFix: (fix: DiagnoseFixKind, args?: { shareName?: string }): Promise<string> =>
+      ipcRenderer.invoke('diagnose:applyFix', fix, args),
   },
 }
 

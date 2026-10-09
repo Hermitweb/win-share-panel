@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Layout from './components/Layout'
@@ -10,6 +11,7 @@ import Sessions from './pages/Sessions'
 import Settings from './pages/Settings'
 import { useHotkeys } from './hooks/useHotkeys'
 import { useUiStore } from './stores/uiStore'
+import { useAppStore } from './stores/appStore'
 
 // B1 试点：页面数据层迁移 react-query（轮询/去重/失焦控制内建，替代手写 load+inflight）
 const queryClient = new QueryClient({
@@ -24,6 +26,17 @@ const queryClient = new QueryClient({
 
 export default function App() {
   useHotkeys()
+  // 应用级持久状态（主题/新手模式/置顶/告警规则）水合一次，供全站读取
+  const hydrate = useAppStore((s) => s.hydrate)
+  const theme = useAppStore((s) => s.state.theme)
+  useEffect(() => {
+    void hydrate()
+  }, [hydrate])
+  // 主题落到 <html>，CSS 变量与 antd 算法都据此切换（见 index.css / Layout）
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }, [theme])
   const paletteOpen = useUiStore((s) => s.paletteOpen)
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen)
 

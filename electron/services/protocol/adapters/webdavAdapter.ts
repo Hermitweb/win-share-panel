@@ -19,6 +19,7 @@ import {
   firstOrNull,
 } from '../../../lib/powershell'
 import { Errors } from '../../../lib/errors'
+import { addJournal } from '../../../lib/stateStore'
 import * as webdav from '../../webdav'
 
 interface RawWebdavSite {
@@ -218,6 +219,13 @@ export const webdavAdapter: ProtocolAdapter = {
       throw Errors.commandFailed('WebDAV 站点创建后未能读取，已自动清理孤儿站点')
     }
     log.info('adapter:webdavAdapter', '[createShare:webdav] 共享创建完成:', input.name)
+    addJournal({
+      action: 'create',
+      protocol: 'webdav',
+      name: input.name,
+      detail: `路径 ${input.path}`,
+      undoable: false,
+    })
     return site
   },
 
@@ -232,6 +240,14 @@ export const webdavAdapter: ProtocolAdapter = {
     try {
       await runPowerShellVoid(cmd)
       log.info('adapter:webdavAdapter', '[deleteShare:webdav] 删除成功:', name)
+      // 操作日志：WebDAV 站点（绑定/授权规则）无还原通道，留档但标记不可撤销
+      addJournal({
+        action: 'delete',
+        protocol: 'webdav',
+        name,
+        detail: '站点已删除（WebDAV 站点配置不支持一键撤销，请按留档手工重建）',
+        undoable: false,
+      })
     } catch (e) {
       log.error(
         'adapter:webdavAdapter',

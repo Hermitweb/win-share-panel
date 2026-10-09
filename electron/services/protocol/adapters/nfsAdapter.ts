@@ -20,6 +20,7 @@ import {
   validatePath,
 } from '../../../lib/powershell'
 import { Errors } from '../../../lib/errors'
+import { addJournal } from '../../../lib/stateStore'
 import * as nfs from '../../nfs'
 
 // 枚举白名单（与 types.ts 声明一致），拼入命令前运行时校验，杜绝注入
@@ -144,6 +145,13 @@ export const nfsAdapter: ProtocolAdapter = {
         )
       }
       log.info('adapter:nfsAdapter', '[createShare:nfs] 共享创建完成:', input.name)
+      addJournal({
+        action: 'create',
+        protocol: 'nfs',
+        name: input.name,
+        detail: `路径 ${input.path}`,
+        undoable: false,
+      })
       return mapNfsShare(raw)
     } catch (e) {
       log.error(
@@ -184,6 +192,14 @@ export const nfsAdapter: ProtocolAdapter = {
     try {
       await runPowerShellVoid(cmd)
       log.info('adapter:nfsAdapter', '[deleteShare:nfs] 删除成功:', name)
+      // 操作日志：NFS 共享参数（认证模式/权限/UID映射）无还原通道，留档但标记不可撤销
+      addJournal({
+        action: 'delete',
+        protocol: 'nfs',
+        name,
+        detail: '共享已删除（NFS 共享参数不支持一键撤销，请按留档手工重建）',
+        undoable: false,
+      })
     } catch (e) {
       log.error('adapter:nfsAdapter', '[deleteShare:nfs] 删除失败:', name, (e as Error).message)
       throw e
