@@ -32,8 +32,9 @@ import {
 } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
 import dayjs from 'dayjs'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, call } from '../api'
-import type { ServiceStatus, PermissionPreset, SmbSnapshotMeta, SmbServerConfig } from '../types'
+import type { PermissionPreset, SmbSnapshotMeta, SmbServerConfig } from '../types'
 import ConfigPresetBar from '../components/ConfigPresetBar'
 import { SMB_CONFIG_PRESETS } from '../utils/configPresets'
 import { useUiStore } from '../stores/uiStore'
@@ -45,11 +46,6 @@ import PresetEditor from '../components/PresetEditor'
 
 export default function Settings() {
   const { message, modal } = App.useApp()
-  const [svc, setSvc] = useState<ServiceStatus | null>(null)
-  const [presets, setPresets] = useState<PermissionPreset[]>([])
-  const [snapshots, setSnapshots] = useState<SmbSnapshotMeta[]>([])
-  const [audit, setAudit] = useState('')
-  const [appLog, setAppLog] = useState('')
   const [saving, setSaving] = useState(false)
   const [form] = Form.useForm()
   const [editPreset, setEditPreset] = useState<PermissionPreset | null>(null)
@@ -57,36 +53,44 @@ export default function Settings() {
 
   const refreshTick = useUiStore((s) => s.refreshTick)
 
-  const load = async () => {
-    try {
+  // B1：数据层 react-query 统一六项拉取；load 保留名称、语义=失效重取（12 处调用零改动）
+  const queryClient = useQueryClient()
+  const { data, error } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
       const [c, s, p, a, snaps, al] = await Promise.all([
-        call(api.smb.getConfig),
-        call(api.smb.serviceStatus),
-        call(api.preset.list),
-        call(api.system.auditLog),
-        call(api.smb.listSnapshots).catch(() => [] as SmbSnapshotMeta[]),
+        api.smb.getConfig(),
+        api.smb.serviceStatus(),
+        api.preset.list(),
+        api.system.auditLog(),
+        api.smb.listSnapshots().catch(() => [] as SmbSnapshotMeta[]),
         api.log ? api.log.tail(300).catch(() => '') : Promise.resolve(''),
       ])
-      setSvc(s)
-      setPresets(p)
-      setAudit(a)
-      setAppLog(al)
-      setSnapshots(snaps)
-      form.setFieldsValue(c)
-    } catch (e) {
-      message.error((e as Error).message)
-    }
+      return { c, s, p, a, snaps, al }
+    },
+  })
+  const svc = data?.s ?? null
+  const presets = data?.p ?? []
+  const audit = data?.a ?? ''
+  const appLog = data?.al ?? ''
+  const snapshots = data?.snaps ?? []
+  const load = () => {
+    void queryClient.invalidateQueries({ queryKey: ['settings'] }).catch(() => {})
   }
-  // 有意仅在挂载时加载一次：load 身份每轮渲染变化，加入依赖会造成无限循环
+
+  // 首轮失败提示（与原 load catch 语义一致）
   useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (error && !data) message.error((error as Error).message)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- error/data 引用稳定于单次状态迁移
+  }, [error, data])
+
+  // 拉到配置后同步表单（setFieldsValue 为 antd 命令式 API，非组件 state）
+  useEffect(() => {
+    if (data) form.setFieldsValue(data.c)
+  }, [data, form])
 
   // hotkey F5 刷新
-  useTickEffect(refreshTick, () => {
-    load()
-  })
+  useTickEffect(refreshTick, load)
 
   const save = async () => {
     const v = await form.validateFields()

@@ -34,12 +34,10 @@ import GroupCreateModal from '../components/GroupCreateModal'
 import GroupManageModal from '../components/GroupManageModal'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 export default function Users() {
   const { message, modal } = App.useApp()
-  const [users, setUsers] = useState<LocalUser[]>([])
-  const [groups, setGroups] = useState<LocalGroup[]>([])
-  const [loading, setLoading] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [onlyEnabled, setOnlyEnabled] = useState(false)
   const [searchField, setSearchField] = useState<'name' | 'all'>('name')
@@ -57,28 +55,30 @@ export default function Users() {
 
   const refreshTick = useUiStore((s) => s.refreshTick)
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const [u, g] = await Promise.all([call(api.user.list), call(api.user.groups)])
-      setUsers(u)
-      setGroups(g)
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
+  // B1：数据层 react-query。load 名称保留为"失效重取"语义，8 处变更成功回调零改动。
+  const queryClient = useQueryClient()
+  const { data, isFetching, error } = useQuery({
+    queryKey: ['users-groups'],
+    queryFn: async () => {
+      const [u, g] = await Promise.all([api.user.list(), api.user.groups()])
+      return { u, g }
+    },
+  })
+  const users = data?.u ?? []
+  const groups = data?.g ?? []
+  const loading = isFetching
+  const load = () => {
+    void queryClient.invalidateQueries({ queryKey: ['users-groups'] }).catch(() => {})
   }
-  // 有意仅在挂载时加载一次：load 身份每轮渲染变化，加入依赖会造成无限循环
+
+  // 首轮失败提示（与原 load catch 语义一致；后续静默保留旧数据）
   useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (error && !data) message.error((error as Error).message)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- error/data 引用稳定于单次状态迁移
+  }, [error, data])
 
   // hotkey F5 刷新
-  useTickEffect(refreshTick, () => {
-    load()
-  })
+  useTickEffect(refreshTick, load)
 
   const handleDeleteUser = (u: LocalUser) => {
     modal.confirm({

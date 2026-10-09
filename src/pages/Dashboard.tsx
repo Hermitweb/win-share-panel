@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Card, Statistic, Row, Col, Tag, Spin, App, Button, Space, Empty } from 'antd'
 import { ReloadOutlined, DownloadOutlined, FileImageOutlined } from '@ant-design/icons'
 import ReactECharts from 'echarts-for-react'
-import { api, call } from '../api'
-import type { DashboardStats, Protocol } from '../types'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { api } from '../api'
+import type { Protocol } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
@@ -30,37 +31,35 @@ const PROTOCOL_LABEL: Record<Protocol, string> = {
 
 export default function Dashboard() {
   const { message } = App.useApp()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
   const chartRef = useRef<ReactECharts>(null)
 
   const refreshTick = useUiStore((s) => s.refreshTick)
   const protocolCaps = useUiStore((s) => s.protocolCaps)
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      setStats(await call(api.system.dashboard))
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
-  // 有意仅在挂载时加载一次：load 身份每轮渲染变化，加入依赖会造成无限循环
+  // B1：数据层 react-query（原 stats/loading state + mount/tick 手写 load）
+  const queryClient = useQueryClient()
+  const { data, isFetching, error } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: () => api.system.dashboard(),
+  })
+  const stats = data ?? null
+  const loading = isFetching && !data
+
+  // 首轮失败提示（与原 load catch 语义一致）
   useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (error && !data) message.error((error as Error).message)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- error/data 引用稳定于单次状态迁移
+  }, [error, data])
 
   // 协议安装状态检测（统一入口 useEnsureProtocolCaps）：
   // 仪表盘需用 installed 字段判断"已安装/未安装"，而非用共享数判断
   useEnsureProtocolCaps()
 
-  // hotkey F5 刷新
-  useTickEffect(refreshTick, () => {
-    load()
-  })
+  // hotkey F5 刷新 → 失效 dashboard 缓存
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ['dashboard'] }).catch(() => {})
+  }
+  useTickEffect(refreshTick, refresh)
 
   const chartOption = {
     tooltip: {
@@ -153,7 +152,7 @@ export default function Dashboard() {
           <Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={!stats}>
             导出 CSV
           </Button>
-          <Button icon={<ReloadOutlined />} onClick={load}>
+          <Button icon={<ReloadOutlined />} onClick={refresh}>
             刷新
           </Button>
         </Space>
