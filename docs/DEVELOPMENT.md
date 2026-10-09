@@ -653,6 +653,25 @@ win-share-panel/
 
 > 极客用户 & 效率专家视角的增强设计：提升爽感、降低维护成本、防止踩坑。
 
+### 10.0 用户体验批1（Unreleased）：新手上路 / 日常运维 / 故障自助
+
+按"谁在痛、痛多深"落地 ★ 项，主进程底座与渲染层入口的对应关系：
+
+| 能力 | 主进程 | 渲染层入口 | 诚实边界 |
+|---|---|---|---|
+| 一键诊断 | `services/diagnose.ts` + `diagnose:run/applyFix` | 共享页工具栏 / 行内「诊断此共享」/ 设置页 / 命令面板 | 修复动作需管理员；路径一律服务端重解析后走 `validatePath` |
+| 操作回收站 | `lib/stateStore.ts` journal + `services/journal.ts` | 共享页「操作回收站」抽屉 / 命令面板 | 仅 SMB 的删除/禁用/权限变更可撤销；create 与非 SMB 删除只留档 |
+| 磁盘水位 | `services/disk.ts`（`Get-PSDrive`） | 共享页行内标 + 仪表板概览 | UNC 无盘符不显示水位（未知即未知） |
+| 防火墙组内规则 | `services/firewall.ts`（`WinShare Panel` 组） | 设置页防火墙卡 + 诊断修复按钮 | 只增删本应用组内规则，不动系统/第三方规则 |
+| 首启向导 | `disk:suggestRoot` + `appstate.json` | `components/FirstRunGuide`（`App.tsx` 的 FirstRunMount） | 空共享 + 未标记 + 新手模式才弹；「以后再说」只关本次会话 |
+| 双模式 | `appState.advancedMode` | 设置页开关，全站读取 | 新手模式只收敛展示，不改变已保存的配置值 |
+| 趋势/告警 | 主进程 5min 采样 + `appState.alertRules` | 仪表板趋势卡与「需要关注」 | 服务未起跳过采样（不写假点）；字段缺失的检查项如实省略 |
+| 权限报告 | —（复用既有权限矩阵数据） | 权限矩阵「导出报告(HTML)」 | 仅共享权限，未含 NTFS 有效权限 |
+
+约定：跨层类型集中在 `electron/types.ts` 且该文件保持**零 import**——渲染层 `tsconfig.json`
+没有 node types，一旦让它反向 import 服务实现，就会把 `powershellPool` 一类 node 依赖
+拖进渲染层类型图（本批修过一次这样的回归）。
+
 ### 10.1 懒人化体验
 - **命令面板（Ctrl+K）**：全局快速跳转 + 搜索共享/用户/会话 + 直接执行命令
 - **拖拽创建共享**：拖文件夹进窗口 → 自动填路径 → 弹权限预设 → 一键完成
