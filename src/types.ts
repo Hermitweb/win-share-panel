@@ -210,6 +210,8 @@ export interface WinShareApi {
     openLogFolder: () => Promise<string>
     autoStart: () => Promise<boolean | null>
     setAutoStart: (enabled: boolean) => Promise<boolean>
+    /** 升级后重启到新版本；旧进程无此通道，调用方必须先探测存在性 */
+    relaunch: () => Promise<void>
     pathForFile: (file: File) => string
   }
   log: {

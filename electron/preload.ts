@@ -175,6 +175,8 @@ const api = {
     autoStart: (): Promise<boolean | null> => ipcRenderer.invoke('system:autoStart'),
     setAutoStart: (enabled: boolean): Promise<boolean> =>
       ipcRenderer.invoke('system:setAutoStart', enabled),
+    // 升级后重启到新版本：托盘常驻 + 单实例锁下，旧进程不会自己退出
+    relaunch: (): Promise<void> => ipcRenderer.invoke('system:relaunch'),
     // 拖拽取路径：Electron 32+ 已移除 sandbox 渲染进程的 File.path，官方替代为 webUtils；
     // 无本地路径的 File（如网页数据）返回空串，由调用方回退处理
     pathForFile: (file: unknown): string => {

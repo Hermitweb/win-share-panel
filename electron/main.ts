@@ -158,6 +158,19 @@ function registerWindowIpc(): void {
   })
   ipcMain.handle('window:close', () => mainWindow?.hide())
   ipcMain.handle('window:isMaximized', () => !!mainWindow?.isMaximized())
+
+  // 升级后重启入口：本程序常驻托盘 + 单实例锁，覆盖安装/热更新后旧进程不会自己退，
+  // 用户"再双击一次"只会激活旧进程（新通道整组缺失，新功能全不可用）。
+  // 这里给渲染层一个出口：置 isQuitting 让 close 处理器放行（不再拦成最小化到托盘），
+  // relaunch 后 quit —— quit 会走 before-quit/will-quit，池子与托盘照常清理，不留残留进程。
+  // 注意：本通道只存在于新进程；旧进程连它都没有，渲染层必须自行处理"重启通道也缺失"。
+  ipcMain.handle('system:relaunch', () => {
+    log.info('main', '[relaunch] 用户从界面请求重启到新版本')
+    isQuitting = true
+    app.relaunch()
+    app.quit()
+  })
+
   ipcMain.handle('window:balloon', (_e, title: string, body: string) => {
     if (tray) {
       try {
