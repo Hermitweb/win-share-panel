@@ -33,7 +33,9 @@ import {
 import type { UploadProps } from 'antd'
 import dayjs from 'dayjs'
 import { api, call } from '../api'
-import type { ServiceStatus, PermissionPreset, SmbSnapshotMeta } from '../types'
+import type { ServiceStatus, PermissionPreset, SmbSnapshotMeta, SmbServerConfig } from '../types'
+import ConfigPresetBar from '../components/ConfigPresetBar'
+import { SMB_CONFIG_PRESETS } from '../utils/configPresets'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import NfsSettingsPanel from '../components/NfsSettingsPanel'
@@ -326,6 +328,15 @@ export default function Settings() {
                     label: '服务器配置',
                     children: (
                       <div className="glass-card p-4">
+                        <ConfigPresetBar
+                          presets={SMB_CONFIG_PRESETS}
+                          onApply={async (p) => {
+                            await call(() =>
+                              api.smb.setConfig(p.values as Partial<SmbServerConfig>),
+                            )
+                            load()
+                          }}
+                        />
                         <Form form={form} layout="vertical">
                           <div className="text-sm font-medium mb-2 text-fog">基础协议</div>
                           <div className="flex flex-wrap gap-6 mb-3">
@@ -493,8 +504,8 @@ export default function Settings() {
                                         style={{ width: 120 }}
                                         options={[
                                           { label: '关闭', value: 'Off' },
-                                          { label: '允许', value: 'Allow' },
-                                          { label: '要求', value: 'Require' },
+                                          { label: '优化速度', value: 'OptimizeForSpeed' },
+                                          { label: '优化体积', value: 'OptimizeForSize' },
                                         ]}
                                       />
                                     </Form.Item>

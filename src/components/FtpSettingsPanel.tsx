@@ -27,6 +27,8 @@ import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
+import ConfigPresetBar from './ConfigPresetBar'
+import { FTP_CONFIG_PRESETS } from '../utils/configPresets'
 
 const SSL_POLICY_OPTIONS = [
   { label: '允许（不强制）', value: 'SslAllow' },
@@ -173,6 +175,13 @@ export default function FtpSettingsPanel() {
   return (
     <Spin spinning={loading}>
       <div className="glass-card p-4">
+        <ConfigPresetBar
+          presets={FTP_CONFIG_PRESETS}
+          onApply={async (p) => {
+            await call(() => api.ftp.setConfig(p.values as Partial<FtpServerConfig>))
+            load()
+          }}
+        />
         <Form form={form} layout="vertical">
           <div className="text-sm font-medium mb-2 text-fog">SSL / 安全</div>
           <div className="flex flex-wrap gap-6 mb-3">

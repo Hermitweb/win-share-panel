@@ -33,6 +33,9 @@
 - **E6 统一日志系统**：新增 `electron/lib/logger.ts`——运行日志持久化到 `%APPDATA%\WinSharePanel\logs\app.log`（2MB×3 轮转、级别、console 镜像）；全库 12 文件 `console.*` 收编为 `log.*`；渲染层崩溃经 `ErrorBoundary` + `window.onerror`/`unhandledrejection` 转发落盘；设置页新增"应用日志"Tab（查看最近 300 行/复制/导出），托盘菜单新增"打开日志文件夹"；IPC 日志通道带 level 白名单、4000 字符截断、30 条/秒限流；vitest 环境默认关闭文件落盘防测试污染；logger 8 用例，全量 232 用例六门禁全绿
 - **B-1/B-2 假成功缺陷修复**（日志上线当日由 app.log+audit.log 交叉定位）：cmdlet 非终止性错误（权限不足/名称冲突）被当作退出码 0 吞掉 → `New-SmbShare` 等写操作假成功、审计记 success、UI 刷新时才报"共享不存在"。修复：进程池 server 脚本与 execOnce 前缀统一 `$ErrorActionPreference='Stop'`（既有容错路径均有显式 -EA 或 try/catch，语义不变）；SMB/NFS createShare 回读判空守卫（4 回归用例）；同型修复 healthCheck 模块探测假可用、4 处存在性检查 `[]` truthy 误判（新增 `firstOrNull`）；全量 236 用例六门禁全绿
 - **B-4 系统共享详情误报"共享名非法"**（用户提供复制出的错误文本定位）：查看 `IPC$`/`ADMIN$` 等系统共享的详情/权限被入口校验拒绝——`validateName` 为防 PS 双引号插值全局禁 `$`，但系统共享名必然含合法尾 `$`。新增 `validateShareName`（读取/操作路径放行恰一个**尾部** `$`，中间/多个 `$` 与 `$(...)` 注入形态仍拒绝；全部嵌入点核对处于 psQuote 单引号上下文，`$` 无插值语义）；创建/用户名/权限写入保持严格；补齐 `toggleShare` 对系统特殊共享的防护（其禁用分支会真删共享，此前仅被过严校验意外挡住）；新增 `validateShareName` 4 组单测（尾 $ 合法/注入形态拒绝）
+- **协议专门适配（能力补全 + UI 暴露）**：NFS 共享详情新增"站点配置"Tab（ro/rw、root 抑制、未映射访问编辑，适配器早已支持、UI 首次暴露）；FTP 站点支持修改**本地物理路径**（Set-ItemProperty + validatePath 守卫，UI 暴露）；WebDAV 站点支持切换 **authoring 写入开关**（更新路径补齐，创建时已有）；SMB 高级属性新增**隐藏共享**开关（Set-SmbShare -Hidden，经 psBool 守卫）；抽屉脚注指引同步更新；+4 适配器用例（含非法路径拒绝注入探针）
+- **各协议"配置预设"一键应用**：新增 `utils/configPresets.ts`（SMB×4：安全加固/性能优先/兼容老旧/家庭局域网；NFS×2；FTP×3：对外加密分发/内网便捷/匿名下载；WebDAV×3：只读发布/协作写入/匿名投递）+ `ConfigPresetBar` 组件（卡片式、变更字段预览、降安全性预设 risk 二次确认）；接入 SMB 服务器配置页与 FTP/NFS/WebDAV 三面板；SMB 应用前自动快照可回滚
+- **修复顺带**：SMB"请求压缩"下拉选项与后端白名单不一致（Allow/Require → OptimizeForSpeed/OptimizeForSize，原选项被 psEnum 静默丢弃）
 - 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）、jsdom 组件测试基建
 
 ## [v1.0.0] - 2026-08-08

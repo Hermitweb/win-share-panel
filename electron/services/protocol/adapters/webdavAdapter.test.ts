@@ -312,6 +312,51 @@ describe('webdavAdapter', () => {
       expect(setCall![0]).toContain('$true')
     })
 
+    it('authoringEnabled=true → Set-WebConfigurationProperty 调用 authoring $true', async () => {
+      mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
+      // fetchSite → 返回站点
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'test',
+          State: 'Started',
+          PhysicalPath: 'C:\\webdav',
+          Port: 80,
+          AuthoringEnabled: true,
+          AnonymousEnabled: false,
+        },
+      ] as any)
+
+      await webdavAdapter.updateShare!('test', { authoringEnabled: true } as any)
+
+      const setCall = mockedRunPowerShellVoid.mock.calls.find(([cmd]) =>
+        String(cmd).includes('webdav/authoring'),
+      )
+      expect(setCall).toBeDefined()
+      expect(setCall![0]).toContain('$true')
+    })
+
+    it('authoringEnabled=false → 调用 authoring $false', async () => {
+      mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)
+      mockedRunPowerShell.mockResolvedValueOnce([
+        {
+          Name: 'test',
+          State: 'Started',
+          PhysicalPath: 'C:\\webdav',
+          Port: 80,
+          AuthoringEnabled: false,
+          AnonymousEnabled: false,
+        },
+      ] as any)
+
+      await webdavAdapter.updateShare!('test', { authoringEnabled: false } as any)
+
+      const setCall = mockedRunPowerShellVoid.mock.calls.find(([cmd]) =>
+        String(cmd).includes('webdav/authoring'),
+      )
+      expect(setCall).toBeDefined()
+      expect(setCall![0]).toContain('$false')
+    })
+
     it('anonymousEnabled=false → Set-WebConfigurationProperty 调用 $false', async () => {
       // psBool(false) = '$false'（truthy 字符串），if(anon) 为真 → 执行 Set
       mockedRunPowerShellVoid.mockResolvedValueOnce(undefined)

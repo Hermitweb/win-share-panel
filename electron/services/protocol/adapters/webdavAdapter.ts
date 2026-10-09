@@ -268,6 +268,25 @@ export const webdavAdapter: ProtocolAdapter = {
           log.info('adapter:webdavAdapter', '[updateShare:webdav] 匿名访问配置完成')
         }
       }
+      // 协议专门适配：站点级 WebDAV 发布(authoring)开关——创建时已支持，更新路径补齐
+      if (input.authoringEnabled !== undefined) {
+        const auth = psBool(input.authoringEnabled)
+        if (auth) {
+          log.info(
+            'adapter:webdavAdapter',
+            '[updateShare:webdav] 切换站点 authoring:',
+            name,
+            '→',
+            input.authoringEnabled,
+          )
+          await webdav.ensureWebdavSectionsUnlocked()
+          await runPowerShellVoid(
+            `try { Set-WebConfigurationProperty -Filter '${AUTHORING_FILTER}' -PSPath ${iisPath(name)} -Name enabled -Value ${auth} -ErrorAction Stop } catch {}`,
+            { retries: 0 },
+          )
+          log.info('adapter:webdavAdapter', '[updateShare:webdav] authoring 切换完成')
+        }
+      }
       log.info('adapter:webdavAdapter', '[updateShare:webdav] 正在读取站点信息...')
       const site = await fetchSite(name)
       if (!site) {

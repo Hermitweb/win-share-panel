@@ -25,6 +25,8 @@ import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
+import ConfigPresetBar from './ConfigPresetBar'
+import { WEBDAV_CONFIG_PRESETS } from '../utils/configPresets'
 
 // WebDAV 服务器级配置 + 服务控制
 // 仅在已安装 IIS + WebDAV 角色时可用；未安装时显示降级提示
@@ -150,6 +152,13 @@ export default function WebdavSettingsPanel() {
   return (
     <Spin spinning={loading}>
       <div className="glass-card p-4">
+        <ConfigPresetBar
+          presets={WEBDAV_CONFIG_PRESETS}
+          onApply={async (p) => {
+            await call(() => api.webdav.setConfig(p.values as Partial<WebdavServerConfig>))
+            load()
+          }}
+        />
         <Form form={form} layout="vertical">
           <div className="text-sm font-medium mb-2 text-fog">WebDAV Authoring</div>
           <div className="flex flex-wrap gap-6 mb-3">

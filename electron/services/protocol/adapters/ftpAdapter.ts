@@ -224,9 +224,25 @@ export const ftpAdapter: ProtocolAdapter = {
     log.info('adapter:ftpAdapter', '[updateShare:ftp] 更新站点:', name, {
       sslPolicy: input.sslPolicy,
       authMode: input.authMode,
+      physicalPath: input.physicalPath,
     })
     if (!validateName(name)) throw Errors.invalidParam('站点名非法')
     try {
+      // 协议专门适配：FTP 站点支持修改本地物理路径（validatePath 校验后经单引号上下文嵌入）
+      if (input.physicalPath !== undefined) {
+        if (!validatePath(input.physicalPath)) throw Errors.invalidParam('路径非法')
+        log.info(
+          'adapter:ftpAdapter',
+          '[updateShare:ftp] 更新物理路径:',
+          name,
+          '→',
+          input.physicalPath,
+        )
+        await runPowerShellVoid(
+          `Import-Module WebAdministration; Set-ItemProperty ${iisPath(name)} -Name physicalPath -Value ${psQuote(input.physicalPath)}`,
+          { retries: 0 },
+        )
+      }
       await applyFtpConfig(name, input)
       log.info('adapter:ftpAdapter', '[updateShare:ftp] 配置应用完成，正在读取站点信息...')
       const site = await fetchSite(name)

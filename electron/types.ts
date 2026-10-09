@@ -291,6 +291,7 @@ export interface UpdateShareOpts {
   folderEnumerationMode?: 'AccessBased' | 'Unrestricted'
   cachingMode?: 'None' | 'Manual' | 'Documents' | 'Programs' | 'BranchCache'
   encryptData?: boolean
+  hidden?: boolean
 }
 
 // === 多协议扩展类型 ===
@@ -363,8 +364,10 @@ export interface UpdateShareInput {
   // FTP 可改字段
   sslPolicy?: 'SslAllow' | 'SslRequire' | 'SslRequireCredentials'
   authMode?: 'anonymous' | 'basic' | 'windows'
+  physicalPath?: string
   // WebDAV 可改字段
   anonymousEnabled?: boolean
+  authoringEnabled?: boolean
 }
 
 // 协议能力位：adapter 声明支持哪些操作，UI 据此降级

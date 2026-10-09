@@ -91,6 +91,24 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
       // 初始化表单
       form.setFieldsValue({
         description: share.description,
+        hidden: share.hidden,
+      })
+    } else if (share.protocol === 'nfs') {
+      form.setFieldsValue({
+        nfsPermission: share.nfsPermission ?? 'rw',
+        allowRootAccess: !!share.allowRootAccess,
+        enableUnmappedAccess: !!share.enableUnmappedAccess,
+      })
+    } else if (share.protocol === 'ftp') {
+      form.setFieldsValue({
+        sslPolicy: share.sslPolicy ?? 'SslAllow',
+        authMode: share.authMode ?? 'basic',
+        physicalPath: share.path,
+      })
+    } else if (share.protocol === 'webdav') {
+      form.setFieldsValue({
+        anonymousEnabled: !!share.anonymousEnabled,
+        authoringEnabled: !!share.authoringEnabled,
       })
     }
     // 仅在打开抽屉/切换共享时同步并加载；loadConnections/loadOpenFiles 引用每轮渲染变化，有意省略以免无限循环
@@ -125,6 +143,7 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
           cachingMode: v.cachingMode,
           folderEnumerationMode: v.folderEnumerationMode,
           encryptData: v.encryptData,
+          hidden: v.hidden,
         }),
       )
       message.success('已保存')
@@ -142,6 +161,22 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
     { title: '客户端', dataIndex: 'clientComputerName', width: 140, ellipsis: true },
     { title: '锁', dataIndex: 'lockCount', width: 60 },
   ]
+
+  // 协议专门适配：NFS/FTP/WebDAV 站点配置保存（经 adapter.update 路由；SMB 走上方"高级属性"）
+  const handleProtoSave = async () => {
+    if (!share || isSmb) return
+    const v = await form.validateFields()
+    setSaving(true)
+    try {
+      await call(() => api.adapter.update(share.name, { ...v, protocol: share.protocol }))
+      message.success('站点配置已保存')
+      onSuccess()
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const connColumns = [
     { title: '用户', dataIndex: 'clientUserName', ellipsis: true },
@@ -247,6 +282,9 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
           <Form.Item name="encryptData" label="启用数据加密" valuePropName="checked">
             <Switch />
           </Form.Item>
+          <Form.Item name="hidden" label="隐藏共享（不在网络浏览列表显示）" valuePropName="checked">
+            <Switch />
+          </Form.Item>
           <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSave}>
             保存属性
           </Button>
@@ -337,6 +375,113 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
     })
   }
 
+  // 协议专门适配：非 SMB 协议的"站点配置"编辑 Tab（能力对齐 create 面板的协议字段）
+  if (share?.protocol === 'nfs') {
+    items.push({
+      key: 'proto-cfg',
+      label: '站点配置',
+      children: (
+        <div>
+          <Form form={form} layout="vertical">
+            <Form.Item name="nfsPermission" label="共享权限">
+              <Select
+                style={{ width: 200 }}
+                options={[
+                  { label: '只读 (ro)', value: 'ro' },
+                  { label: '读写 (rw)', value: 'rw' },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="allowRootAccess" label="允许 root 完全访问" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+            <Form.Item
+              name="enableUnmappedAccess"
+              label="允许未映射访问（无身份映射）"
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+          </Form>
+          <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleProtoSave}>
+            保存配置
+          </Button>
+        </div>
+      ),
+    })
+  }
+  if (share?.protocol === 'ftp') {
+    items.push({
+      key: 'proto-cfg',
+      label: '站点配置',
+      children: (
+        <div>
+          <Form form={form} layout="vertical">
+            <Form.Item name="sslPolicy" label="SSL 策略">
+              <Select
+                options={[
+                  { label: '允许 TLS（不强制）', value: 'SslAllow' },
+                  { label: '要求 TLS', value: 'SslRequire' },
+                  { label: '要求 TLS + 客户端证书', value: 'SslRequireCredentials' },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="authMode" label="认证模式">
+              <Select
+                options={[
+                  { label: '匿名', value: 'anonymous' },
+                  { label: '基本（本地用户）', value: 'basic' },
+                  { label: 'Windows', value: 'windows' },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item
+              name="physicalPath"
+              label="本地物理路径"
+              tooltip="修改后需与新路径的 NTFS 权限及授权规则匹配"
+              rules={[{ required: true, message: '请输入路径（如 E:\\ftp\\site）' }]}
+            >
+              <Input />
+            </Form.Item>
+          </Form>
+          <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleProtoSave}>
+            保存配置
+          </Button>
+        </div>
+      ),
+    })
+  }
+  if (share?.protocol === 'webdav') {
+    items.push({
+      key: 'proto-cfg',
+      label: '站点配置',
+      children: (
+        <div>
+          <Form form={form} layout="vertical">
+            <Form.Item
+              name="anonymousEnabled"
+              label="匿名访问（站点级）"
+              valuePropName="checked"
+              tooltip="需服务器级匿名认证同时开启才生效（服务配置页）"
+            >
+              <Switch />
+            </Form.Item>
+            <Form.Item
+              name="authoringEnabled"
+              label="允许写入（WebDAV authoring）"
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+          </Form>
+          <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleProtoSave}>
+            保存配置
+          </Button>
+        </div>
+      ),
+    })
+  }
+
   return (
     <Drawer open={open} title={`共享详情：${share?.name ?? ''}`} onClose={onClose} width={640}>
       <Tabs activeKey={tab} onChange={setTab} items={items} size="small" />
@@ -344,8 +489,8 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
         <>
           <Divider />
           <div className="text-xs text-fog">
-            {share.protocol.toUpperCase()}{' '}
-            协议的站点级配置（端口/SSL/认证/权限）请通过共享列表中的"权限"按钮编辑。
+            {share.protocol.toUpperCase()} 授权规则经共享列表的"权限"按钮编辑；站点级配置见本页
+            "站点配置"Tab；服务器级（端口段/SSL 策略/认证开关）在"服务配置"页。
           </div>
         </>
       )}

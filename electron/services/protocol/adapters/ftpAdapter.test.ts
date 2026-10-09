@@ -274,6 +274,38 @@ describe('ftpAdapter', () => {
       expect(configCmd).toContain('SslRequire')
       expect(configCmd).toContain('basicAuthentication')
     })
+
+    it('physicalPath 合法 → Set-ItemProperty physicalPath 单引号嵌入', async () => {
+      mockedRunPowerShellVoid.mockResolvedValue(undefined)
+      mockedRunPowerShell.mockResolvedValue([
+        {
+          Name: 'testftp',
+          State: 'Started',
+          PhysicalPath: 'E:\\new',
+          Port: 21,
+        },
+      ] as any)
+
+      await ftpAdapter.updateShare!('testftp', { physicalPath: 'E:\\new' } as any)
+
+      const setCmd = mockedRunPowerShellVoid.mock.calls
+        .map(([c]) => String(c))
+        .find((c) => c.includes('Set-ItemProperty'))
+      expect(setCmd).toBeDefined()
+      expect(setCmd).toContain('-Name physicalPath')
+      expect(setCmd).toContain(`-Value 'E:\\new'`)
+    })
+
+    it('physicalPath 非法（含 NTFS 禁用字符）→ 拒绝且不下发任何 Set-ItemProperty', async () => {
+      mockedRunPowerShellVoid.mockClear()
+      await expect(
+        ftpAdapter.updateShare!('testftp', { physicalPath: 'E:\\a<b' } as any),
+      ).rejects.toThrow('路径非法')
+      const hasSet = mockedRunPowerShellVoid.mock.calls
+        .map(([c]) => String(c))
+        .some((c) => c.includes('Set-ItemProperty'))
+      expect(hasSet).toBe(false)
+    })
   })
 
   describe('getPermissions - 权限映射', () => {

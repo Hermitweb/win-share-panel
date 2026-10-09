@@ -206,6 +206,9 @@ export async function updateShare(name: string, opts: UpdateShareOpts): Promise<
   if (fem) parts.push(`-FolderEnumerationMode ${fem}`)
   const enc = psBool(opts.encryptData)
   if (enc) parts.push(`-EncryptData ${enc}`)
+  // 协议专门适配：隐藏共享可改（Set-SmbShare -Hidden；运行时布尔校验防注入）
+  const hid = psBool(opts.hidden)
+  if (hid) parts.push(`-Hidden ${hid}`)
   if (opts.cached !== undefined) {
     // Cached 在 SMB 中通过 CachingMode 控制（Cached=$true 等价于 CachingMode=Manual）
     if (opts.cached) {
