@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Modal, Input } from 'antd'
+import { App, Input, Modal, Tag } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { api, call } from '../api'
 import { useUiStore } from '../stores/uiStore'
@@ -9,11 +9,12 @@ interface Command {
   key: string
   label: string
   hint: string
-  group: 'nav' | 'share' | 'user' | 'session' | 'action'
+  group: 'nav' | 'action' | 'share' | 'user' | 'session'
+  /** nav 组 action 允许为空：run() 以 key 作为路由跳转 */
   action: () => void
 }
 
-const STATIC_COMMANDS: Command[] = [
+const STATIC_NAV: Command[] = [
   { key: '/', label: '前往：仪表板', hint: '概览共享与会话', group: 'nav', action: () => {} },
   {
     key: '/shares',
@@ -39,7 +40,7 @@ const STATIC_COMMANDS: Command[] = [
   {
     key: '/settings',
     label: '前往：服务器配置',
-    hint: 'SMB/NFS/FTP/WebDAV 配置',
+    hint: 'SMB/NFS/FTP/WebDAV 配置与预设',
     group: 'nav',
     action: () => {},
   },
@@ -47,21 +48,101 @@ const STATIC_COMMANDS: Command[] = [
 
 const GROUP_LABEL: Record<Command['group'], string> = {
   nav: '页面导航',
+  action: '操作',
   share: '共享',
   user: '用户',
   session: '会话',
-  action: '操作',
 }
 
-const GROUP_ORDER: Command['group'][] = ['nav', 'share', 'user', 'session', 'action']
+const GROUP_ORDER: Command['group'][] = ['nav', 'action', 'share', 'user', 'session']
+
+const copyText = async (text: string): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { message } = App.useApp()
   const [query, setQuery] = useState('')
   const [dynamic, setDynamic] = useState<Command[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const navigate = useNavigate()
-  const setSelectedShares = useUiStore((s) => s.setSelectedShares)
   const listRef = useRef<HTMLDivElement>(null)
+
+  // 操作类命令（组件级：需要 navigate/message/store 动作）
+  const actionCommands = useMemo<Command[]>(
+    () => [
+      {
+        key: 'act-create',
+        label: '新建共享',
+        hint: '打开新建共享表单',
+        group: 'action',
+        action: () => {
+          navigate('/shares')
+          useUiStore.getState().setShareCreateOpen(true)
+        },
+      },
+      {
+        key: 'act-refresh',
+        label: '强制刷新当前视图',
+        hint: '重新拉取共享/会话/统计（F5）',
+        group: 'action',
+        action: () => useUiStore.getState().triggerRefresh(),
+      },
+      {
+        key: 'act-redetect',
+        label: '重新检测协议能力',
+        hint: '刷新 SMB/NFS/FTP/WebDAV 安装状态',
+        group: 'action',
+        action: async () => {
+          const setProtocolCaps = useUiStore.getState().setProtocolCaps
+          setProtocolCaps(null)
+          try {
+            const result = await call(api.protocol.detect)
+            setProtocolCaps(result)
+            message.success('协议能力已刷新')
+          } catch (e) {
+            message.error((e as Error).message)
+          }
+        },
+      },
+      {
+        key: 'act-health',
+        label: '检查服务健康',
+        hint: 'PowerShell SMB 模块可用性',
+        group: 'action',
+        action: async () => {
+          try {
+            const h = await call(api.system.health)
+            if (h.ok) message.success(`健康检查通过：${h.detail}`)
+            else message.warning(`健康检查未通过：${h.detail}`)
+          } catch (e) {
+            message.error((e as Error).message)
+          }
+        },
+      },
+      {
+        key: 'act-logfolder',
+        label: '打开日志文件夹',
+        hint: 'app.log / audit.log 所在目录',
+        group: 'action',
+        action: async () => {
+          try {
+            const err = await api.system.openLogFolder()
+            if (err) message.error(`打开失败：${err}`)
+            else message.success('已在资源管理器打开日志文件夹')
+          } catch (e) {
+            message.error((e as Error).message)
+          }
+        },
+      },
+    ],
+    [message, navigate],
+  )
 
   // 防抖跨域搜索：输入 ≥2 字符时 200ms 后拉
   useEffect(() => {
@@ -90,16 +171,26 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               s.path.toLowerCase().includes(ql) ||
               s.protocol.toLowerCase().includes(ql),
           )
-          .slice(0, 12)
+          .slice(0, 8)
           .forEach((s) => {
             cmds.push({
               key: `share:${s.protocol}:${s.name}`,
-              label: `共享：${s.name}`,
+              label: `共享详情：${s.name}`,
               hint: `${s.protocol.toUpperCase()} · ${s.path}`,
               group: 'share',
               action: () => {
                 navigate('/shares')
-                setSelectedShares([`${s.protocol}:${s.name}`])
+                useUiStore.getState().requestShareDetail(s)
+              },
+            })
+            cmds.push({
+              key: `share-path:${s.protocol}:${s.name}`,
+              label: `复制路径：${s.name}`,
+              hint: s.path,
+              group: 'share',
+              action: async () => {
+                if (await copyText(s.path)) message.success('本地路径已复制')
+                else message.error('复制失败')
               },
             })
           })
@@ -109,7 +200,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
             (u) =>
               u.name.toLowerCase().includes(ql) || (u.fullName || '').toLowerCase().includes(ql),
           )
-          .slice(0, 10)
+          .slice(0, 8)
           .forEach((u) => {
             cmds.push({
               key: `user:${u.name}`,
@@ -126,14 +217,17 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               s.clientUserName.toLowerCase().includes(ql) ||
               s.clientComputerName.toLowerCase().includes(ql),
           )
-          .slice(0, 10)
+          .slice(0, 8)
           .forEach((s) => {
             cmds.push({
               key: `session:${s.clientId}`,
               label: `会话：${s.clientUserName}`,
-              hint: s.clientComputerName,
+              hint: `跳转并选中 · ${s.clientComputerName}`,
               group: 'session',
-              action: () => navigate('/sessions'),
+              action: () => {
+                navigate('/sessions')
+                useUiStore.getState().setSelectedSessions([s.clientId])
+              },
             })
           })
 
@@ -147,16 +241,15 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       cancelled = true
       clearTimeout(t)
     }
-  }, [query, navigate, setSelectedShares])
+  }, [message, navigate, query])
 
-  // 合并静态 + 动态，按 query 过滤静态 nav
+  // 合并静态（nav+action 按 query 过滤）+ 动态
   const merged = useMemo(() => {
     const ql = query.trim().toLowerCase()
-    const nav = ql
-      ? STATIC_COMMANDS.filter((c) => c.label.toLowerCase().includes(ql))
-      : STATIC_COMMANDS
-    return [...nav, ...dynamic]
-  }, [query, dynamic])
+    const filter = (list: Command[]) =>
+      ql ? list.filter((c) => c.label.toLowerCase().includes(ql)) : list
+    return [...filter(STATIC_NAV), ...filter(actionCommands), ...dynamic]
+  }, [actionCommands, dynamic, query])
 
   // 分组
   const grouped = useMemo(() => {
@@ -171,7 +264,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   // 平铺索引数组（用于键盘上下选择）
   const flat = useMemo(() => grouped.flatMap((g) => g.items), [grouped])
 
-  // 输入变化或结果变化时重置 activeIndex
+  // 输入变化时重置 activeIndex
   useEffect(() => {
     setActiveIndex(0)
   }, [query])
@@ -207,8 +300,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   }, [activeIndex, open])
 
   const run = (cmd: Command) => {
-    // nav 组的静态命令 action 为空（模块级常量无法调用 useNavigate），
-    // key 即路由路径，直接 navigate；其他组走各自 action（内含 navigate/选中逻辑）
+    // nav 组以 key 作为路由；action/share/user/session 组走各自闭包
     if (cmd.group === 'nav') {
       navigate(cmd.key)
     } else {
@@ -253,7 +345,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       style={{ top: 80 }}
     >
       <Input
-        placeholder="输入页面名 / 共享 / 用户 / 会话进行搜索..."
+        placeholder="搜索页面 / 操作 / 共享 / 用户 / 会话（≥2 字符跨域搜索）..."
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -261,7 +353,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         style={{ border: 'none', borderBottom: '1px solid rgba(126,200,240,0.3)', borderRadius: 0 }}
         size="large"
       />
-      <div ref={listRef} className="py-2 max-h-80 overflow-auto">
+      <div ref={listRef} className="py-2 max-h-96 overflow-auto">
         {flat.length === 0 && (
           <div className="px-4 py-6 text-center text-fog text-sm">
             {query.trim().length < 2 ? '输入至少 2 个字符开始跨域搜索' : '无匹配结果'}
@@ -290,6 +382,11 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
             })}
           </div>
         ))}
+      </div>
+      <div className="px-4 py-2 text-xs text-fog border-t border-black/5 flex gap-3">
+        <Tag style={{ margin: 0 }}>↑↓ 选择</Tag>
+        <Tag style={{ margin: 0 }}>Enter 执行</Tag>
+        <Tag style={{ margin: 0 }}>Esc 关闭</Tag>
       </div>
     </Modal>
   )

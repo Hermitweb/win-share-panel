@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ServiceStatus, Protocol, ProtocolDetectionResult } from '../types'
+import type { ServiceStatus, Protocol, ProtocolDetectionResult, Share } from '../types'
 
 export interface HealthState {
   ok: boolean
@@ -21,6 +21,9 @@ interface UiState {
   shareDeleteTick: number
   shareToggleTick: number
   sessionCloseTick: number
+  // 命令面板 → 共享详情直达意图（tick 触发 + 目标共享）
+  detailTick: number
+  detailShare: Share | null
   // 健康态
   health: HealthState | null
   // 多协议扩展
@@ -36,6 +39,7 @@ interface UiState {
   requestShareDelete: () => void
   requestShareToggle: () => void
   requestSessionClose: () => void
+  requestShareDetail: (share: Share) => void
   setHealth: (h: HealthState | null) => void
   setActiveProtocol: (p: Protocol | 'all') => void
   setProtocolCaps: (c: ProtocolDetectionResult | null) => void
@@ -51,6 +55,8 @@ export const useUiStore = create<UiState>((set) => ({
   shareDeleteTick: 0,
   shareToggleTick: 0,
   sessionCloseTick: 0,
+  detailTick: 0,
+  detailShare: null,
   health: null,
   activeProtocol: 'all',
   protocolCaps: null,
@@ -64,6 +70,7 @@ export const useUiStore = create<UiState>((set) => ({
   requestShareDelete: () => set((s) => ({ shareDeleteTick: s.shareDeleteTick + 1 })),
   requestShareToggle: () => set((s) => ({ shareToggleTick: s.shareToggleTick + 1 })),
   requestSessionClose: () => set((s) => ({ sessionCloseTick: s.sessionCloseTick + 1 })),
+  requestShareDetail: (share) => set((s) => ({ detailShare: share, detailTick: s.detailTick + 1 })),
   setHealth: (h) => set({ health: h }),
   setActiveProtocol: (p) => set({ activeProtocol: p }),
   setProtocolCaps: (c) => set({ protocolCaps: c }),

@@ -36,6 +36,9 @@
 - **协议专门适配（能力补全 + UI 暴露）**：NFS 共享详情新增"站点配置"Tab（ro/rw、root 抑制、未映射访问编辑，适配器早已支持、UI 首次暴露）；FTP 站点支持修改**本地物理路径**（Set-ItemProperty + validatePath 守卫，UI 暴露）；WebDAV 站点支持切换 **authoring 写入开关**（更新路径补齐，创建时已有）；SMB 高级属性新增**隐藏共享**开关（Set-SmbShare -Hidden，经 psBool 守卫）；抽屉脚注指引同步更新；+4 适配器用例（含非法路径拒绝注入探针）
 - **各协议"配置预设"一键应用**：新增 `utils/configPresets.ts`（SMB×4：安全加固/性能优先/兼容老旧/家庭局域网；NFS×2；FTP×3：对外加密分发/内网便捷/匿名下载；WebDAV×3：只读发布/协作写入/匿名投递）+ `ConfigPresetBar` 组件（卡片式、变更字段预览、降安全性预设 risk 二次确认）；接入 SMB 服务器配置页与 FTP/NFS/WebDAV 三面板；SMB 应用前自动快照可回滚
 - **修复顺带**：SMB"请求压缩"下拉选项与后端白名单不一致（Allow/Require → OptimizeForSpeed/OptimizeForSize，原选项被 psEnum 静默丢弃）
+- **路径选择修复**：新建共享与 FTP 站点配置的路径字段新增"浏览"原生文件夹选择按钮（补注册缺失的 `system:selectFolder` IPC handler → `dialog.showOpenDialog`，此前 preload 暴露了 API 但主进程从未注册，调用必报错）；拖拽取路径从已被 Electron 32+ 移除的 `File.path` 迁移至官方 `webUtils.getPathForFile`（preload 暴露，异常回退空串），手动拖拽与浏览双通道均可用
+- **命令面板完善**：新增"操作"命令组——新建共享 / 强制刷新 / 重新检测协议能力 / 检查服务健康 / **打开日志文件夹**（新 IPC `system:openLogFolder` → shell.openPath）；共享搜索结果提供两个直达动作：**打开详情抽屉**（store 意图 detailTick+detailShare 跨组件直达）与**复制本地路径**；会话结果跳转并自动选中；footer 快捷键提示（↑↓/Enter/Esc）
+- **新建共享常见预设**：协议感知场景 chips 一键填入表单（SMB：团队协作/公开只读/私有加密；NFS：只读发布/读写共享/Kerberos 安全共享；FTP：安全分发/匿名下载/内网共享；WebDAV：只读发布/匿名投递），填入后仍可逐项调整
 - 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）、jsdom 组件测试基建
 
 ## [v1.0.0] - 2026-08-08

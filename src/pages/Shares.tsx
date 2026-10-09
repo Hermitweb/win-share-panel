@@ -33,6 +33,7 @@ import {
   SearchOutlined,
   SafetyOutlined,
   InfoCircleOutlined,
+  FolderOpenOutlined,
 } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
 import type {
@@ -66,6 +67,76 @@ function parseKey(key: string): { protocol: Protocol; name: string } {
   const idx = key.indexOf(':')
   if (idx < 0) return { protocol: 'smb', name: key }
   return { protocol: key.slice(0, idx) as Protocol, name: key.slice(idx + 1) }
+}
+
+// 新建共享的常见场景预设（按协议一键填入表单，填入后仍可逐项调整）
+const CREATE_SCENARIO_PRESETS: Record<
+  Protocol,
+  { name: string; tip?: string; values: Record<string, unknown> }[]
+> = {
+  smb: [
+    {
+      name: '团队协作',
+      tip: 'Administrators 完全控制，Users 可更改',
+      values: { fullAccess: ['Administrators'], changeAccess: ['Users'] },
+    },
+    {
+      name: '公开只读',
+      tip: 'Everyone 只读发布',
+      values: { readAccess: ['Everyone'], changeAccess: [], fullAccess: [] },
+    },
+    {
+      name: '私有加密',
+      tip: '仅管理员 + 传输加密 + 按访问枚举',
+      values: {
+        fullAccess: ['Administrators'],
+        changeAccess: [],
+        readAccess: [],
+        encrypted: true,
+        encryptData: true,
+        folderEnumerationMode: 'AccessBased',
+      },
+    },
+  ],
+  nfs: [
+    { name: '只读发布', values: { nfsPermission: 'ro', authentication: ['sys'] } },
+    { name: '读写共享', values: { nfsPermission: 'rw', authentication: ['sys'] } },
+    {
+      name: 'Kerberos 安全共享',
+      tip: 'krb5i 完整性校验，禁 root 与未映射访问',
+      values: {
+        nfsPermission: 'rw',
+        authentication: ['krb5i'],
+        allowRootAccess: false,
+        enableUnmappedAccess: false,
+      },
+    },
+  ],
+  ftp: [
+    {
+      name: '安全分发',
+      tip: '强制 TLS + 基本认证',
+      values: { sslPolicy: 'SslRequire', authMode: 'basic', port: 21 },
+    },
+    {
+      name: '匿名下载',
+      tip: 'TLS 可选 + 匿名登录',
+      values: { sslPolicy: 'SslAllow', authMode: 'anonymous' },
+    },
+    {
+      name: '内网共享',
+      tip: 'TLS 可选 + 基本认证',
+      values: { sslPolicy: 'SslAllow', authMode: 'basic' },
+    },
+  ],
+  webdav: [
+    { name: '只读发布', values: { anonymousEnabled: false } },
+    {
+      name: '匿名投递',
+      tip: '站点级匿名认证；写入还需在服务器配置开启 authoring',
+      values: { anonymousEnabled: true },
+    },
+  ],
 }
 
 export default function Shares() {
@@ -226,6 +297,15 @@ export default function Shares() {
     })
   })
 
+  // 命令面板"共享详情"直达意图（Ctrl+K → 搜共享名 → Enter）
+  const detailTick = useUiStore((s) => s.detailTick)
+  useTickEffect(detailTick, () => {
+    const req = useUiStore.getState().detailShare
+    if (!req) return
+    setDetailShare(req)
+    setDetailOpen(true)
+  })
+
   const handleCreate = async () => {
     const v = await form.validateFields()
     try {
@@ -365,11 +445,22 @@ export default function Shares() {
     e.preventDefault()
     const f = e.dataTransfer.files[0]
     if (f) {
-      const path = (f as File & { path?: string }).path
+      // Electron 32+ 移除了 sandbox 渲染进程的 File.path：优先 preload webUtils，回退旧属性
+      const path = api.system.pathForFile(f) || (f as File & { path?: string }).path
       if (path) {
         form.setFieldsValue({ path })
         setShareCreateOpen(true)
       }
+    }
+  }
+
+  // 原生文件夹选择（system:selectFolder → dialog.showOpenDialog）
+  const handlePickFolder = async () => {
+    try {
+      const p = await api.system.selectFolder()
+      if (p) form.setFieldsValue({ path: p })
+    } catch (e) {
+      message.error((e as Error).message)
     }
   }
 
@@ -819,6 +910,31 @@ export default function Shares() {
               <Select.Option value="webdav">WebDAV（IIS WebDAV 站点）</Select.Option>
             </Select>
           </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.protocol !== cur.protocol}>
+            {({ getFieldValue }) => {
+              const proto = (getFieldValue('protocol') || 'smb') as Protocol
+              const list = CREATE_SCENARIO_PRESETS[proto]
+              return (
+                <Form.Item label="常见预设" tooltip="一键填入该场景常用参数，填入后仍可逐项调整">
+                  <Space wrap size={4}>
+                    {list.map((p) => (
+                      <Tooltip key={p.name} title={p.tip || p.name}>
+                        <Button
+                          size="small"
+                          onClick={() => {
+                            form.setFieldsValue(p.values)
+                            message.success(`已套用「${p.name}」预设`)
+                          }}
+                        >
+                          {p.name}
+                        </Button>
+                      </Tooltip>
+                    ))}
+                  </Space>
+                </Form.Item>
+              )
+            }}
+          </Form.Item>
           <Form.Item
             name="name"
             label="共享名"
@@ -826,12 +942,19 @@ export default function Shares() {
           >
             <Input placeholder="如 SharedDocs" />
           </Form.Item>
-          <Form.Item
-            name="path"
-            label="本地路径"
-            rules={[{ required: true, message: '请输入或拖入路径' }]}
-          >
-            <Input placeholder="如 D:\Share" />
+          <Form.Item label="本地路径" required>
+            <Space.Compact style={{ width: '100%' }}>
+              <Form.Item
+                name="path"
+                noStyle
+                rules={[{ required: true, message: '请输入或拖入路径' }]}
+              >
+                <Input placeholder="如 D:\Share" />
+              </Form.Item>
+              <Button icon={<FolderOpenOutlined />} onClick={handlePickFolder}>
+                浏览
+              </Button>
+            </Space.Compact>
           </Form.Item>
           <Form.Item name="description" label="描述">
             <Input />

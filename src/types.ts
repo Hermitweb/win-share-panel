@@ -175,6 +175,9 @@ export interface WinShareApi {
     dashboard: () => Promise<DashboardStats>
     auditLog: () => Promise<string>
     health: () => Promise<{ ok: boolean; detail: string }>
+    selectFolder: () => Promise<string | null>
+    openLogFolder: () => Promise<string>
+    pathForFile: (file: File) => string
   }
   log: {
     write: (level: 'debug' | 'info' | 'warn' | 'error', message: string) => Promise<null>

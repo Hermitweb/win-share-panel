@@ -18,7 +18,12 @@ import {
   Spin,
   Divider,
 } from 'antd'
-import { ReloadOutlined, CloseCircleOutlined, SaveOutlined } from '@ant-design/icons'
+import {
+  ReloadOutlined,
+  CloseCircleOutlined,
+  SaveOutlined,
+  FolderOpenOutlined,
+} from '@ant-design/icons'
 import type React from 'react'
 import { api, call } from '../api'
 import type { Share } from '../types'
@@ -436,12 +441,32 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
               />
             </Form.Item>
             <Form.Item
-              name="physicalPath"
               label="本地物理路径"
               tooltip="修改后需与新路径的 NTFS 权限及授权规则匹配"
-              rules={[{ required: true, message: '请输入路径（如 E:\\ftp\\site）' }]}
+              required
             >
-              <Input />
+              <Space.Compact style={{ width: '100%' }}>
+                <Form.Item
+                  name="physicalPath"
+                  noStyle
+                  rules={[{ required: true, message: '请输入路径（如 E:\\ftp\\site）' }]}
+                >
+                  <Input />
+                </Form.Item>
+                <Button
+                  icon={<FolderOpenOutlined />}
+                  onClick={async () => {
+                    try {
+                      const p = await api.system.selectFolder()
+                      if (p) form.setFieldsValue({ physicalPath: p })
+                    } catch (e) {
+                      message.error((e as Error).message)
+                    }
+                  }}
+                >
+                  浏览
+                </Button>
+              </Space.Compact>
             </Form.Item>
           </Form>
           <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleProtoSave}>

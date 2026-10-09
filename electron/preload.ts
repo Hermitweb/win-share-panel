@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   Share,
   CreateShareOpts,
@@ -156,6 +156,19 @@ const api = {
     dashboard: (): Promise<DashboardStats> => ipcRenderer.invoke('system:dashboard'),
     auditLog: (): Promise<string> => ipcRenderer.invoke('system:auditLog'),
     health: (): Promise<{ ok: boolean; detail: string }> => ipcRenderer.invoke('system:health'),
+    // 原生文件夹选择（主进程 dialog.showOpenDialog）
+    selectFolder: (): Promise<string | null> => ipcRenderer.invoke('system:selectFolder'),
+    // 打开日志文件夹：成功返回空串，失败返回错误信息
+    openLogFolder: (): Promise<string> => ipcRenderer.invoke('system:openLogFolder'),
+    // 拖拽取路径：Electron 32+ 已移除 sandbox 渲染进程的 File.path，官方替代为 webUtils；
+    // 无本地路径的 File（如网页数据）返回空串，由调用方回退处理
+    pathForFile: (file: unknown): string => {
+      try {
+        return webUtils.getPathForFile(file as never)
+      } catch {
+        return ''
+      }
+    },
   },
   // 日志系统（E6）：渲染层错误持久化 + 应用日志查看
   log: {

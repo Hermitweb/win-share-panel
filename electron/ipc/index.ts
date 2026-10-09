@@ -1,5 +1,5 @@
-import { log, normalizeLevel, readLogTail, writeLog } from '../lib/logger'
-import { ipcMain } from 'electron'
+import { log, logDir, normalizeLevel, readLogTail, writeLog } from '../lib/logger'
+import { dialog, ipcMain, BrowserWindow, shell } from 'electron'
 import { audit } from '../lib/audit'
 import { Errors } from '../lib/errors'
 import { validateShareName, validatePath } from '../lib/powershell'
@@ -274,6 +274,19 @@ export function registerIpc(): void {
   ipcMain.handle('system:dashboard', () => system.getDashboardStats())
   ipcMain.handle('system:auditLog', () => system.getAuditLog())
   ipcMain.handle('system:health', () => system.healthCheck())
+  // 路径选择修复：preload 早已暴露 selectFolder，但主进程从未注册 handler（调用必
+  // "No handler registered"）——补原生文件夹选择对话框；取消返回 null，不回传任何敏感信息
+  ipcMain.handle('system:selectFolder', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    const options = {
+      title: '选择共享文件夹',
+      properties: ['openDirectory', 'createDirectory'] as ('openDirectory' | 'createDirectory')[],
+    }
+    const r = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+    return r.canceled ? null : (r.filePaths[0] ?? null)
+  })
+  // 打开日志文件夹（命令面板"打开日志文件夹"命令使用）；成功返回 ''，失败返回错误串
+  ipcMain.handle('system:openLogFolder', () => shell.openPath(logDir()))
 
   // === app: 日志系统（E6）===
   // 渲染层错误/事件转发主进程持久化；边界守卫：level 白名单、长度截断、简单限流
