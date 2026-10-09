@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { App as AntdApp } from 'antd'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import Layout from './components/Layout'
@@ -54,6 +55,32 @@ function FirstRunMount() {
   )
 }
 
+/**
+ * 后台进程版本自检。
+ *
+ * 场景：升级后渲染层热更新了，但 preload/主进程还是上一版——新通道整组缺失，
+ * 用户点「一键诊断」只会看到 "Cannot read properties of undefined (reading 'run')"。
+ * 这里在启动时一次性点出缺哪些通道并给出可执行动作，而不是等用户逐个功能踩雷。
+ * （只提示不阻断：旧通道仍可用，界面继续可操作。）
+ */
+function StaleProcessNotice() {
+  const { message } = AntdApp.useApp()
+  useEffect(() => {
+    const REQUIRED = ['state', 'disk', 'security', 'firewall', 'diagnose'] as const
+    const host = window.winshare as unknown as Record<string, unknown> | undefined
+    const missing = REQUIRED.filter((k) => !host?.[k])
+    if (!missing.length) return
+    message.warning({
+      content:
+        `后台进程仍是升级前的版本（缺少通道：${missing.join('、')}），一键诊断/操作回收站等新功能不可用。` +
+        `请从右下角托盘图标选择「退出」后重新启动本程序——只关闭窗口不够，程序会留在托盘继续跑旧版本。`,
+      duration: 0,
+      key: 'stale-preload',
+    })
+  }, [message])
+  return null
+}
+
 export default function App() {
   useHotkeys()
   // 应用级持久状态（主题/新手模式/置顶/告警规则）水合一次，供全站读取
@@ -84,6 +111,7 @@ export default function App() {
         </Routes>
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
         <FirstRunMount />
+        <StaleProcessNotice />
       </Layout>
     </QueryClientProvider>
   )

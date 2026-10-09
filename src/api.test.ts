@@ -60,4 +60,27 @@ describe('call 错误包装', () => {
     expect(err.code).toBeUndefined()
     expect(err.category).toBeUndefined()
   })
+
+  it('旧进程缺通道（api.diagnose undefined）→ 换成可执行的"退出并重启"提示', async () => {
+    // 真实场景：升级后渲染层热更新了，但 preload/主进程还是上一版，
+    // api.diagnose 整组缺失，调用处抛的是 TypeError —— 用户看不懂也做不了什么。
+    await expect(
+      call(async () => {
+        throw new TypeError("Cannot read properties of undefined (reading 'run')")
+      }),
+    ).rejects.toThrow(/版本不一致[\s\S]*缺少「run」通道[\s\S]*托盘/)
+  })
+
+  it('提示里保留原始错误，便于排查；非该模式的消息一律不改写', async () => {
+    await expect(
+      call(async () => {
+        throw new TypeError("Cannot read properties of undefined (reading 'run')")
+      }),
+    ).rejects.toThrow(/原始错误：Cannot read properties of undefined/)
+    await expect(
+      call(async () => {
+        throw new Error('Cannot read properties of null (reading X) 但不是通道问题') // 无引号包裹形态
+      }),
+    ).rejects.toThrow('但不是通道问题')
+  })
 })
