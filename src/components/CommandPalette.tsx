@@ -148,7 +148,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   useEffect(() => {
     const q = query.trim()
     if (q.length < 2) {
-      setDynamic([])
+      // 短查询不检索；结果由 merged 门控隐藏，避免 effect 内同步 setState（set-state-in-effect）
       return
     }
     let cancelled = false
@@ -243,12 +243,16 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     }
   }, [message, navigate, query])
 
-  // 合并静态（nav+action 按 query 过滤）+ 动态
+  // 合并静态（nav+action 按 query 过滤）+ 动态（<2 字符门控隐藏，异步残留结果不展示）
   const merged = useMemo(() => {
     const ql = query.trim().toLowerCase()
     const filter = (list: Command[]) =>
       ql ? list.filter((c) => c.label.toLowerCase().includes(ql)) : list
-    return [...filter(STATIC_NAV), ...filter(actionCommands), ...dynamic]
+    return [
+      ...filter(STATIC_NAV),
+      ...filter(actionCommands),
+      ...(query.trim().length >= 2 ? dynamic : []),
+    ]
   }, [actionCommands, dynamic, query])
 
   // 分组
@@ -264,18 +268,20 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   // 平铺索引数组（用于键盘上下选择）
   const flat = useMemo(() => grouped.flatMap((g) => g.items), [grouped])
 
-  // 输入变化时重置 activeIndex
-  useEffect(() => {
+  // 输入变化/关闭时重置选中项与输入——React 官方"渲染期调整 state"模式（规避级联 effect setState）
+  const [prevQuery, setPrevQuery] = useState(query)
+  if (prevQuery !== query) {
+    setPrevQuery(query)
     setActiveIndex(0)
-  }, [query])
-
-  // 关闭时清空
-  useEffect(() => {
+  }
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
     if (!open) {
       setQuery('')
       setDynamic([])
     }
-  }, [open])
+  }
 
   // 键盘上下选择 + Enter 执行
   const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

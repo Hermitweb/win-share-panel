@@ -4,6 +4,15 @@
 
 ## [1.1.0] - 2026-10-09
 
+### 🔁 架构演进 / Architecture（B1）
+
+- **数据层迁移 react-query（@tanstack/react-query 5）**：5 个页面（仪表板/共享管理/用户权限/会话监控/服务配置）+ 3 个协议配置面板统一 `useQuery` 拉取；轮询/并发去重/缓存失效内建，替代手写 `load + inflight 守卫 + 定时器` 链；`load()` 名称保留、语义=invalidate（变更回调零改动）；`refetchOnWindowFocus:false`/`retry:0` 适配 IPC 语义；F5 与托盘刷新经 store tick → invalidate 桥接
+- **命令面板**：状态重置改"渲染期调整 state"官方模式；短查询门控替代同步清空
+- 行为验证：新增 Sessions 页 3 个 jsdom 数据流测试（首挂载/刷新/断开失效），并借此发现修复卸载竞态（refetchQueries 结果 undefined 崩溃）
+- 遗留：10 处 modal/drawer 层 effect-setState 未迁移（清单见 eslint.config.mjs 留档），与 R-5 组件抽象同属后续工作包，规则复启以 UI 回归为前置条件
+
+### ✨ 新增 / Added
+
 全面审计（docs/audit/）与工程化规范化落地。
 
 ### ⚙️ 工程化 / Engineering

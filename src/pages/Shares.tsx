@@ -135,7 +135,6 @@ const CREATE_SCENARIO_PRESETS: Record<
 
 export default function Shares() {
   const { message, modal } = App.useApp()
-  const [modalOpen, setModalOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editShare, setEditShare] = useState<Share | null>(null)
   const [permOpen, setPermOpen] = useState(false)
@@ -226,13 +225,7 @@ export default function Shares() {
     return !cap || cap.installed
   }
 
-  // hotkey: Ctrl+N
-  useEffect(() => {
-    if (shareCreateOpen) {
-      setModalOpen(true)
-      setShareCreateOpen(false)
-    }
-  }, [shareCreateOpen, setShareCreateOpen])
+  // hotkey/Ctrl+N 与命令面板统一由 store 意图 shareCreateOpen 直接驱动 Modal（去除本地镜像态与同步 effect）
 
   useTickEffect(refreshTick, () => load())
 
@@ -344,7 +337,7 @@ export default function Shares() {
         await call(() => api.preset.apply(created.name, v.presetId, 'overwrite'))
       }
       message.success('创建成功')
-      setModalOpen(false)
+      setShareCreateOpen(false)
       form.resetFields()
       load()
     } catch (e) {
@@ -882,9 +875,9 @@ export default function Shares() {
         )}
       </div>
       <Modal
-        open={modalOpen}
+        open={shareCreateOpen}
         title="新建共享"
-        onCancel={() => setModalOpen(false)}
+        onCancel={() => setShareCreateOpen(false)}
         onOk={handleCreate}
         okText="创建"
         cancelText="取消"
