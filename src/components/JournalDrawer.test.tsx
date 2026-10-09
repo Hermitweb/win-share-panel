@@ -290,3 +290,77 @@ describe('JournalDrawer（操作回收站抽屉）', () => {
     expect(screen.queryByText('Reports')).not.toBeInTheDocument()
   })
 })
+
+// 批2（docs/audit/05-renderer-debt.md §3.1 点 4）：打开/关闭生命周期与 stale-while-revalidate。
+const settle = () => new Promise((r) => setTimeout(r, 200))
+const spinning = () => document.querySelector('.ant-spin-spinning') !== null
+
+/** 与 renderDrawer 同层级，供 rerender 复用（增删包裹层会整棵重挂，破坏"只加载一次"断言） */
+function wrapDrawer(open: boolean) {
+  return (
+    <AntdApp>
+      <JournalDrawer open={open} onClose={vi.fn()} />
+    </AntdApp>
+  )
+}
+
+describe('JournalDrawer · 打开生命周期（set-state-in-effect 迁移回归）', () => {
+  it('打开→恰好 1 次 api.state.journalList；重复渲染与静置 200ms 都不重发', async () => {
+    const { rerender } = renderDrawer()
+    await waitFor(() => expect(stub.state.journalList).toHaveBeenCalledTimes(1))
+
+    rerender(wrapDrawer(true))
+    await settle()
+    expect(stub.state.journalList).toHaveBeenCalledTimes(1)
+  })
+
+  it('关闭再打开：再 1 次（合计 2）', async () => {
+    const { rerender } = renderDrawer()
+    await waitFor(() => expect(stub.state.journalList).toHaveBeenCalledTimes(1))
+
+    rerender(wrapDrawer(false))
+    await settle()
+    rerender(wrapDrawer(true))
+
+    await waitFor(() => expect(stub.state.journalList).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('Reports')).toBeInTheDocument()
+  })
+
+  it('stale-while-revalidate：store 为空→打开即转圈；store 已有数据→不转圈、立即渲染旧数据', async () => {
+    // ① store 为空 + 列表请求悬停：加载态必须出现（不是先白一下再出内容）
+    let resolveList: (v: unknown[]) => void = () => {}
+    stub.state.journalList.mockImplementation(
+      () => new Promise((res) => (resolveList = res as (v: unknown[]) => void)),
+    )
+    const first = renderDrawer()
+    await waitFor(() => expect(spinning()).toBe(true))
+    resolveList([UNDOABLE, ARCHIVE])
+    await waitFor(() => expect(screen.getByText('Reports')).toBeInTheDocument())
+    first.unmount()
+
+    // ② store 已有数据：打开那一刻就能读，不出现加载态
+    useAppStore.setState({ journal: [UNDOABLE, ARCHIVE] })
+    stub.state.journalList.mockResolvedValue([UNDOABLE, ARCHIVE])
+    renderDrawer()
+    expect(spinning()).toBe(false)
+    expect(screen.getByText('Reports')).toBeInTheDocument()
+  })
+
+  it('列表拉取失败：原因可见、不假成功；列表按 store 既有失败语义清空（本次迁移未改动该行为）', async () => {
+    // 先有数据（证明"失败"不是"本来就没有"），再让下一次拉取失败
+    useAppStore.setState({ journal: [UNDOABLE, ARCHIVE] })
+    stub.state.journalList.mockRejectedValue(new Error('留档读取失败：文件被占用'))
+
+    const { rerender } = renderDrawer()
+    await waitFor(() => expect(document.body.textContent).toContain('留档读取失败：文件被占用'))
+    // 绝不假成功
+    expect(document.body.textContent).not.toContain('操作记录已清空')
+
+    // 关闭再打开，仍如实报错（错误不被吞掉）
+    rerender(wrapDrawer(false))
+    await settle()
+    rerender(wrapDrawer(true))
+    await waitFor(() => expect(stub.state.journalList).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(document.body.textContent).toContain('留档读取失败：文件被占用'))
+  })
+})

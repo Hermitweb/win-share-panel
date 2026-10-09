@@ -530,3 +530,18 @@ export interface ProtocolCapabilities {
   supportsRestart: boolean
   permissionModel: 'smb-acl' | 'nfs-krb' | 'iis-auth' | 'webdav-rules'
 }
+
+/**
+ * 应用内「检查更新」的结果（见 electron/services/update.ts）。
+ * 更新源不可达时 unavailable=true、latest 为空串——UI 据此走「检查失败」分支，
+ * 不能把它当成「已是最新」。
+ */
+export interface UpdateCheckResult {
+  current: string
+  latest: string
+  hasUpdate: boolean
+  releaseUrl: string
+  publishedAt: string | null
+  unavailable: boolean
+  reason: string | null
+}

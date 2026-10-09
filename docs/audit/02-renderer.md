@@ -32,6 +32,15 @@
 | R-6 | 低 | `api.ts` 的 `call` 吞掉原始错误类型（仅透传 message），AppError.code/category 在渲染层丢失 | src/api.ts:12-17 | 建议保留 code 透传，便于按类别展示不同 UI 提示（如 permission 类提示"以管理员身份运行"）|
 | R-7 | 低 | `index.css` / tailwind 自定义 token（glass-card / rounded-btn 等）未审计是否全部被引用（可能存在死样式） | src/index.css | 工程化阶段可通过 `tailwindcss` 生产构建的 unused 报告清理 |
 
+## 3.1 状态收口（渲染层批 2 · renderer-debt 终态，2026-11）
+
+| ID | 收口状态 | 依据 |
+|---|---|---|
+| R-3 | **维持原判「可接受」，未改代码**（状态如实，非闭环也非新增缺陷） | `src/hooks/useTickEffect.ts:13` 的 `react-hooks/exhaustive-deps` 行内豁免仍原样保留，并附理由「有意仅依赖 tick：tick 变化是唯一触发条件；fn 每轮渲染皆新建，纳入依赖会破坏"跳过初值"语义并重复触发」。该文件本批次**零改动**（`git status` 无它）；`exhaustive-deps` 规则保持开启。本批次未新增任何 `set-state-in-effect` 行内 disable（全仓该规则行内 disable = 0、机读 suppressions = 0）；迁移过程中新增的 `exhaustive-deps` 行内豁免（`PermissionDrawer:124` / `PermissionMatrix:307` / `ShareDetailDrawer:152` / `useProtocolSettings:109`）均带具体理由。本批次未把它改写为 `useLatest` 形态 |
+| R-5 | **已闭环（全量，两半都做）** | 三 PermPanel → `useProtocolPermissions`（hook：`src/hooks/useProtocolPermissions.ts`）+ `ProtocolPermissionShell`（`src/components/ProtocolPermissionShell.tsx`）；三 SettingsPanel → `useProtocolSettings`（`src/hooks/useProtocolSettings.ts`）+ `ProtocolSettingsShell`（`src/components/ProtocolSettingsShell.tsx`）。六个面板内 `useEffect|useQuery|invalidateQueries|queryKey|setLoading|setRows|setSaving` 命中 0、9 个 IPC 调用点收敛为 1 份、Shell 拥有的 12 条文案/标签 3→1、六面板合计净减 69 行；对外 props（`{ share }`）与 DOM/文案契约逐字不变，新增 59 例面板用例，评审 t5 = pass |
+
+> 上表只收口 R-3/R-5。R-8（数据获取模式重构）不属本报告清单，其状态见 `00-backlog.md` §3.5「渲染层批 2」段：**仍为开放项**（本批次只完成了它的阻塞条件——`set-state-in-effect` 复启为 error）。
+
 ## 4. 已验证通过项（Positive Findings）
 
 - 渲染层无任何 `nodeIntegration`/远程内容加载，全部经 `window.winshare`（contextBridge 最小化暴露），攻击面极小。

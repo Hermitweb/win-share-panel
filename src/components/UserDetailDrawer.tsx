@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { api, call } from '../api'
+import { useResetOnKeyChange } from '../hooks/useResetOnOpen'
 import type { LocalUser, LocalGroup, SharePermission } from '../types'
 import {
   generatePassword,
@@ -77,9 +78,17 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
 
   const originalName = user?.name || ''
 
-  useEffect(() => {
+  // 打开/换用户：tab 回到「属性」、密码区收起并清空（纯本地态走渲染期调整，见 useResetOnOpen）
+  useResetOnKeyChange(`${open}|${user?.name ?? ''}`, () => {
     if (!open || !user) return
     setTab('props')
+    setPwdOpen(false)
+    setNewPwd('')
+  })
+
+  // 表单同步留在 effect 内（antd 命令式 API，非 React state）
+  useEffect(() => {
+    if (!open || !user) return
     form.setFieldsValue({
       name: user.name,
       fullName: user.fullName,
@@ -88,8 +97,6 @@ export default function UserDetailDrawer({ open, user, onClose, onSuccess }: Pro
       userMayChangePassword: user.userMayChangePassword,
       passwordNeverExpires: !user.passwordExpires,
     })
-    setPwdOpen(false)
-    setNewPwd('')
   }, [open, user, form])
 
   // 加载组列表（Tab 2 激活时）

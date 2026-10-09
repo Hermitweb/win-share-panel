@@ -45,6 +45,8 @@ import type { UploadProps } from 'antd'
 import dayjs from 'dayjs'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, call } from '../api'
+import UpdateChecker from '../components/UpdateChecker'
+import SettingsTransferCard from '../components/SettingsTransferCard'
 import type {
   AlertRules,
   FirewallRule,
@@ -59,6 +61,7 @@ import { SMB_CONFIG_PRESETS } from '../utils/configPresets'
 import { useUiStore } from '../stores/uiStore'
 import { useAppStore } from '../stores/appStore'
 import { useTickEffect } from '../hooks/useTickEffect'
+import { useResetOnKeyChange } from '../hooks/useResetOnOpen'
 import NfsSettingsPanel from '../components/NfsSettingsPanel'
 import FtpSettingsPanel from '../components/FtpSettingsPanel'
 import WebdavSettingsPanel from '../components/WebdavSettingsPanel'
@@ -772,11 +775,11 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                         {auditRows.length === 0 ? (
                           <div className="text-xs text-fog p-3">暂无审计记录</div>
                         ) : (
-                          <div className="max-h-96 overflow-auto text-xs bg-white/40 p-2 rounded-card">
+                          <div className="max-h-96 overflow-auto text-xs bg-white/40 dark:bg-white/5 p-2 rounded-card">
                             {auditRows.map((r, i) => (
                               <div
                                 key={i}
-                                className="flex gap-2 items-center py-1 border-b border-black/5 last:border-0"
+                                className="flex gap-2 items-center py-1 border-b border-black/5 dark:border-white/10 last:border-0"
                               >
                                 <span className="text-fog shrink-0">
                                   {(r.ts || '').replace('T', ' ').slice(0, 19)}
@@ -820,7 +823,7 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                           显示 app.log 最近 300
                           行（%APPDATA%\WinSharePanel\logs\，2MB×3轮转）；含主进程运行日志与渲染层错误，报错后可在此复制完整堆栈。
                         </div>
-                        <pre className="text-xs bg-white/40 p-3 rounded-card max-h-96 overflow-auto whitespace-pre-wrap">
+                        <pre className="text-xs bg-white/40 dark:bg-white/5 p-3 rounded-card max-h-96 overflow-auto whitespace-pre-wrap">
                           {appLog || '暂无日志'}
                         </pre>
                       </div>
@@ -903,6 +906,8 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
             children: (
               <div>
                 <UsageModeCard />
+                <UpdateChecker />
+                <SettingsTransferCard />
                 <AutoStartCard />
                 <AlertRulesCard />
                 <FirewallCard />
@@ -1128,9 +1133,9 @@ function AlertRulesCard() {
   const patch = useAppStore((s) => s.patch)
   const [busy, setBusy] = useState(false)
   const [diskDraft, setDiskDraft] = useState<number | null>(rules.diskLowGb)
-  useEffect(() => {
-    setDiskDraft(rules.diskLowGb)
-  }, [rules.diskLowGb])
+  // 外部值变化 → 草稿跟随：属官方「props/外部值变化时调整 state」场景，渲染期调整（P-5）
+  // 比 effect 镜像少一次渲染，且不改变既有 dirty / 保存失败退回语义
+  useResetOnKeyChange(`disk:${String(rules.diskLowGb)}`, () => setDiskDraft(rules.diskLowGb))
   const diskDirty = diskDraft !== null && diskDraft !== rules.diskLowGb
 
   const save = async (p: Partial<AlertRules>, label: string) => {

@@ -1,20 +1,10 @@
-import { useEffect, useState } from 'react'
-import {
-  Table,
-  Button,
-  Space,
-  Select,
-  Input,
-  Popconfirm,
-  App,
-  Tag,
-  Empty,
-  Spin,
-  Tooltip,
-} from 'antd'
-import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
-import { api, call } from '../../api'
+import { useState } from 'react'
+import type { TableColumnsType } from 'antd'
+import { App, Button, Input, Select, Tag, Tooltip } from 'antd'
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import type { Share, SharePermission } from '../../types'
+import { useProtocolPermissions } from '../../hooks/useProtocolPermissions'
+import { ProtocolPermissionShell } from '../ProtocolPermissionShell'
 
 interface Props {
   share: Share
@@ -51,9 +41,9 @@ function toRule(p: SharePermission): FtpRule {
   }
 }
 
-function toSharePerm(share: Share, r: FtpRule): SharePermission {
+function toSharePerm(r: FtpRule, shareName: string): SharePermission {
   return {
-    shareName: share.name,
+    shareName,
     account: r.account,
     accountType: r.accountType,
     access: r.perm === 'rw' ? 'Change' : 'Read',
@@ -63,31 +53,19 @@ function toSharePerm(share: Share, r: FtpRule): SharePermission {
 
 export default function FtpPermPanel({ share }: Props) {
   const { message } = App.useApp()
-  const [rows, setRows] = useState<FtpRule[]>([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [newAccount, setNewAccount] = useState('')
   const [newType, setNewType] = useState<'User' | 'Group'>('User')
   const [newPerm, setNewPerm] = useState<FtpPerm>('ro')
   const [newAccessType, setNewAccessType] = useState<FtpType>('Allow')
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const list = await call(() => api.adapter.permissions('ftp', share.name))
-      setRows(list.map(toRule))
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    load()
-    // 仅在切换共享时重载权限：load 引用每轮渲染变化，纳入依赖会无限循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [share.name])
+  const { rows, loading, saving, reload, save, addRow, removeRow, updateRow, hasRow } =
+    useProtocolPermissions<FtpRule>({
+      protocol: 'ftp',
+      shareName: share.name,
+      toRow: toRule,
+      toPerm: toSharePerm,
+      rowKey: 'account',
+    })
 
   const handleAdd = () => {
     const acct = newAccount.trim()
@@ -95,41 +73,15 @@ export default function FtpPermPanel({ share }: Props) {
       message.warning('请输入账号名')
       return
     }
-    if (rows.some((r) => r.account === acct)) {
+    if (hasRow(acct)) {
       message.warning('该账号已存在')
       return
     }
-    setRows([...rows, { account: acct, accountType: newType, perm: newPerm, type: newAccessType }])
+    addRow({ account: acct, accountType: newType, perm: newPerm, type: newAccessType })
     setNewAccount('')
   }
 
-  const handleRemove = (account: string) => {
-    setRows(rows.filter((r) => r.account !== account))
-  }
-
-  const handlePermChange = (account: string, perm: FtpPerm) => {
-    setRows(rows.map((r) => (r.account === account ? { ...r, perm } : r)))
-  }
-
-  const handleTypeChange = (account: string, type: FtpType) => {
-    setRows(rows.map((r) => (r.account === account ? { ...r, type } : r)))
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const perms = rows.map((r) => toSharePerm(share, r))
-      await call(() => api.adapter.setPermissions('ftp', share.name, perms))
-      message.success('授权规则已保存')
-      load()
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const columns = [
+  const columns: TableColumnsType<FtpRule> = [
     { title: '账号', dataIndex: 'account', ellipsis: true },
     {
       title: '类型',
@@ -143,12 +95,12 @@ export default function FtpPermPanel({ share }: Props) {
       title: '权限',
       dataIndex: 'perm',
       width: 140,
-      render: (v: FtpPerm, r: FtpRule) => (
+      render: (v: FtpPerm, r) => (
         <Select
           size="small"
           value={v}
           options={PERM_OPTIONS}
-          onChange={(next) => handlePermChange(r.account, next)}
+          onChange={(next) => updateRow(r.account, { perm: next })}
           style={{ width: 140 }}
         />
       ),
@@ -157,12 +109,12 @@ export default function FtpPermPanel({ share }: Props) {
       title: '授权',
       dataIndex: 'type',
       width: 110,
-      render: (v: FtpType, r: FtpRule) => (
+      render: (v: FtpType, r) => (
         <Select
           size="small"
           value={v}
           options={TYPE_OPTIONS}
-          onChange={(next) => handleTypeChange(r.account, next)}
+          onChange={(next) => updateRow(r.account, { type: next })}
           style={{ width: 90 }}
         />
       ),
@@ -170,13 +122,13 @@ export default function FtpPermPanel({ share }: Props) {
     {
       title: '',
       width: 50,
-      render: (_: unknown, r: FtpRule) => (
+      render: (_: unknown, r) => (
         <Tooltip title="移除">
           <Button
             size="small"
             danger
             icon={<DeleteOutlined />}
-            onClick={() => handleRemove(r.account)}
+            onClick={() => removeRow(r.account)}
           />
         </Tooltip>
       ),
@@ -184,33 +136,20 @@ export default function FtpPermPanel({ share }: Props) {
   ]
 
   return (
-    <Spin spinning={loading}>
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm text-fog">
-          FTP 授权规则基于用户/组授予 Read 或 Read+Write，可设允许/拒绝。保存时覆盖现有规则。
-        </span>
-        <Space>
-          <Button size="small" icon={<ReloadOutlined />} onClick={load}>
-            重新加载
-          </Button>
-          <Popconfirm title="确认覆盖当前 FTP 授权规则？" onConfirm={handleSave}>
-            <Button size="small" type="primary" loading={saving}>
-              保存
-            </Button>
-          </Popconfirm>
-        </Space>
-      </div>
-      <Table
-        dataSource={rows}
-        rowKey="account"
-        columns={columns}
-        pagination={false}
-        size="small"
-        locale={{ emptyText: <Empty description="暂无授权规则" /> }}
-      />
-      <div className="mt-4 p-3 rounded-card bg-white/60">
-        <div className="text-xs text-fog mb-2">添加授权规则</div>
-        <Space wrap>
+    <ProtocolPermissionShell<FtpRule>
+      loading={loading}
+      saving={saving}
+      headerText="FTP 授权规则基于用户/组授予 Read 或 Read+Write，可设允许/拒绝。保存时覆盖现有规则。"
+      onReload={reload}
+      onSave={() => void save('授权规则已保存')}
+      saveConfirmTitle="确认覆盖当前 FTP 授权规则？"
+      columns={columns}
+      rows={rows}
+      rowKey="account"
+      emptyText="暂无授权规则"
+      addTitle="添加授权规则"
+      addBox={
+        <>
           <Input
             placeholder="账号名（如 * 或 Administrators）"
             value={newAccount}
@@ -241,12 +180,14 @@ export default function FtpPermPanel({ share }: Props) {
           <Button icon={<PlusOutlined />} onClick={handleAdd}>
             添加
           </Button>
-        </Space>
-        <div className="mt-2 text-xs text-fog">
+        </>
+      }
+      hint={
+        <>
           <Tag color="green">FTP</Tag>
           组授权使用 roles，用户授权使用 users；拒绝规则优先于允许规则。
-        </div>
-      </div>
-    </Spin>
+        </>
+      }
+    />
   )
 }

@@ -43,6 +43,7 @@ import type {
   DesiredRule,
   DiagnoseItem,
   DiagnoseFixKind,
+  UpdateCheckResult,
 } from '../electron/types'
 
 export type {
@@ -90,6 +91,7 @@ export type {
   DesiredRule,
   DiagnoseItem,
   DiagnoseFixKind,
+  UpdateCheckResult,
 }
 
 // 共享连接信息
@@ -212,6 +214,7 @@ export interface WinShareApi {
     setAutoStart: (enabled: boolean) => Promise<boolean>
     /** 升级后重启到新版本；旧进程无此通道，调用方必须先探测存在性 */
     relaunch: () => Promise<void>
+    openExternal: (url: string) => Promise<null>
     pathForFile: (file: File) => string
   }
   log: {
@@ -280,6 +283,8 @@ export interface WinShareApi {
     journalList: () => Promise<JournalEntry[]>
     journalUndo: (id: string) => Promise<string>
     journalClear: () => Promise<number>
+    exportAll: () => Promise<string>
+    importAll: (json: string) => Promise<{ applied: string[] }>
   }
   disk: {
     usages: () => Promise<DiskUsage[]>
@@ -300,5 +305,8 @@ export interface WinShareApi {
   diagnose: {
     run: (shareName?: string) => Promise<DiagnoseItem[]>
     applyFix: (fix: DiagnoseFixKind, args?: { shareName?: string }) => Promise<string>
+  }
+  update: {
+    check: () => Promise<UpdateCheckResult>
   }
 }

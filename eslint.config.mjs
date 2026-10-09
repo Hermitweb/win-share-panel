@@ -46,14 +46,21 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-unused-expressions': 'off',
-      // === 规则降级留档（E2 引入；B1 迁移后状态更新 2026-10-09）===
-      // react-hooks v7 编译器风格规则集。set-state-in-effect 违例已从 26 处收敛至 10 处：
-      // 5 页面 + 3 协议面板完成 react-query 迁移、命令面板改"渲染期调整 state"、Shares Ctrl+N 去镜像态。
-      // 剩余 10 处全部位于 modal/drawer 层（GroupManageModal/PermissionDrawer/PermissionMatrix/
-      // 三 PermPanel/PresetEditor/ShareDetailDrawer/UserCreateModal/UserDetailDrawer），
-      // 与 R-5 组件抽象同属一个后续工作包（需 UI 运行时回归配合）。全部清零后本规则复启为 error。
+      // === 规则复启留档（E2 引入降级；B1 迁移；批 2 renderer-debt 清零后复启为 error）===
+      // react-hooks v7 编译器风格规则集。set-state-in-effect 违例**已全量清零**（14 处 → 0）：
+      // - 11 处 modal/drawer 层：DiagnoseModal / FirstRunGuide / GroupManageModal / JournalDrawer /
+      //   PermissionDrawer / PermissionMatrix / PresetEditor / ShareDetailDrawer / UserCreateModal /
+      //   UserDetailDrawer / pages/Settings（派生态）。统一改为「渲染期调整 state」
+      //   （useResetOnOpen / useResetOnKeyChange）+「effect 内定义 loader」的 async 安全形态；
+      // - 3 处 PermPanel：NfsPermPanel / FtpPermPanel / WebdavPermPanel，随 R-5 抽象
+      //   收敛进 src/hooks/useProtocolPermissions.ts。
+      // 数字勘误：旧留档写的「剩余 10 处」只统计 B1 的 26→10 收敛，未含批 1 新增代码引入的 4 处
+      // （DiagnoseModal:158 / FirstRunGuide:52 / JournalDrawer:127 / pages/Settings:1132）；起点实测为 14 处。
+      // 复启为 error 后，任何回退（在 effect 内重新同步 setState、用 setTimeout/queueMicrotask 藏 setState、
+      // 把 state 搬进 ref 静音、加本规则的行内 disable、或把规则改回 'off'）都会被 `pnpm lint`
+      // （eslint . --max-warnings=0）与 CI 门禁直接挡住；该规则 suppressions 当前为 0。
       // 其余 react-hooks 规则（rules-of-hooks / exhaustive-deps / immutability 等）保持开启。
-      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/set-state-in-effect': 'error',
       // no-control-regex 保持开启。本仓库两处「显式排除控制字符」的校验正则（validatePath 与其
       // 测试镜像）为合法用法：配置级 options allowEscape 在 eslint 9.39.4 flat rules 校验下报
       // 'Key "no-control-regex":' 错误（疑似上游缺陷），故按文档改用行内 disable 并附理由。

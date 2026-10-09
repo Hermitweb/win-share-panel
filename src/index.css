@@ -2,12 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== 主题令牌 · 自有 CSS 轨道 =====
+ * 暗色双轨接线的其中一轨：亮色写 :root，暗色由 [data-theme='dark'] 覆盖。
+ * App.tsx 已把 data-theme 落到 <html>，故此处只认属性选择器（不认 class）。
+ * 另两轨：antd 的 algorithm/token 在 src/components/ThemeProvider.tsx；
+ * tailwind 的 dark: 变体由 tailwind.config.js 的 darkMode:'class' + <html class="dark"> 驱动。
+ * 三者的唯一真源都是 appStore.state.theme。
+ */
 :root {
   --color-primary: #7ec8f0;
   --color-ink: #3a4a5c;
   --radius-card: 16px;
   --shadow-card: 0 4px 16px rgba(126, 200, 240, 0.12), 0 1px 3px rgba(58, 74, 92, 0.04);
   --shadow-hover: 0 8px 28px rgba(126, 200, 240, 0.2), 0 2px 6px rgba(58, 74, 92, 0.06);
+  --bg-app: linear-gradient(135deg, #f4fafd 0%, #edf6fb 40%, #f0eef8 100%);
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --panel-bg: rgba(255, 255, 255, 0.75);
+  --titlebar-bg: rgba(255, 255, 255, 0.55);
+  --titlebar-border: rgba(255, 255, 255, 0.5);
+  --scrollbar-thumb: rgba(126, 200, 240, 0.4);
+  --scrollbar-thumb-hover: rgba(126, 200, 240, 0.6);
+  --chart-bg: #f4fafd;
+  --code-bg: rgba(0, 0, 0, 0.05);
+  --icon-muted: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme='dark'] {
+  --color-ink: #c9d6e2;
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --bg-app: linear-gradient(135deg, #0e1319 0%, #121a22 40%, #15131d 100%);
+  --glass-bg: rgba(28, 36, 46, 0.68);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --panel-bg: rgba(24, 31, 40, 0.85);
+  --titlebar-bg: rgba(20, 26, 34, 0.72);
+  --titlebar-border: rgba(255, 255, 255, 0.08);
+  --scrollbar-thumb: rgba(126, 200, 240, 0.28);
+  --scrollbar-thumb-hover: rgba(126, 200, 240, 0.45);
+  --chart-bg: #141b23;
+  --code-bg: rgba(255, 255, 255, 0.07);
+  --icon-muted: rgba(255, 255, 255, 0.3);
 }
 
 html,
@@ -23,14 +58,14 @@ body,
 }
 
 body {
-  background: linear-gradient(135deg, #f4fafd 0%, #edf6fb 40%, #f0eef8 100%);
+  background: var(--bg-app);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.65);
+  background: var(--glass-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   transition: box-shadow 0.3s ease;
@@ -44,11 +79,11 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(126, 200, 240, 0.4);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(126, 200, 240, 0.6);
+  background: var(--scrollbar-thumb-hover);
 }
 ::-webkit-scrollbar-track {
   background: transparent;

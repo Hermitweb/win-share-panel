@@ -46,8 +46,8 @@ export default function Layout({
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-btn text-sm transition-all ${
                   isActive
-                    ? 'bg-white/70 text-primary shadow-card'
-                    : 'text-ink/70 hover:bg-white/40'
+                    ? 'bg-white/70 text-primary shadow-card dark:bg-white/10'
+                    : 'text-ink/70 hover:bg-white/40 dark:text-night-ink/70 dark:hover:bg-white/5'
                 }`
               }
             >
@@ -57,7 +57,7 @@ export default function Layout({
           ))}
           <button
             onClick={onCommand}
-            className="mt-2 flex items-center gap-3 px-3 py-2 rounded-btn text-sm text-ink/60 hover:bg-white/40 transition-all no-drag"
+            className="mt-2 flex items-center gap-3 px-3 py-2 rounded-btn text-sm text-ink/60 hover:bg-white/40 dark:text-night-ink/60 dark:hover:bg-white/5 transition-all no-drag"
           >
             <ThunderboltOutlined />
             命令面板

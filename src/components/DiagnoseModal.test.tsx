@@ -322,3 +322,83 @@ describe('DiagnoseModal（一键诊断向导）', () => {
     expect(stub.diagnose.applyFix).not.toHaveBeenCalled()
   })
 })
+
+// 批2（docs/audit/05-renderer-debt.md §3.1 点 1）：打开/关闭的生命周期回归。
+// 断言口径＝次数 + 静置 200ms、可见文本/控件值（不断言内部 state）。
+const settle = () => new Promise((r) => setTimeout(r, 200))
+
+/** 与 renderModal 同层级，供 rerender 复用（增删包裹层会整棵重挂，破坏"只加载一次"断言） */
+function wrapModal(open: boolean, initialShareName?: string) {
+  return (
+    <ConfigProvider locale={zhCN}>
+      <AntdApp>
+        <DiagnoseModal open={open} onClose={vi.fn()} initialShareName={initialShareName} />
+      </AntdApp>
+    </ConfigProvider>
+  )
+}
+
+const selectValue = () => document.querySelector('.ant-select-content')?.getAttribute('title') ?? ''
+
+describe('DiagnoseModal · 打开/关闭生命周期（set-state-in-effect 迁移回归）', () => {
+  it('打开→恰好 1 次 api.adapter.list("smb")；重复渲染与静置 200ms 都不重发', OPT, async () => {
+    const { rerender } = render(wrapModal(true))
+    await until(() => expect(stub.adapter.list).toHaveBeenCalledWith('smb'))
+    expect(stub.adapter.list).toHaveBeenCalledTimes(1)
+
+    rerender(wrapModal(true))
+    await settle()
+    expect(stub.adapter.list).toHaveBeenCalledTimes(1)
+  })
+
+  it('关闭再打开：再 1 次（合计 2），上一次的结论与错误条全部归零', OPT, async () => {
+    // 先做一次失败的诊断，留下错误条
+    stub.diagnose.run.mockRejectedValue(new Error('PowerShell 通道不可用'))
+    const { rerender } = render(wrapModal(true))
+    fireEvent.click(await screen.findByRole('button', { name: /开始诊断/ }))
+    await screen.findByText('诊断没能完成')
+
+    rerender(wrapModal(false))
+    await settle()
+    rerender(wrapModal(true))
+
+    await until(() => expect(stub.adapter.list).toHaveBeenCalledTimes(2))
+    // 错误条与"尚未诊断"之外的残留全部归零，回到介绍态
+    await until(() => {
+      expect(screen.queryByText('诊断没能完成')).not.toBeInTheDocument()
+    })
+    expect(screen.getByText(/选好共享（或留空做全局体检）后点「开始诊断」/)).toBeInTheDocument()
+    expect(screen.getByText('尚未诊断')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /开始诊断/ })).toBeInTheDocument()
+
+    // 再成功诊断一次：结论区从零开始（不是接着上一次）
+    stub.diagnose.run.mockResolvedValue(ITEMS)
+    fireEvent.click(screen.getByRole('button', { name: /开始诊断/ }))
+    await screen.findByText('SMB 服务端（LanmanServer）运行')
+    expect(screen.getByText(/2 项通过 \/ 2 项异常/)).toBeInTheDocument()
+  })
+
+  it('open 保持 true 而 initialShareName 变化：结论清空、下拉选中项跟随', OPT, async () => {
+    const { rerender } = render(wrapModal(true, 'Docs'))
+    await until(() => expect(stub.adapter.list).toHaveBeenCalledWith('smb'))
+    await startDiagnose()
+    expect(document.querySelector('li[data-key="smb-service"]')).not.toBeNull()
+
+    rerender(wrapModal(true, 'Photos'))
+    // 换目标＝换范围：旧结论不得留到新目标上
+    await until(() => expect(document.querySelector('li[data-key="smb-service"]')).toBeNull())
+    expect(screen.getByRole('button', { name: /开始诊断/ })).toBeInTheDocument()
+    await until(() => expect(selectValue()).toBe('Photos'))
+  })
+
+  it('共享列表拉取失败：不阻断诊断（下拉为空、不弹阻断）', OPT, async () => {
+    stub.adapter.list.mockRejectedValue(new Error('适配器枚举失败'))
+    renderModal()
+    await until(() => expect(stub.adapter.list).toHaveBeenCalledWith('smb'))
+
+    expect(screen.queryByText('适配器枚举失败')).not.toBeInTheDocument()
+    // 仍可做全局体检
+    await startDiagnose()
+    expect(stub.diagnose.run).toHaveBeenCalledWith(undefined)
+  })
+})

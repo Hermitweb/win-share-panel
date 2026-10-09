@@ -15,6 +15,7 @@ import {
 } from 'antd'
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { api, call } from '../api'
+import { useResetOnKeyChange } from '../hooks/useResetOnOpen'
 import type { Share, SharePermission, LocalUser, LocalGroup, NtfsAcl, NtfsAclEntry } from '../types'
 import NfsPermPanel from './PermissionPanel/NfsPermPanel'
 import FtpPermPanel from './PermissionPanel/FtpPermPanel'
@@ -72,32 +73,58 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
   // NTFS Tab
   const [ntfs, setNtfs] = useState<NtfsAcl | null>(null)
   const [ntfsLoading, setNtfsLoading] = useState(false)
+  // 渲染期重读序号：「重新加载」与「保存成功后重读」只 bump 它，四条取数路径共用一条 effect
+  const [nonce, setNonce] = useState(0)
 
-  const loadPerms = async () => {
-    if (!share) return
+  // 打开/换共享：NTFS 只读视图回到「未加载」——**不带 nonce**，与 HEAD 的 [open, share] 复位 effect 等价
+  // （HEAD：setNtfs(null) 只在该 effect 内；「重新加载」与保存后重读走 loadPerms()，从不触碰 NTFS）
+  useResetOnKeyChange(`${open}|${share?.name ?? ''}|${share?.protocol ?? ''}`, () => {
+    if (!open || !share || share.protocol !== 'smb') return
+    setNtfs(null)
+  })
+
+  // 打开/换共享/重读：SMB 的加载态与打开同帧生效（渲染期调整，P-5）
+  // nonce 只影响 loading，不牵动 NTFS 视图——重读不得清空用户已加载的只读 ACL
+  useResetOnKeyChange(`${open}|${share?.name ?? ''}|${share?.protocol ?? ''}|${nonce}`, () => {
+    if (!open || share?.protocol !== 'smb') return
     setLoading(true)
-    try {
-      const list = await call(() => api.share.permissions(share.name))
-      setRows(list.map(toRow))
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  })
 
-  const loadCandidates = async () => {
-    try {
-      const [users, groups] = await Promise.all([
-        call(api.user.list).catch(() => [] as LocalUser[]),
-        call(api.user.groups).catch(() => [] as LocalGroup[]),
-      ])
-      setCandidates([...users.map((u) => u.name), ...groups.map((g) => g.name)])
-    } catch {
-      // 静默
+  // 仅 SMB 共享走遗留权限通道；NFS/其他协议由对应 PermPanel 自行加载。
+  // 取数函数定义在 effect 内部（B-1/P-3）：组件体函数即使 setState 在 await 之后也会在调用点被报。
+  useEffect(() => {
+    if (!open || !share || share.protocol !== 'smb') return
+    let dead = false
+    const loadPerms = async () => {
+      try {
+        const list = await call(() => api.share.permissions(share.name))
+        if (!dead) setRows(list.map(toRow))
+      } catch (e) {
+        if (!dead) message.error((e as Error).message)
+      } finally {
+        if (!dead) setLoading(false)
+      }
     }
-  }
+    const loadCandidates = async () => {
+      try {
+        const [users, groups] = await Promise.all([
+          call(api.user.list).catch(() => [] as LocalUser[]),
+          call(api.user.groups).catch(() => [] as LocalGroup[]),
+        ])
+        if (!dead) setCandidates([...users.map((u) => u.name), ...groups.map((g) => g.name)])
+      } catch {
+        // 静默
+      }
+    }
+    void loadPerms()
+    void loadCandidates()
+    return () => {
+      dead = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意仅依赖 open/share/nonce：toRow 为模块级稳定引用、message 为上下文稳定引用，纳入依赖会重复触发
+  }, [open, share, nonce])
 
+  // NTFS ACL 是「点了加载才读」的只读视图（事件路径，不在打开路径上），保持原样
   const loadNtfs = async () => {
     if (!share?.path) return
     setNtfsLoading(true)
@@ -111,17 +138,6 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
       setNtfsLoading(false)
     }
   }
-
-  useEffect(() => {
-    // 仅 SMB 共享走遗留权限通道；NFS/其他协议由对应 PermPanel 自行加载
-    if (open && share && share.protocol === 'smb') {
-      loadPerms()
-      loadCandidates()
-      setNtfs(null)
-    }
-    // 仅在抽屉打开/切换共享时加载：loadPerms/loadCandidates 引用每轮渲染变化，纳入依赖会无限循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, share])
 
   const handleAdd = () => {
     const acct = newAccount.trim()
@@ -152,7 +168,7 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
       const perms = rows.map((r) => toPerm(share, r))
       await call(() => api.user.setSharePermissions(share.name, perms))
       message.success('权限已保存')
-      loadPerms()
+      setNonce((n) => n + 1)
     } catch (e) {
       message.error((e as Error).message)
     } finally {
@@ -226,7 +242,7 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
       destroyOnClose
       styles={{
         body: {
-          background: 'rgba(255,255,255,0.75)',
+          background: 'var(--panel-bg)',
           backdropFilter: 'blur(16px)',
         },
       }}
@@ -250,7 +266,11 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
                       修改后点击「保存」生效。Deny 优先于其他权限。
                     </span>
                     <Space>
-                      <Button size="small" icon={<ReloadOutlined />} onClick={loadPerms}>
+                      <Button
+                        size="small"
+                        icon={<ReloadOutlined />}
+                        onClick={() => setNonce((n) => n + 1)}
+                      >
                         重新加载
                       </Button>
                       <Popconfirm title="确认覆盖当前权限？" onConfirm={handleSave}>
@@ -268,7 +288,7 @@ export default function PermissionDrawer({ open, share, onClose }: Props) {
                     size="small"
                     locale={{ emptyText: <Empty description="暂无权限条目" /> }}
                   />
-                  <div className="mt-4 p-3 rounded-card bg-white/60">
+                  <div className="mt-4 p-3 rounded-card bg-white/60 dark:bg-white/5">
                     <div className="text-xs text-fog mb-2">添加账号</div>
                     <Space wrap>
                       <Input

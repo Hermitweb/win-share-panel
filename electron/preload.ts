@@ -34,6 +34,7 @@ import type {
   DesiredRule,
   DiagnoseItem,
   DiagnoseFixKind,
+  UpdateCheckResult,
 } from './types'
 
 const api = {
@@ -177,6 +178,8 @@ const api = {
       ipcRenderer.invoke('system:setAutoStart', enabled),
     // 升级后重启到新版本：托盘常驻 + 单实例锁下，旧进程不会自己退出
     relaunch: (): Promise<void> => ipcRenderer.invoke('system:relaunch'),
+    // 打开外部链接（仅 http/https，由主进程校验后交给系统默认浏览器）
+    openExternal: (url: string): Promise<null> => ipcRenderer.invoke('system:openExternal', url),
     // 拖拽取路径：Electron 32+ 已移除 sandbox 渲染进程的 File.path，官方替代为 webUtils；
     // 无本地路径的 File（如网页数据）返回空串，由调用方回退处理
     pathForFile: (file: unknown): string => {
@@ -276,6 +279,10 @@ const api = {
     journalList: (): Promise<JournalEntry[]> => ipcRenderer.invoke('state:journalList'),
     journalUndo: (id: string): Promise<string> => ipcRenderer.invoke('state:journalUndo', id),
     journalClear: (): Promise<number> => ipcRenderer.invoke('state:journalClear'),
+    // 设置整体导入导出（应用偏好与运维规则；不含共享配置与权限模板）
+    exportAll: (): Promise<string> => ipcRenderer.invoke('state:exportAll'),
+    importAll: (json: string): Promise<{ applied: string[] }> =>
+      ipcRenderer.invoke('state:importAll', json),
   },
   // 磁盘水位（共享所在盘剩余空间）
   disk: {
@@ -304,6 +311,10 @@ const api = {
       ipcRenderer.invoke('diagnose:run', { shareName }),
     applyFix: (fix: DiagnoseFixKind, args?: { shareName?: string }): Promise<string> =>
       ipcRenderer.invoke('diagnose:applyFix', fix, args),
+  },
+  // 应用内检查更新（只检查 + 提示，不自动下载安装）
+  update: {
+    check: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('update:check'),
   },
 }
 

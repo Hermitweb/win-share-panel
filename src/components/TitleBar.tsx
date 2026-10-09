@@ -22,7 +22,7 @@ export default function TitleBar() {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#3A4A5C',
+    color: 'var(--color-ink)',
     transition: 'background 0.2s',
   }
 
@@ -30,9 +30,9 @@ export default function TitleBar() {
     <div
       className="drag-region flex items-center justify-between h-10 px-4 select-none shrink-0"
       style={{
-        background: 'rgba(255,255,255,0.55)',
+        background: 'var(--titlebar-bg)',
         backdropFilter: 'blur(16px)',
-        borderBottom: '1px solid rgba(255,255,255,0.5)',
+        borderBottom: '1px solid var(--titlebar-border)',
       }}
     >
       <div className="flex items-center gap-2">

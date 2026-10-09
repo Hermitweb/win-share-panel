@@ -300,3 +300,127 @@ describe('PermissionMatrix HTML 导出（组件）', () => {
     expect(revokeObjectURL).toHaveBeenCalledTimes(1)
   })
 })
+
+// 批2（docs/audit/05-renderer-debt.md §3.1 点 6）：挂载即加载 / 取消 / 重新加载 / 空态时机。
+const settle = () => new Promise((r) => setTimeout(r, 200))
+const bodyText = () => document.body.textContent || ''
+const spinning = () => document.querySelector('.ant-spin-spinning') !== null
+
+// 2 个普通共享 + 1 个 IPC + 1 个 Special：权限请求只应发生 2 次
+const MATRIX_SHARES: Share[] = [
+  mkShare('Alpha', 'D:\\Shares\\Alpha'),
+  mkShare('Beta', 'D:\\Shares\\Beta'),
+  mkShare('IPC$', ''),
+  mkShare('C$', 'C:\\'),
+]
+MATRIX_SHARES[2].type = 'IPC'
+MATRIX_SHARES[3].type = 'Special'
+
+const renderMatrix = () =>
+  render(
+    <AntdApp>
+      <PermissionMatrix />
+    </AntdApp>,
+  )
+
+describe('PermissionMatrix · 加载生命周期（set-state-in-effect 迁移回归）', () => {
+  // 外层 afterEach 只 restoreAllMocks：本组要断"恰好几次"，先显式清零并重建默认桩
+  beforeEach(() => {
+    stub.share.permissions.mockReset()
+    stub.share.list.mockReset()
+    stub.user.list.mockReset().mockResolvedValue([{ name: 'alice' }] as unknown as LocalUser[])
+    stub.user.groups
+      .mockReset()
+      .mockResolvedValue([{ name: 'Everyone' }] as unknown as LocalGroup[])
+  })
+
+  it('挂载：share/user/groups 各 1 次；permissions 恰好 = 普通共享数（IPC/Special 被过滤）', async () => {
+    stub.share.list.mockResolvedValue(MATRIX_SHARES)
+    renderMatrix()
+
+    await waitFor(() => expect(stub.share.permissions).toHaveBeenCalledTimes(2))
+    await settle()
+    expect(stub.share.list).toHaveBeenCalledTimes(1)
+    expect(stub.user.list).toHaveBeenCalledTimes(1)
+    expect(stub.user.groups).toHaveBeenCalledTimes(1)
+    expect(stub.share.permissions.mock.calls.map((c) => c[0]).sort()).toEqual(['Alpha', 'Beta'])
+    expect(screen.getByText(/2 共享/)).toBeInTheDocument()
+  })
+
+  it('加载中不出现空态「暂无共享」（loading 首帧即生效）', async () => {
+    let resolveShares: (v: Share[]) => void = () => {}
+    stub.share.list.mockImplementation(() => new Promise((res) => (resolveShares = res)))
+    renderMatrix()
+
+    expect(spinning()).toBe(true)
+    expect(screen.queryByText('暂无共享')).not.toBeInTheDocument()
+    // 加载中导出按钮禁用（没有可导出的数据）
+    expect(screen.getByRole('button', { name: /导出报告\s*\(HTML\)/ })).toBeDisabled()
+
+    resolveShares([])
+    await waitFor(() => expect(screen.getByText('暂无共享')).toBeInTheDocument())
+  })
+
+  it('取消：提示 + 按钮变回「重新加载」+ 取消后不再新增 permissions 调用', async () => {
+    stub.share.list.mockResolvedValue(MATRIX_SHARES)
+    const pending: ((v: SharePermission[]) => void)[] = []
+    stub.share.permissions.mockImplementation(
+      () => new Promise<SharePermission[]>((res) => pending.push(res)),
+    )
+    renderMatrix()
+
+    // 两个普通共享各发一次（并发上限 4 > 2），随后悬停
+    await waitFor(() => expect(stub.share.permissions).toHaveBeenCalledTimes(2))
+    fireEvent.click(screen.getByRole('button', { name: /取\s*消/ }))
+    await waitFor(() => expect(bodyText()).toContain('已取消加载'))
+    expect(screen.getByRole('button', { name: /重新加载/ })).toBeInTheDocument()
+
+    // 迟到的响应落地后，mapPool 的 shouldCancel 让池子不再发新请求
+    pending.forEach((res) => res([]))
+    await settle()
+    expect(stub.share.permissions).toHaveBeenCalledTimes(2)
+    // 取消保留已提交的 shares/accounts（既有语义）：导出按钮因此可用
+    expect(screen.getByRole('button', { name: /导出报告\s*\(HTML\)/ })).toBeEnabled()
+  })
+
+  it('重新加载：各读请求再各 1 次（permissions 再 +普通共享数），加载中按钮变回「取消」', async () => {
+    stub.share.list.mockResolvedValue(MATRIX_SHARES)
+    renderMatrix()
+    await waitFor(() => expect(stub.share.permissions).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /重新加载/ })).toBeInTheDocument(),
+    )
+
+    let release: ((v: SharePermission[]) => void)[] = []
+    stub.share.permissions.mockImplementation(
+      () => new Promise<SharePermission[]>((res) => release.push(res)),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /重新加载/ }))
+
+    // 事件处理器先置位：同一次提交里按钮已变回「取消」
+    expect(screen.getByRole('button', { name: /取\s*消/ })).toBeInTheDocument()
+    await waitFor(() => expect(stub.share.permissions).toHaveBeenCalledTimes(4))
+    expect(stub.share.list).toHaveBeenCalledTimes(2)
+    expect(stub.user.list).toHaveBeenCalledTimes(2)
+    expect(stub.user.groups).toHaveBeenCalledTimes(2)
+
+    release.forEach((res) => res([]))
+    release = []
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /重新加载/ })).toBeInTheDocument(),
+    )
+  })
+
+  it('share.list 抛错：静默降级为空列表（既有语义：三类读各自 catch 兜底），不出现假数据、导出按钮禁用', async () => {
+    stub.share.list.mockRejectedValue(new Error('适配器枚举失败'))
+    renderMatrix()
+
+    await waitFor(() => expect(stub.share.list).toHaveBeenCalledTimes(1))
+    await settle()
+    expect(screen.getByText('暂无共享')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /导出报告\s*\(HTML\)/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /导出\s*CSV/ })).toBeDisabled()
+    // 空共享 → 不发任何权限请求
+    expect(stub.share.permissions).not.toHaveBeenCalled()
+  })
+})

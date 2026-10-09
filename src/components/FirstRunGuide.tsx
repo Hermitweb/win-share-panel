@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { App, Alert, Button, Collapse, Input, InputNumber, Modal, Radio, Select, Steps } from 'antd'
 import { FolderOpenOutlined } from '@ant-design/icons'
 import { api } from '../api'
+import { useResetOnOpen } from '../hooks/useResetOnOpen'
 import { shareNameFromPath } from '../utils/shareDefaults'
 import {
   DEFAULT_PERM_TIER,
@@ -47,18 +48,23 @@ export default function FirstRunGuide({ open, onClose }: FirstRunGuideProps) {
   const nameEdited = useRef(false)
 
   // 每次打开重置：向导重新出现意味着上次没有走完，别把放弃过的输入带回来
-  useEffect(() => {
-    if (!open) return
+  // （纯本地态归零走渲染期调整，见 useResetOnOpen）
+  useResetOnOpen(open, () => {
     setStep(0)
     setPath('')
     setName('')
     setTier(DEFAULT_PERM_TIER)
     setAdvanced({})
     setErr('')
+  })
+
+  // 智能默认：给一个可用路径（非系统盘余量最大卷）；查盘失败留空由用户自己选，
+  // 路径为空会被「下一步」禁用挡住，不会建出坏共享。
+  // nameEdited 是 ref（不参与渲染），复位留在 effect 内即可，无需渲染期写 ref。
+  useEffect(() => {
+    if (!open) return
     nameEdited.current = false
     let ignore = false
-    // 智能默认：给一个可用路径（非系统盘余量最大卷）；查盘失败留空由用户自己选，
-    // 路径为空会被「下一步」禁用挡住，不会建出坏共享。
     void api.disk
       .suggestRoot()
       .then((p) => {

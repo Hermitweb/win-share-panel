@@ -26,6 +26,7 @@ import {
   UndoOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { useResetOnOpen } from '../hooks/useResetOnOpen'
 import type { JournalEntry, Protocol } from '../types'
 import { useAppStore } from '../stores/appStore'
 
@@ -105,28 +106,37 @@ export default function JournalDrawer({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [undoingId, setUndoingId] = useState<string | null>(null)
+  // 渲染期重读序号：「刷新」只 bump 它，取数路径与「打开即拉取」共用同一条 effect
+  const [nonce, setNonce] = useState(0)
   // 筛选：200 条里找"刚才删的那个共享"，靠肉眼扫是不现实的
   const [keyword, setKeyword] = useState('')
   const [actionFilter, setActionFilter] = useState<'all' | JournalEntry['action']>('all')
   const [onlyUndoable, setOnlyUndoable] = useState(false)
 
-  const fetchList = (showSpinner: boolean) => {
-    if (showSpinner) setLoading(true)
-    loadJournal()
-      .catch((e: unknown) => {
-        message.error((e as Error).message)
-      })
-      .finally(() => setLoading(false))
-  }
+  // 打开即拉取；已有数据时不闪 loading（stale-while-revalidate）：抽屉打开应立刻可读，
+  // 而不是先白一下再出内容。loading 的置位走渲染期调整（P-5），与打开同帧生效。
+  useResetOnOpen(open, () => {
+    if (journal.length === 0) setLoading(true)
+  })
 
-  // 打开即拉取；loadJournal 稳定，纳入依赖不会循环
+  // loadJournal 是 store 动作、message 是上下文稳定引用，纳入依赖不会循环
   useEffect(() => {
     if (!open) return
-    // 已有数据时不闪 loading（stale-while-revalidate）：抽屉打开应立刻可读，
-    // 而不是先白一下再出内容
-    fetchList(useAppStore.getState().journal.length === 0)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意只在打开瞬间拉一次
-  }, [open, loadJournal, message])
+    let dead = false
+    const load = async () => {
+      try {
+        await loadJournal()
+      } catch (e) {
+        if (!dead) message.error((e as Error).message)
+      } finally {
+        if (!dead) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      dead = true
+    }
+  }, [open, nonce, loadJournal, message])
 
   // 兜底按新→旧（主进程已 reverse，此处防御时间乱序）
   const sorted = useMemo(() => [...journal].sort((a, b) => b.ts - a.ts), [journal])
@@ -308,7 +318,7 @@ export default function JournalDrawer({ open, onClose }: Props) {
       destroyOnClose
       styles={{
         body: {
-          background: 'rgba(255,255,255,0.75)',
+          background: 'var(--panel-bg)',
           backdropFilter: 'blur(16px)',
         },
       }}
@@ -348,7 +358,14 @@ export default function JournalDrawer({ open, onClose }: Props) {
           <span className="text-xs text-fog">只看可撤销</span>
         </Space>
         <span className="ml-auto" />
-        <Button size="small" icon={<ReloadOutlined />} onClick={() => fetchList(true)}>
+        <Button
+          size="small"
+          icon={<ReloadOutlined />}
+          onClick={() => {
+            setLoading(true)
+            setNonce((n) => n + 1)
+          }}
+        >
           刷新
         </Button>
         {sorted.length > 0 && (

@@ -53,7 +53,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         </p>
         <pre
           style={{
-            background: 'rgba(0,0,0,0.05)',
+            background: 'var(--code-bg)',
             padding: 12,
             borderRadius: 8,
             whiteSpace: 'pre-wrap',
@@ -66,7 +66,10 @@ export default class ErrorBoundary extends Component<Props, State> {
           {this.state.error.stack || this.state.error.message}
         </pre>
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-          <button className="rounded-btn px-3 py-1 bg-white/70" onClick={this.copy}>
+          <button
+            className="rounded-btn px-3 py-1 bg-white/70 dark:bg-white/10"
+            onClick={this.copy}
+          >
             复制错误详情
           </button>
           <button

@@ -22,6 +22,7 @@ import {
   CloseOutlined,
 } from '@ant-design/icons'
 import { api, call } from '../api'
+import { useResetOnKeyChange } from '../hooks/useResetOnOpen'
 import type { LocalGroup, GroupMember, LocalUser } from '../types'
 
 interface Props {
@@ -47,26 +48,32 @@ export default function GroupManageModal({ open, group, onClose, onSuccess }: Pr
   const [allUsers, setAllUsers] = useState<LocalUser[]>([])
   const [batchMembers, setBatchMembers] = useState<string[]>([])
 
-  const loadUsers = async () => {
-    try {
-      const u = await call(api.user.list)
-      setAllUsers(u)
-    } catch {
-      // 加载失败不影响主功能
-    }
-  }
+  // 打开/换组：成员列表与各类输入归零（纯本地态走渲染期调整，见 useResetOnOpen）
+  useResetOnKeyChange(`${open}|${group?.name ?? ''}`, () => {
+    if (!open || !group) return
+    setMembers(group.members || [])
+    setNewMember('')
+    setRenaming(false)
+    setNewGroupName('')
+    setBatchMembers([])
+  })
 
-  // 有意仅在 open/group 变化时同步：loadUsers/form 引用稳定，加入依赖会重复触发
+  // 表单同步 + 批量添加用的用户列表（取数函数定义在 effect 内部，异步延续里才写 state）
   useEffect(() => {
-    if (open && group) {
-      form.setFieldsValue({ description: group.description })
-      setMembers(group.members || [])
-      setNewMember('')
-      setRenaming(false)
-      setNewGroupName('')
-      setBatchMembers([])
-      // 加载用户列表供批量添加使用
-      loadUsers()
+    if (!open || !group) return
+    form.setFieldsValue({ description: group.description })
+    let dead = false
+    const loadUsers = async () => {
+      try {
+        const u = await call(api.user.list)
+        if (!dead) setAllUsers(u)
+      } catch {
+        // 加载失败不影响主功能（既有语义，静默）
+      }
+    }
+    void loadUsers()
+    return () => {
+      dead = true
     }
   }, [open, group, form])
 

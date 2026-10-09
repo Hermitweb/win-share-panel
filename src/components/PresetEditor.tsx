@@ -15,6 +15,7 @@ import {
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons'
 import { api, call } from '../api'
+import { useResetOnKeyChange } from '../hooks/useResetOnOpen'
 import type { PermissionPreset, PresetEntry, LocalUser, LocalGroup } from '../types'
 
 interface Props {
@@ -50,6 +51,17 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
   const [newAccess, setNewAccess] = useState<PresetEntry['access']>('Read')
   const [newDeny, setNewDeny] = useState(false)
 
+  // 打开/换模板：条目深拷贝 + 新增条目输入归零（纯本地态走渲染期调整，见 useResetOnOpen）
+  useResetOnKeyChange(`${open}|${preset?.id ?? preset?.name ?? ''}`, () => {
+    if (!open || !preset) return
+    setEntries(preset.entries ? preset.entries.map((e) => ({ ...e })) : [])
+    setNewAccount('')
+    setNewType('User')
+    setNewAccess('Read')
+    setNewDeny(false)
+  })
+
+  // 表单同步留在 effect 内（antd 命令式 API，非 React state）
   useEffect(() => {
     if (open && preset) {
       form.setFieldsValue({
@@ -57,11 +69,6 @@ export default function PresetEditor({ open, preset, onClose, onSuccess }: Props
         description: preset.description,
         category: preset.category || '自定义',
       })
-      setEntries(preset.entries ? preset.entries.map((e) => ({ ...e })) : [])
-      setNewAccount('')
-      setNewType('User')
-      setNewAccess('Read')
-      setNewDeny(false)
     }
   }, [open, preset, form])
 

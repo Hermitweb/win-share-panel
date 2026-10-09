@@ -1,34 +1,10 @@
-import { useEffect, useState } from 'react'
-import {
-  Form,
-  Switch,
-  Button,
-  Tag,
-  Space,
-  Popconfirm,
-  Descriptions,
-  App,
-  Spin,
-  Input,
-  InputNumber,
-  Select,
-  Collapse,
-} from 'antd'
-import {
-  ReloadOutlined,
-  PoweroffOutlined,
-  UndoOutlined,
-  CaretRightOutlined,
-  PauseOutlined,
-} from '@ant-design/icons'
+import { Collapse, Form, Input, InputNumber, Select, Spin, Switch } from 'antd'
 import { api, call } from '../api'
 import type { FtpServerConfig } from '../types'
-import { useUiStore } from '../stores/uiStore'
-import { useTickEffect } from '../hooks/useTickEffect'
-import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
+import { useProtocolSettings } from '../hooks/useProtocolSettings'
 import ProtocolCapabilityBanner from './ProtocolCapabilityBanner'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ConfigPresetBar from './ConfigPresetBar'
+import { ProtocolSettingsShell } from './ProtocolSettingsShell'
 import { FTP_CONFIG_PRESETS } from '../utils/configPresets'
 
 const SSL_POLICY_OPTIONS = [
@@ -56,106 +32,29 @@ const LOG_PERIOD_OPTIONS = [
 
 // FTP 服务器级配置 + 服务控制
 // 仅在已安装 FTP 角色服务时可用；未安装时显示降级提示
+// 共享逻辑（能力门控/配置读取/保存/服务启停/恢复默认/刷新 tick）见 useProtocolSettings
 export default function FtpSettingsPanel() {
-  const { message } = App.useApp()
-  const [saving, setSaving] = useState(false)
-  const [detectFailed, setDetectFailed] = useState(false)
-  const [form] = Form.useForm()
-
-  const refreshTick = useUiStore((s) => s.refreshTick)
-  const protocolCaps = useUiStore((s) => s.protocolCaps)
-
-  // B1：数据层 react-query。安装状态纯推导（detectFailed/protocolCaps），不再走 effect setState；
-  // 配置拉取仅在安装确认后 enabled；load 语义=失效重取
-  const queryClient = useQueryClient()
-  useEnsureProtocolCaps({ onDetectFailure: () => setDetectFailed(true) })
-  const installed = detectFailed ? false : protocolCaps ? !!protocolCaps.ftp?.installed : null
-
-  const { data, isFetching, error } = useQuery({
-    queryKey: ['ftp-settings'],
-    queryFn: async () => {
-      const [c, s] = await Promise.all([api.ftp.getConfig(), api.ftp.serviceStatus()])
-      return { c, s }
+  const settings = useProtocolSettings<FtpServerConfig>({
+    protocol: 'ftp',
+    api: {
+      getConfig: api.ftp.getConfig,
+      serviceStatus: api.ftp.serviceStatus,
+      setConfig: api.ftp.setConfig,
+      restoreDefault: api.ftp.restoreDefault,
+      restart: api.ftp.restart,
+      start: api.ftp.start,
+      stop: api.ftp.stop,
     },
-    enabled: installed === true,
-  })
-  const svc = data?.s ?? null
-  const loading = isFetching
-  const load = () => {
-    void queryClient.invalidateQueries({ queryKey: ['ftp-settings'] }).catch(() => {})
-  }
-
-  // 首轮失败提示（与原 load catch 语义一致）
-  useEffect(() => {
-    if (error && !data && installed === true) message.error((error as Error).message)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- error/data 引用稳定于单次状态迁移
-  }, [error, data, installed])
-
-  // 拉到配置后同步表单（setFieldsValue 为 antd 命令式 API）
-  useEffect(() => {
-    if (data) form.setFieldsValue(data.c)
-  }, [data, form])
-
-  useTickEffect(refreshTick, () => {
-    if (installed === true) load()
+    texts: {
+      saved: '已保存',
+      restarted: 'FTP 服务已重启',
+      started: 'FTP 服务已启动',
+      stopped: 'FTP 服务已停止',
+      restored: '已恢复默认配置',
+    },
   })
 
-  const save = async () => {
-    const v = await form.validateFields()
-    setSaving(true)
-    try {
-      await call(() => api.ftp.setConfig(v))
-      message.success('已保存')
-      load()
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const restart = async () => {
-    try {
-      await call(api.ftp.restart)
-      message.success('FTP 服务已重启')
-      load()
-    } catch (e) {
-      message.error((e as Error).message)
-    }
-  }
-
-  const startSvc = async () => {
-    try {
-      await call(api.ftp.start)
-      message.success('FTP 服务已启动')
-      load()
-    } catch (e) {
-      message.error((e as Error).message)
-    }
-  }
-
-  const stopSvc = async () => {
-    try {
-      await call(api.ftp.stop)
-      message.success('FTP 服务已停止')
-      load()
-    } catch (e) {
-      message.error((e as Error).message)
-    }
-  }
-
-  const restoreDefault = async () => {
-    try {
-      const def = (await call(api.ftp.restoreDefault)) as FtpServerConfig
-      message.success('已恢复默认配置')
-      form.setFieldsValue(def)
-      load()
-    } catch (e) {
-      message.error((e as Error).message)
-    }
-  }
-
-  if (installed === false) {
+  if (settings.installed === false) {
     return (
       <div className="glass-card p-4">
         <ProtocolCapabilityBanner protocol="ftp" />
@@ -163,7 +62,7 @@ export default function FtpSettingsPanel() {
     )
   }
 
-  if (installed === null) {
+  if (settings.installed === null) {
     return (
       <div className="glass-card p-4">
         <Spin tip="正在检测 FTP 协议..." />
@@ -172,191 +71,148 @@ export default function FtpSettingsPanel() {
   }
 
   return (
-    <Spin spinning={loading}>
-      <div className="glass-card p-4">
+    <ProtocolSettingsShell
+      loading={settings.loading}
+      service={settings.service}
+      actions={{
+        saving: settings.saving,
+        save: settings.save,
+        restoreDefault: settings.restoreDefault,
+        restoreConfirmTitle: '确认恢复 FTP 默认配置？',
+        restart: settings.restart,
+        restartConfirmTitle: '重启 ftpsvc 服务？',
+        start: settings.start,
+        stop: settings.stop,
+        stopConfirmTitle: '停止 ftpsvc 服务？',
+        load: settings.load,
+      }}
+      header={
         <ConfigPresetBar
           presets={FTP_CONFIG_PRESETS}
           onApply={async (p) => {
             await call(() => api.ftp.setConfig(p.values as Partial<FtpServerConfig>))
-            load()
+            settings.load()
           }}
         />
-        <Form form={form} layout="vertical">
-          <div className="text-sm font-medium mb-2 text-fog">SSL / 安全</div>
-          <div className="flex flex-wrap gap-6 mb-3">
-            <Form.Item name="sslControlChannelPolicy" label="控制通道 SSL">
-              <Select style={{ width: 180 }} options={SSL_POLICY_OPTIONS} />
-            </Form.Item>
-            <Form.Item name="sslDataChannelPolicy" label="数据通道 SSL">
-              <Select style={{ width: 180 }} options={SSL_POLICY_OPTIONS} />
-            </Form.Item>
-            <Form.Item name="sslServerCertHash" label="SSL 证书哈希(SHA-1)">
-              <Input style={{ width: 320 }} placeholder="留空表示未配置" />
-            </Form.Item>
-            <Form.Item name="sslClientCertRequired" label="要求客户端证书" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-            <Form.Item name="ssl128" label="强制 128 位 SSL" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-          </div>
+      }
+      footer="FTP 服务器级配置（IIS ftpServer/* 配置节）。站点级配置（端口/路径/授权）请在「共享管理」页对单个站点编辑。部分配置节可能因 IIS 锁定而写入失败。"
+    >
+      <Form form={settings.form} layout="vertical">
+        <div className="text-sm font-medium mb-2 text-fog">SSL / 安全</div>
+        <div className="flex flex-wrap gap-6 mb-3">
+          <Form.Item name="sslControlChannelPolicy" label="控制通道 SSL">
+            <Select style={{ width: 180 }} options={SSL_POLICY_OPTIONS} />
+          </Form.Item>
+          <Form.Item name="sslDataChannelPolicy" label="数据通道 SSL">
+            <Select style={{ width: 180 }} options={SSL_POLICY_OPTIONS} />
+          </Form.Item>
+          <Form.Item name="sslServerCertHash" label="SSL 证书哈希(SHA-1)">
+            <Input style={{ width: 320 }} placeholder="留空表示未配置" />
+          </Form.Item>
+          <Form.Item name="sslClientCertRequired" label="要求客户端证书" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item name="ssl128" label="强制 128 位 SSL" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </div>
 
-          <div className="text-sm font-medium mb-2 text-fog">认证</div>
-          <div className="flex flex-wrap gap-6 mb-3">
-            <Form.Item name="anonymousEnabled" label="匿名认证" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-            <Form.Item name="anonymousUserName" label="匿名用户名">
-              <Input style={{ width: 200 }} />
-            </Form.Item>
-            <Form.Item name="basicEnabled" label="基本认证" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-          </div>
+        <div className="text-sm font-medium mb-2 text-fog">认证</div>
+        <div className="flex flex-wrap gap-6 mb-3">
+          <Form.Item name="anonymousEnabled" label="匿名认证" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item name="anonymousUserName" label="匿名用户名">
+            <Input style={{ width: 200 }} />
+          </Form.Item>
+          <Form.Item name="basicEnabled" label="基本认证" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </div>
 
-          <div className="text-sm font-medium mb-2 text-fog">被动模式端口范围（防火墙支持）</div>
-          <div className="flex flex-wrap gap-6 mb-3">
-            <Form.Item name="firewallLowDataChannelPort" label="起始端口(0=未配置)">
-              <InputNumber min={0} max={65535} />
-            </Form.Item>
-            <Form.Item name="firewallHighDataChannelPort" label="结束端口(0=未配置)">
-              <InputNumber min={0} max={65535} />
-            </Form.Item>
-          </div>
+        <div className="text-sm font-medium mb-2 text-fog">被动模式端口范围（防火墙支持）</div>
+        <div className="flex flex-wrap gap-6 mb-3">
+          <Form.Item name="firewallLowDataChannelPort" label="起始端口(0=未配置)">
+            <InputNumber min={0} max={65535} />
+          </Form.Item>
+          <Form.Item name="firewallHighDataChannelPort" label="结束端口(0=未配置)">
+            <InputNumber min={0} max={65535} />
+          </Form.Item>
+        </div>
 
-          <Collapse
-            size="small"
-            className="mb-3"
-            items={[
-              {
-                key: 'messages',
-                label: '消息与目录浏览',
-                children: (
-                  <div className="flex flex-wrap gap-6">
-                    <Form.Item name="greetingMessage" label="欢迎消息" style={{ minWidth: 280 }}>
-                      <Input.TextArea rows={2} />
-                    </Form.Item>
-                    <Form.Item name="bannerMessage" label="横幅消息" style={{ minWidth: 280 }}>
-                      <Input.TextArea rows={2} />
-                    </Form.Item>
-                    <Form.Item name="exitMessage" label="退出消息" style={{ minWidth: 280 }}>
-                      <Input.TextArea rows={2} />
-                    </Form.Item>
-                    <Form.Item name="maxClientsMessage" label="超限消息" style={{ minWidth: 280 }}>
-                      <Input.TextArea rows={2} />
-                    </Form.Item>
-                    <Form.Item
-                      name="suppressDefaultMessages"
-                      label="抑制默认消息"
-                      valuePropName="checked"
-                    >
-                      <Switch />
-                    </Form.Item>
-                    <Form.Item name="showVirtualDirs" label="显示虚拟目录" valuePropName="checked">
-                      <Switch />
-                    </Form.Item>
-                  </div>
-                ),
-              },
-              {
-                key: 'isolation',
-                label: '用户隔离 / 超时 / 文件处理 / 日志',
-                children: (
-                  <div className="flex flex-wrap gap-6">
-                    <Form.Item name="userIsolationMode" label="用户隔离模式">
-                      <Select style={{ width: 200 }} options={ISOLATION_OPTIONS} />
-                    </Form.Item>
-                    <Form.Item name="unauthenticatedTimeout" label="未认证超时(秒)">
-                      <InputNumber min={0} max={65535} />
-                    </Form.Item>
-                    <Form.Item name="controlConnectionTimeout" label="控制连接超时(秒)">
-                      <InputNumber min={0} max={65535} />
-                    </Form.Item>
-                    <Form.Item name="dataChannelConnectionTimeout" label="数据通道超时(秒)">
-                      <InputNumber min={0} max={65535} />
-                    </Form.Item>
-                    <Form.Item
-                      name="keepPartialUploads"
-                      label="保留部分上传"
-                      valuePropName="checked"
-                    >
-                      <Switch />
-                    </Form.Item>
-                    <Form.Item
-                      name="allowReplaceOnRename"
-                      label="重命名时覆盖"
-                      valuePropName="checked"
-                    >
-                      <Switch />
-                    </Form.Item>
-                    <Form.Item name="logFileDirectory" label="日志目录">
-                      <Input style={{ width: 320 }} />
-                    </Form.Item>
-                    <Form.Item name="logFilePeriod" label="日志周期">
-                      <Select style={{ width: 120 }} options={LOG_PERIOD_OPTIONS} />
-                    </Form.Item>
-                  </div>
-                ),
-              },
-            ]}
-          />
-
-          <Space className="mt-4 flex-wrap">
-            <Button type="primary" loading={saving} onClick={save}>
-              保存配置
-            </Button>
-            <Popconfirm
-              title="确认恢复 FTP 默认配置？"
-              okText="恢复默认"
-              okType="danger"
-              cancelText="取消"
-              onConfirm={restoreDefault}
-            >
-              <Button icon={<UndoOutlined />} danger>
-                恢复默认
-              </Button>
-            </Popconfirm>
-            <Popconfirm title="重启 ftpsvc 服务？" onConfirm={restart}>
-              <Button icon={<PoweroffOutlined />}>重启服务</Button>
-            </Popconfirm>
-            {svc?.status === 'Stopped' ? (
-              <Button icon={<CaretRightOutlined />} onClick={startSvc}>
-                启动
-              </Button>
-            ) : (
-              <Popconfirm title="停止 ftpsvc 服务？" onConfirm={stopSvc}>
-                <Button icon={<PauseOutlined />}>停止</Button>
-              </Popconfirm>
-            )}
-            <Button icon={<ReloadOutlined />} onClick={load}>
-              刷新
-            </Button>
-          </Space>
-          {svc && (
-            <Descriptions
-              className="mt-4"
-              size="small"
-              column={3}
-              items={[
-                {
-                  key: 'st',
-                  label: '服务状态',
-                  children: (
-                    <Tag color={svc.status === 'Running' ? 'green' : 'red'}>{svc.status}</Tag>
-                  ),
-                },
-                { key: 'srt', label: '启动类型', children: svc.startType || '-' },
-                { key: 'sn', label: '服务名', children: svc.name },
-              ]}
-            />
-          )}
-          <div className="mt-3 text-xs text-fog">
-            FTP 服务器级配置（IIS ftpServer/*
-            配置节）。站点级配置（端口/路径/授权）请在「共享管理」页对单个站点编辑。部分配置节可能因
-            IIS 锁定而写入失败。
-          </div>
-        </Form>
-      </div>
-    </Spin>
+        <Collapse
+          size="small"
+          className="mb-3"
+          items={[
+            {
+              key: 'messages',
+              label: '消息与目录浏览',
+              children: (
+                <div className="flex flex-wrap gap-6">
+                  <Form.Item name="greetingMessage" label="欢迎消息" style={{ minWidth: 280 }}>
+                    <Input.TextArea rows={2} />
+                  </Form.Item>
+                  <Form.Item name="bannerMessage" label="横幅消息" style={{ minWidth: 280 }}>
+                    <Input.TextArea rows={2} />
+                  </Form.Item>
+                  <Form.Item name="exitMessage" label="退出消息" style={{ minWidth: 280 }}>
+                    <Input.TextArea rows={2} />
+                  </Form.Item>
+                  <Form.Item name="maxClientsMessage" label="超限消息" style={{ minWidth: 280 }}>
+                    <Input.TextArea rows={2} />
+                  </Form.Item>
+                  <Form.Item
+                    name="suppressDefaultMessages"
+                    label="抑制默认消息"
+                    valuePropName="checked"
+                  >
+                    <Switch />
+                  </Form.Item>
+                  <Form.Item name="showVirtualDirs" label="显示虚拟目录" valuePropName="checked">
+                    <Switch />
+                  </Form.Item>
+                </div>
+              ),
+            },
+            {
+              key: 'isolation',
+              label: '用户隔离 / 超时 / 文件处理 / 日志',
+              children: (
+                <div className="flex flex-wrap gap-6">
+                  <Form.Item name="userIsolationMode" label="用户隔离模式">
+                    <Select style={{ width: 200 }} options={ISOLATION_OPTIONS} />
+                  </Form.Item>
+                  <Form.Item name="unauthenticatedTimeout" label="未认证超时(秒)">
+                    <InputNumber min={0} max={65535} />
+                  </Form.Item>
+                  <Form.Item name="controlConnectionTimeout" label="控制连接超时(秒)">
+                    <InputNumber min={0} max={65535} />
+                  </Form.Item>
+                  <Form.Item name="dataChannelConnectionTimeout" label="数据通道超时(秒)">
+                    <InputNumber min={0} max={65535} />
+                  </Form.Item>
+                  <Form.Item name="keepPartialUploads" label="保留部分上传" valuePropName="checked">
+                    <Switch />
+                  </Form.Item>
+                  <Form.Item
+                    name="allowReplaceOnRename"
+                    label="重命名时覆盖"
+                    valuePropName="checked"
+                  >
+                    <Switch />
+                  </Form.Item>
+                  <Form.Item name="logFileDirectory" label="日志目录">
+                    <Input style={{ width: 320 }} />
+                  </Form.Item>
+                  <Form.Item name="logFilePeriod" label="日志周期">
+                    <Select style={{ width: 120 }} options={LOG_PERIOD_OPTIONS} />
+                  </Form.Item>
+                </div>
+              ),
+            },
+          ]}
+        />
+      </Form>
+    </ProtocolSettingsShell>
   )
 }

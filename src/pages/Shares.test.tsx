@@ -531,3 +531,71 @@ describe('Shares · 批1 集成挂载位', () => {
     expect(screen.getByRole('button', { name: '诊断 lowish' })).toBeInTheDocument()
   })
 })
+
+// 批2（docs/audit/05-renderer-debt.md §3.4）：页面级挂载不回归——抽屉的取数生命周期
+// 由组件自己（渲染期调整 + effect 内 loader）保证，页面无需任何 key/props 变化。
+describe('Shares · 权限抽屉（t3 迁移的页面级回归）', () => {
+  const CAPS = {
+    smb: {
+      supportsCreate: true,
+      supportsUpdate: true,
+      supportsDelete: true,
+      supportsToggle: true,
+      supportsPermissions: true,
+      supportsSessions: true,
+      supportsOpenFiles: true,
+      supportsServerConfig: true,
+      supportsRestart: true,
+      permissionModel: 'smb-acl',
+    },
+    nfs: null,
+    ftp: null,
+    webdav: null,
+  }
+
+  const permBtn = (rowKey: string) => {
+    const row = document.querySelector(`tr[data-row-key="${rowKey}"]`) as HTMLElement
+    return row.querySelector('.anticon-safety')!.closest('button') as HTMLElement
+  }
+  const drawerTableText = () =>
+    Array.from(document.querySelectorAll('.ant-drawer .ant-table-tbody tr[data-row-key]'))
+      .map((r) => (r.textContent || '').trim())
+      .join(' | ')
+
+  it(
+    '打开→关闭→换另一共享打开：每次打开恰好一次 permissions，行以新共享为准',
+    UI_TIMEOUT,
+    async () => {
+      stub.adapter.capabilities.mockResolvedValue(CAPS)
+      stub.share.permissions.mockImplementation(async (name: string) => [
+        {
+          shareName: name,
+          account: name === 'urgent' ? 'alice' : 'bob',
+          accountType: 'User',
+          access: 'Read',
+          deny: false,
+        },
+      ])
+      renderPage()
+      await screen.findByText('urgent')
+
+      fireEvent.click(permBtn('smb:urgent'))
+      await waitFor(() => expect(stub.share.permissions).toHaveBeenCalledWith('urgent'))
+      expect(await screen.findByText('权限管理：urgent')).toBeInTheDocument()
+      await waitFor(() => expect(drawerTableText()).toContain('alice'))
+      expect(stub.share.permissions).toHaveBeenCalledTimes(1)
+
+      // 关闭（抽屉 destroyOnClose：内容卸载，组件自身状态留给下一次打开重置）
+      fireEvent.click(document.querySelector('.ant-drawer-close') as HTMLElement)
+      await waitFor(() => expect(document.querySelector('.ant-drawer-open')).toBeNull())
+
+      // 换另一共享：新目标数据最终胜出，且仍恰好一次取数
+      fireEvent.click(permBtn('smb:lowish'))
+      await waitFor(() => expect(stub.share.permissions).toHaveBeenCalledWith('lowish'))
+      expect(await screen.findByText('权限管理：lowish')).toBeInTheDocument()
+      await waitFor(() => expect(drawerTableText()).toContain('bob'))
+      expect(drawerTableText()).not.toContain('alice')
+      expect(stub.share.permissions).toHaveBeenCalledTimes(2)
+    },
+  )
+})

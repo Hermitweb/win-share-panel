@@ -371,7 +371,9 @@ export default function Dashboard() {
     const url = inst.getDataURL({
       type: 'png',
       pixelRatio: 2,
-      backgroundColor: '#F4FAFD',
+      // echarts 的 getDataURL 走 canvas，不认 CSS 变量，故此处必须是具体色值；
+      // 与 index.css 的 --chart-bg 同值，随 <html data-theme> 选择。
+      backgroundColor: document.documentElement.dataset.theme === 'dark' ? '#141B23' : '#F4FAFD',
     })
     const a = document.createElement('a')
     a.href = url

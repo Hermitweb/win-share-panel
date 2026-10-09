@@ -1,20 +1,10 @@
-import { useEffect, useState } from 'react'
-import {
-  Table,
-  Button,
-  Space,
-  Select,
-  Input,
-  Popconfirm,
-  App,
-  Tag,
-  Empty,
-  Spin,
-  Tooltip,
-} from 'antd'
-import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
-import { api, call } from '../../api'
+import { useState } from 'react'
+import type { TableColumnsType } from 'antd'
+import { App, Button, Input, Select, Tag, Tooltip } from 'antd'
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import type { Share, SharePermission } from '../../types'
+import { useProtocolPermissions } from '../../hooks/useProtocolPermissions'
+import { ProtocolPermissionShell } from '../ProtocolPermissionShell'
 
 interface Props {
   share: Share
@@ -49,9 +39,9 @@ function toClientPerm(p: SharePermission): NfsClientPerm {
   }
 }
 
-function toSharePerm(share: Share, c: NfsClientPerm): SharePermission {
+function toSharePerm(c: NfsClientPerm, shareName: string): SharePermission {
   return {
-    shareName: share.name,
+    shareName,
     account: c.clientName,
     accountType: 'Group',
     access: c.permission === 'rw' ? 'Change' : 'Read',
@@ -61,30 +51,18 @@ function toSharePerm(share: Share, c: NfsClientPerm): SharePermission {
 
 export default function NfsPermPanel({ share }: Props) {
   const { message } = App.useApp()
-  const [rows, setRows] = useState<NfsClientPerm[]>([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [newClient, setNewClient] = useState('')
   const [newPerm, setNewPerm] = useState<NfsPermission>('rw')
   const [newType, setNewType] = useState<NfsType>('Allow')
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const list = await call(() => api.adapter.permissions('nfs', share.name))
-      setRows(list.map(toClientPerm))
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    load()
-    // 仅在切换共享时重载权限：load 引用每轮渲染变化，纳入依赖会无限循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [share.name])
+  const { rows, loading, saving, reload, save, addRow, removeRow, updateRow, hasRow } =
+    useProtocolPermissions<NfsClientPerm>({
+      protocol: 'nfs',
+      shareName: share.name,
+      toRow: toClientPerm,
+      toPerm: toSharePerm,
+      rowKey: 'clientName',
+    })
 
   const handleAdd = () => {
     const client = newClient.trim()
@@ -92,52 +70,26 @@ export default function NfsPermPanel({ share }: Props) {
       message.warning('请输入客户端名称')
       return
     }
-    if (rows.some((r) => r.clientName === client)) {
+    if (hasRow(client)) {
       message.warning('该客户端已存在')
       return
     }
-    setRows([...rows, { clientName: client, permission: newPerm, type: newType }])
+    addRow({ clientName: client, permission: newPerm, type: newType })
     setNewClient('')
   }
 
-  const handleRemove = (clientName: string) => {
-    setRows(rows.filter((r) => r.clientName !== clientName))
-  }
-
-  const handlePermChange = (clientName: string, permission: NfsPermission) => {
-    setRows(rows.map((r) => (r.clientName === clientName ? { ...r, permission } : r)))
-  }
-
-  const handleTypeChange = (clientName: string, type: NfsType) => {
-    setRows(rows.map((r) => (r.clientName === clientName ? { ...r, type } : r)))
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const perms = rows.map((r) => toSharePerm(share, r))
-      await call(() => api.adapter.setPermissions('nfs', share.name, perms))
-      message.success('权限已保存')
-      load()
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const columns = [
+  const columns: TableColumnsType<NfsClientPerm> = [
     { title: '客户端', dataIndex: 'clientName', ellipsis: true },
     {
       title: '权限',
       dataIndex: 'permission',
       width: 140,
-      render: (v: NfsPermission, r: NfsClientPerm) => (
+      render: (v: NfsPermission, r) => (
         <Select
           size="small"
           value={v}
           options={PERMISSION_OPTIONS}
-          onChange={(next) => handlePermChange(r.clientName, next)}
+          onChange={(next) => updateRow(r.clientName, { permission: next })}
           style={{ width: 120 }}
         />
       ),
@@ -146,12 +98,12 @@ export default function NfsPermPanel({ share }: Props) {
       title: '类型',
       dataIndex: 'type',
       width: 110,
-      render: (v: NfsType, r: NfsClientPerm) => (
+      render: (v: NfsType, r) => (
         <Select
           size="small"
           value={v}
           options={TYPE_OPTIONS}
-          onChange={(next) => handleTypeChange(r.clientName, next)}
+          onChange={(next) => updateRow(r.clientName, { type: next })}
           style={{ width: 90 }}
         />
       ),
@@ -159,13 +111,13 @@ export default function NfsPermPanel({ share }: Props) {
     {
       title: '',
       width: 50,
-      render: (_: unknown, r: NfsClientPerm) => (
+      render: (_: unknown, r) => (
         <Tooltip title="移除">
           <Button
             size="small"
             danger
             icon={<DeleteOutlined />}
-            onClick={() => handleRemove(r.clientName)}
+            onClick={() => removeRow(r.clientName)}
           />
         </Tooltip>
       ),
@@ -173,34 +125,25 @@ export default function NfsPermPanel({ share }: Props) {
   ]
 
   return (
-    <Spin spinning={loading}>
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm text-fog">
+    <ProtocolPermissionShell<NfsClientPerm>
+      loading={loading}
+      saving={saving}
+      headerText={
+        <>
           NFS 基于客户端授权。客户端可为主机名、IP 或通配符（如 <code>*</code>、
           <code>192.168.1.0/24</code>）。保存时将覆盖现有规则。
-        </span>
-        <Space>
-          <Button size="small" icon={<ReloadOutlined />} onClick={load}>
-            重新加载
-          </Button>
-          <Popconfirm title="确认覆盖当前 NFS 客户端权限？" onConfirm={handleSave}>
-            <Button size="small" type="primary" loading={saving}>
-              保存
-            </Button>
-          </Popconfirm>
-        </Space>
-      </div>
-      <Table
-        dataSource={rows}
-        rowKey="clientName"
-        columns={columns}
-        pagination={false}
-        size="small"
-        locale={{ emptyText: <Empty description="暂无客户端规则" /> }}
-      />
-      <div className="mt-4 p-3 rounded-card bg-white/60">
-        <div className="text-xs text-fog mb-2">添加客户端规则</div>
-        <Space wrap>
+        </>
+      }
+      onReload={reload}
+      onSave={() => void save('权限已保存')}
+      saveConfirmTitle="确认覆盖当前 NFS 客户端权限？"
+      columns={columns}
+      rows={rows}
+      rowKey="clientName"
+      emptyText="暂无客户端规则"
+      addTitle="添加客户端规则"
+      addBox={
+        <>
           <Input
             placeholder="客户端名称（如 * 或 192.168.1.0/24）"
             value={newClient}
@@ -222,12 +165,14 @@ export default function NfsPermPanel({ share }: Props) {
           <Button icon={<PlusOutlined />} onClick={handleAdd}>
             添加
           </Button>
-        </Space>
-        <div className="mt-2 text-xs text-fog">
+        </>
+      }
+      hint={
+        <>
           <Tag color="purple">NFS</Tag>
           拒绝规则优先于允许规则；未匹配的客户端遵循共享默认权限。
-        </div>
-      </div>
-    </Spin>
+        </>
+      }
+    />
   )
 }

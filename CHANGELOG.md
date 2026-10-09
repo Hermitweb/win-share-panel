@@ -2,7 +2,23 @@
 
 本文件记录 WinShare Panel 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased] - 用户体验批1（按"谁在痛、痛多深"落地 ★ 项）
+## [1.2.0] - 2026-10-10
+
+### 🧹 技术债清零 / Debt（渲染层批 2：renderer-debt）
+
+- **`react-hooks/set-state-in-effect` 全量清零（14 处 → 0）并复启为 `error`**：11 处 modal/drawer 层（`DiagnoseModal` / `FirstRunGuide` / `GroupManageModal` / `JournalDrawer` / `PermissionDrawer` / `PermissionMatrix` / `PresetEditor` / `ShareDetailDrawer` / `UserCreateModal` / `UserDetailDrawer` / `pages/Settings` 派生态）统一改为「渲染期调整 state」（新增 `useResetOnOpen` / `useResetOnKeyChange`）+「effect 内定义 loader」的 async 安全形态；3 处 PermPanel（Nfs/Ftp/Webdav）随 R-5 抽象收敛进 `useProtocolPermissions`。`eslint.config.mjs` 中该规则由 `'off'` 改回 `'error'`，并纠正旧留档的「剩余 10 处」——那只统计了 B1 的 26→10 收敛，漏计批 1 新增代码引入的 4 处（`DiagnoseModal:158` / `FirstRunGuide:52` / `JournalDrawer:127` / `pages/Settings:1132`），起点实测为 14 处。复启后 `pnpm lint`（`eslint . --max-warnings=0`）全库零违例、该规则 suppressions 为 0；任何回退（effect 内重新同步 setState、用 `setTimeout`/`queueMicrotask` 藏 setState、把 state 搬进 ref 静音、加本规则行内 disable、或把规则改回 `'off'`）都会被 lint 与 CI 门禁挡住
+- **R-5 全量组件抽象（两半都做，不只 PermPanel 半边）**：三 PermPanel 与三 SettingsPanel 的逐字重复实现收敛为两套共享抽象——`useProtocolPermissions` + `ProtocolPermissionShell`、`useProtocolSettings` + `ProtocolSettingsShell`。六个面板内 `useEffect|useQuery|invalidateQueries|queryKey|setLoading|setRows|setSaving` 命中 0（抽象前为 3 份同构实现）、9 个 IPC 调用点收敛为 1 份、Shell 拥有的 12 条文案/标签由 3 份变 1 份，六面板合计净减 69 行；对外 props 形状（`{ share }`）与 DOM/文案契约逐字不变，新增 59 例面板用例（三 PermPanel 24 例 + 三 SettingsPanel 35 例）
+- **行为零变化的独立验证（三轮）与两轮评审**：**round 1 红**——抓到 F1 行为回归（「重新加载 / 保存后重读」清空已加载的 NTFS 只读视图）与 F2 门禁不绿；**round 2 红**——F1 已闭环、F2/F3 未闭环（覆盖率门禁超时漂移，根因由「移出探针文件后仍红、超时漂移到本批次未改动的 `Sessions.test.tsx`」的对照实验确证）；**round 3 绿**（`test:coverage` 连续 2 次 exit 0、超时告警 0 次、失败点不再漂移）；F1 由 t8 修复、F2/F3 由 t9+t11 消除。随后新一轮验证又抓到 **F4**（新建 PermPanel 测试的 RTL `asyncUtilTimeout` 默认 1s 过紧，负载敏感间歇红），由 t13 修复后复验绿。评审 t5（R-5 抽象与协议权限面板）与 t6（modal/drawer 迁移）均 **verdict = pass**、无 findings，各留 6/5 条观察（见 `docs/audit/05-renderer-debt.md` §7）
+- **如实留档：施工规格自身有 6 处写错 + 1 处自相矛盾**（详见 `docs/audit/05-renderer-debt.md` §7.3）：(1) §1.3#6 被规则行为探针 P-3 推翻；(2) §1.3#2 字面方案会新造违例且须改动 §1.5 禁改的 effect；(3) §1.3#11 会让「刷新连接」多发一次 `openFiles` IPC（违反 §4.1）；(4) §1.3#5 的 reset 键设计导致 NTFS 视图清空——这是**实现引入的真实回归**，按 §1.4/§4.1 意图修复而非登记为「允许的收紧」；(5) §1.6/§3.3 的判据「加载中不得出现空态文案」被否证（antd Table 的 `locale.emptyText` 在 Spin 期间仍在 DOM），已改为可观测判据；(6) 另三处「规格描述与既有行为不符」。另有 §3.4 把 `PermissionDrawer` 列为「预期零改动」与 §1.3#5 指派迁移该文件的自相矛盾——按 §1.3#5 记（该文件确实迁移），属**规格内部冲突**，不是任何实现者的违规
+- **测试基建两处放宽（如实定性：消除基建抖动，不是修好了慢测试、也不是性能改进）**：`vitest.config.ts` 全局 `testTimeout` 5s→30s（管单个用例总时长）与 `src/test/setup.ts` 的 RTL `asyncUtilTimeout` 1s→10s（管 `waitFor` 轮询窗口）。两者是**两个不同的超时**，后者不被前者覆盖——这正是 F4 未被 t11 覆盖的原因。没有加速任何用例、没有删改任何断言或等待、没有动被测路径；代价是真失败的 `waitFor` 现在最多 ~10s 才报错（t13 自报 10411ms、verifier 独立复现 10009/10011ms），**只推迟暴露时点、未掩盖失败**。覆盖率棘轮阈值（30/25/19/32）与 `include`/`exclude` 逐字未动
+- **终态门禁（本次集成实测）**：`pnpm typecheck` / `lint` / `format:check` / `test`（47 文件 650 用例）/ `test:coverage`（47/650，All files 42.02% stmts / 40.81% branch / 30.7% funcs / 44.09% lines，均高于未改动的棘轮阈值）/ `build` 逐条 **exit 0**
+
+### 🌙 暗色模式与运维三项 / Dark & Ops
+
+- **暗色模式双轨接线（把「只到一半」接完）**：原先只落到 `<html data-theme>` 与状态持久化，两轨都没接。① antd 轨——`ConfigProvider` 原先直接写在 `main.tsx`、位于 `<App/>` **之上**，读不到下层 appStore，`algorithm` 无从切换；抽成 `ThemeProvider` 后真正跟随 `appStore.state.theme`，暗色取 `darkAlgorithm`；② 自有 CSS 轨——`index.css` 新增 `[data-theme='dark']` 段（14 个令牌：body 渐变、glass-card、面板/标题栏/代码块/图表底色、滚动条、阴影）；③ tailwind 轨——`darkMode` 由默认 `'media'`（跟随系统）改 `'class'`（跟随应用主题）。全站 **24 处**硬编码浅色逐处替换（含 `bg-mist` / `border-black` / `rgba(0,0,0,…)` 等首批扫描漏项）；其中 2 处走 canvas（echarts `getDataURL`）不能用 `var()`，改为按 `data-theme` 取具体色值。机器证据：`applyThemeToDocument` 钉住「data-theme 与 .dark class 必须一起落」（上一批的教训是「只落一半等于没接线」）；`ThemeProvider` 用 `theme.useToken()` 读出实际 token——暗色容器色 ≠ 浅色注入值，即等价于 algorithm 真的换了；构建产物实测含 `[data-theme='dark']` 段与 8 个 `.dark:` 选择器
+- **应用内检查更新（只检查 + 提示，不做自动下载安装）**：`update:check` 查询 GitHub Releases 最新版本 + 语义化版本比较（含预发布语义）+ `UpdateChecker` 卡片。**仍不集成 `electron-updater`**——它需要 electron-builder `publish` 配置、代码签名与线上 `latest.yml` 三件套，不是一次接线能补齐的。失败路径按「受限网络是常态」设计：网络不可达 / 404 未发版 / 5xx / 响应非 JSON / 缺 `tag_name` / 超时六类各自给出人话原因与可执行动作，并有专门的回归钉——**「检查失败」绝不显示「已是最新」**（把失败伪装成绿是这张卡片最不能犯的错）。新增 `system:openExternal`，只放行 http/https（白名单抽成 `isSafeExternalUrl` 纯函数，拒绝 `file://` / `javascript:` / `ms-msdt:` / UNC / 前导空白 / 超长 URL）
+- **设置整体导入导出**：`state:exportAll/importAll` 搬的是**应用偏好与运维规则**（主题 / 新手模式 / 置顶 / 告警规则 / 自启意图），与 `share:`（共享配置）、`preset:`（权限模板）分工并列。**刻意不导出** `dashboardHistory` 与 `journal`——前者是「这台机器这段历史」的趋势曲线、后者是含改前快照的撤销台账，跨机器搬家会给出不存在的含义（有专门用例钉住「连字段名都不出现」）。导入不信任文件：512KB 上限 → 格式/版本校验 → 逐字段类型收敛 → 交给 `stateStore.saveState` 再走一次 normalize；语义是「合法字段应用、非法字段忽略」，且没有任何可识别项时明确拒绝而非静默成功。导入后**强制 `hydrate()`**——真源在主进程，不重新水合就会出现「导入了但界面没变化」的经典假象
+- 新增 46 条测试（该批总计 696），覆盖：主题接线（两轨一致性 / algorithm 切换集成 / 算法映射）、更新检查服务层 11 例（六类失败 + 语义化比较）、URL 白名单 5 例、导入导出 17 例（护栏 + 逐字段收敛 + 往返幂等 + UI 五态）
 
 ### ✨ 新增 / Added
 
@@ -28,9 +44,11 @@
 
 ### ⚠️ 未完成 / 已知边界
 
-- 暗色模式只落到 `<html data-theme>` 与状态持久化，antd `darkAlgorithm` + 自有 CSS 变量双轨仍需一轮 UI 走查，未接线
-- 英文界面（i18n 抽取）、应用内检查更新、设置整体导入导出、预约式任务未做
-- 第 6 项技术债（B1 尾部 10 处 drawer/modal effect-setState 迁移 + R-5 组件抽象）仍未清；本批在 Shares 页新增功能前未先行清债，债仍在累积
+- **暗色模式已双轨接线**（antd `darkAlgorithm` + `index.css` `[data-theme='dark']` + tailwind `darkMode:'class'`），但**未做真机 GUI 视觉走查**：对比度、glass-card 透明度、渐变观感只有人眼能判，jsdom 不能替代。另有两处如实记录的取舍：冷启动首帧按默认浅色渲染一次（`appStore.hydrate` 异步读主进程 appstate.json）故有**一次浅色闪烁**，未消除；`Dashboard` 的 echarts canvas 底色与 `index.css` 的 `--chart-bg` 同值但**双真源**，改动需同步
+- 英文界面（i18n 抽取）、预约式任务仍未做。i18n 规模已实测：**非注释中文字面量 1167 条 / 39 个文件**（`Settings.tsx` 单项 206 条），且 27 个测试文件含 17723 个中文字符的断言面；实测它与暗色同时触碰 9 个组件 + `main.tsx`，同工作区并行必丢改动，故应单独成批（默认语言必须保持中文，否则既有断言面会一起崩）
+- **R-8 作为「数据获取模式重构」的整体条目仍开放**：本批次完成的是它的阻塞条件（14 处违例清零 → `set-state-in-effect` 复启为 error），但**没有**把全部挂载取数改写成 defer/React Query（本批次明确不改数据获取范式）；jsdom 组件测试基建亦未引入
+- **既有的负载敏感压力用例未根治**：`electron/lib/powershellPool.stress.test.ts`「场景2：100 并发含 10 条卡死命令」在本批次多轮运行中独立观测到间歇失败（`expected [Array(82)] to have a length of 90` + retry 后仍 76）——它是**断言失败、不是超时**，本批次对该文件**零改动**，因此既非本批次引入、也不受本批次的 `testTimeout` / `asyncUtilTimeout` 放宽影响；建议另开专项，且 `82 vs 90` 可能不只是环境抖动、也可能是进程池并发上限的真实边界信号
+- **证据边界**：本批次的独立验证只到 **jsdom + 门禁级**（IPC 全为 mock），未做真机 GUI 走查，未覆盖真实 SMB/IIS/防火墙/icacls/开机自启/跨小时趋势，**不构成端到端验证**。运维三项另有两处具体缺口：**检查更新的成功路径在本机无法验证**（实测 `api.github.com` 不可达；失败路径反而有六类真实验证）；**导入导出的真实文件下载与文件选择经打桩**（jsdom 不实现对象 URL 与下载导航）
 
 ## [1.1.0] - 2026-10-09
 
@@ -46,7 +64,7 @@
 - **数据层迁移 react-query（@tanstack/react-query 5）**：5 个页面（仪表板/共享管理/用户权限/会话监控/服务配置）+ 3 个协议配置面板统一 `useQuery` 拉取；轮询/并发去重/缓存失效内建，替代手写 `load + inflight 守卫 + 定时器` 链；`load()` 名称保留、语义=invalidate（变更回调零改动）；`refetchOnWindowFocus:false`/`retry:0` 适配 IPC 语义；F5 与托盘刷新经 store tick → invalidate 桥接
 - **命令面板**：状态重置改"渲染期调整 state"官方模式；短查询门控替代同步清空
 - 行为验证：新增 Sessions 页 3 个 jsdom 数据流测试（首挂载/刷新/断开失效），并借此发现修复卸载竞态（refetchQueries 结果 undefined 崩溃）
-- 遗留：10 处 modal/drawer 层 effect-setState 未迁移（清单见 eslint.config.mjs 留档），与 R-5 组件抽象同属后续工作包，规则复启以 UI 回归为前置条件
+- 遗留：10 处 modal/drawer 层 effect-setState 未迁移（清单见 eslint.config.mjs 留档），与 R-5 组件抽象同属后续工作包，规则复启以 UI 回归为前置条件（**批 2 已全部清零**：实测起点为 14 处、非 10 处，见上方 [Unreleased]「技术债清零」段）
 
 ### ✨ 新增 / Added
 
@@ -91,7 +109,7 @@
 - **A5 文档同步**：README 环境要求修正（pnpm 11 → 9.x 与 packageManager 同源）、质量门禁命令表、管理员终端提示、日志系统说明
 - **新建共享常见预设**：协议感知场景 chips 一键填入表单（SMB：团队协作/公开只读/私有加密；NFS：只读发布/读写共享/Kerberos 安全共享；FTP：安全分发/匿名下载/内网共享；WebDAV：只读发布/匿名投递），填入后仍可逐项调整
 - **合并说明（NFS 会话）**：采纳 origin/main v1.0.1 的语义修正——listSessions 改用 `Get-NfsSession`（MSFT_NfsSession 仅 SessionId/NetworkName/State/ClientId，相应字段留空），closeSession 改用 `Disconnect-NfsSession -SessionId`；统一为 logger 风格
-- 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）
+- 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）（**批 2 已闭环 R-5 全量与规则复启**；R-8 作为「数据获取模式重构」整体条目仍开放，见上方 [Unreleased]）
 
 ## [v1.0.1] - 2026-09
 

@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons'
 import type React from 'react'
 import { api, call } from '../api'
+import { useResetOnKeyChange } from '../hooks/useResetOnOpen'
 import type { Share } from '../types'
 
 interface Props {
@@ -85,36 +86,27 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
     return s.path
   }
 
-  const loadConnections = async () => {
-    if (!share) return
-    setLoading(true)
-    try {
-      const r = await call(() => api.share.connections(share.name))
-      setConnections(r)
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // 渲染期重读序号：连接与打开文件各一个，「刷新」只 bump 自己那一个（不连带多发一次 IPC）
+  const [connNonce, setConnNonce] = useState(0)
+  const [filesNonce, setFilesNonce] = useState(0)
 
-  const loadOpenFiles = async () => {
-    if (!share) return
-    try {
-      const r = await call(() => api.share.openFiles(share.name))
-      setOpenFiles(r)
-    } catch {
-      setOpenFiles([])
-    }
-  }
-
-  useEffect(() => {
+  // 打开/换共享：tab 回到「基本信息」（渲染期调整，P-5）
+  useResetOnKeyChange(`${open}|${share?.name ?? ''}`, () => {
     if (!open || !share) return
     setTab('info')
-    if (isSmb) {
-      loadConnections()
-      loadOpenFiles()
-      // 初始化表单
+  })
+
+  // 打开/换共享/重读连接：SMB 的加载态与打开同帧生效
+  useResetOnKeyChange(`${open}|${share?.name ?? ''}|${connNonce}`, () => {
+    if (!open || !share || share.protocol !== 'smb') return
+    setLoading(true)
+  })
+
+  // 表单按协议预填（antd 命令式 API，非 React state）。
+  // 只在打开/换共享时同步：刷新连接不打断「高级属性」里未保存的编辑。
+  useEffect(() => {
+    if (!open || !share) return
+    if (share.protocol === 'smb') {
       form.setFieldsValue({
         description: share.description,
         hidden: share.hidden,
@@ -137,9 +129,46 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
         authoringEnabled: !!share.authoringEnabled,
       })
     }
-    // 仅在打开抽屉/切换共享时同步并加载；loadConnections/loadOpenFiles 引用每轮渲染变化，有意省略以免无限循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, share])
+  }, [open, share, form])
+
+  // 连接：打开/换共享/「刷新」各恰好一次 IPC（loader 定义在 effect 内部，见 B-1/P-3）
+  useEffect(() => {
+    if (!open || !share || share.protocol !== 'smb') return
+    let dead = false
+    const loadConnections = async () => {
+      try {
+        const r = await call(() => api.share.connections(share.name))
+        if (!dead) setConnections(r)
+      } catch (e) {
+        if (!dead) message.error((e as Error).message)
+      } finally {
+        if (!dead) setLoading(false)
+      }
+    }
+    void loadConnections()
+    return () => {
+      dead = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意仅依赖 open/share/connNonce：message 为上下文稳定引用，纳入依赖会重复触发
+  }, [open, share, connNonce])
+
+  // 打开文件：失败静默置空（既有语义）；独立序号使「刷新连接」不连带重读打开文件
+  useEffect(() => {
+    if (!open || !share || share.protocol !== 'smb') return
+    let dead = false
+    const loadOpenFiles = async () => {
+      try {
+        const r = await call(() => api.share.openFiles(share.name))
+        if (!dead) setOpenFiles(r)
+      } catch {
+        if (!dead) setOpenFiles([])
+      }
+    }
+    void loadOpenFiles()
+    return () => {
+      dead = true
+    }
+  }, [open, share, filesNonce])
 
   const handleCloseAllFiles = async () => {
     if (!share) return
@@ -150,8 +179,8 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
       } else {
         message.success(`已关闭 ${r.closed} 个打开文件`)
       }
-      loadOpenFiles()
-      loadConnections()
+      setFilesNonce((n) => n + 1)
+      setConnNonce((n) => n + 1)
     } catch (e) {
       message.error((e as Error).message)
     }
@@ -347,7 +376,11 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
             <span className="text-xs text-fog">
               当前 {connections?.concurrentUsers ?? 0} 个连接
             </span>
-            <Button size="small" icon={<ReloadOutlined />} onClick={loadConnections}>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => setConnNonce((n) => n + 1)}
+            >
               刷新
             </Button>
           </div>
@@ -380,7 +413,11 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-fog">{openFiles.length} 个打开文件</span>
             <Space>
-              <Button size="small" icon={<ReloadOutlined />} onClick={loadOpenFiles}>
+              <Button
+                size="small"
+                icon={<ReloadOutlined />}
+                onClick={() => setFilesNonce((n) => n + 1)}
+              >
                 刷新
               </Button>
               {openFiles.length > 0 && (

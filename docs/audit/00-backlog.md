@@ -59,6 +59,18 @@
 
 开放项收敛为三项专项：**R-8** 数据获取模式重构（26 处挂载 fetch → defer/React Query，完成后复启 set-state-in-effect）；**R-5 全量** 三 PermPanel/三 SettingsPanel 表单级抽象；**jsdom 组件测试基建**（t8 取舍留档）。
 
+### 渲染层批 2（renderer-debt，收口标注）
+
+已闭环：**R-5 全量组件抽象**（三 PermPanel + 三 SettingsPanel → `useProtocolPermissions` / `useProtocolSettings` 两个 hook + `ProtocolPermissionShell` / `ProtocolSettingsShell` 两个 Shell；六个面板内 `useEffect|useQuery|invalidateQueries|queryKey|setLoading|setRows|setSaving` 命中 0、9 个 IPC 调用点收敛为 1 份、Shell 文案 3→1、六面板合计净减 69 行；新增 59 例面板用例）；**`react-hooks/set-state-in-effect` 14 处违例全量清零并把规则复启为 error**（`eslint.config.mjs`；起点实测 **14 处**，旧留档的「10 处」只统计 B1 的 26→10 收敛、漏计批 1 新增的 4 处）。
+
+R-3 状态如实：`src/hooks/useTickEffect.ts:13` 的 `react-hooks/exhaustive-deps` 行内豁免**保持原样**——P3 第二批已按审计建议判为「可接受」（注释说明意图为「跳过首次挂载」）；`exhaustive-deps` 规则仍开启，仅该处豁免且附理由。本批次未改动该文件，也未改写为 `useLatest` 形态。
+
+R-8 仍为开放项（按事实拆分，不笼统记）。其**阻塞条件**「复启 set-state-in-effect」已随本批次完成（规则现为 `error`、全库零违例、该规则 suppressions=0）；但 R-8 作为「数据获取模式重构」条目本身**未闭环**——本批次明确不改数据获取范式（属非目标，且规格 §4.1 禁止引入缓存层），挂载取数并未全部改写为 defer/React Query。
+
+其它未完成/已知边界（详见 CHANGELOG「未完成 / 已知边界」）：jsdom 组件测试基建仍未引入；`electron/lib/powershellPool.stress.test.ts`（「场景2：100 并发含 10 条卡死命令」）的既有负载敏感**断言**抖动未根治（本批次零改动，建议另开专项）；本批次证据只到 jsdom + 门禁级（IPC 全为 mock），无真机端到端。
+
+质量门（本批次）：独立验证 round 1 **红**（F1 行为回归 + F2 门禁不绿）→ round 2 **红**（F1 已闭环、F2/F3 未闭环）→ round 3 **绿**；此后新发现的 F4 由 t13 修复、复验绿；评审 t5（R-5 抽象）/ t6（modal/drawer 迁移）均 **verdict = pass**、无 findings。终态六门禁逐条 exit 0（typecheck / lint / format:check / test 47 文件 650 用例 / test:coverage / build）。规格自身的 6 处写错与 1 处自相矛盾见 `05-renderer-debt.md` §7.3。
+
 ## 4. 执行摘要（给决策者的话）
 
 审计未发现任何可被利用的安全漏洞；代码分层、事务补偿、生命周期管理、注入防护均达到生产级。真正需要"工程化/规范化"的是：把本地已通过的 typecheck/test 固化为 **CI 门禁**（ESLint/Prettier + 测试 + 覆盖率），并解决 **本地 pnpm9/Node24 与 CI pnpm11/Node22 的版本漂移**（否则 CI 可能用不同工具链重建 lockfile，破坏可重现构建）。这两项落地后，项目即达到"提交即门禁、可重现发布"的工程化标准。

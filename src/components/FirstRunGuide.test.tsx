@@ -170,3 +170,106 @@ describe('FirstRunGuide 步骤三：完成 + 创建', () => {
     expect(localStorage.getItem(FIRST_RUN_DONE_KEY)).toBeNull()
   })
 })
+
+// 批2（docs/audit/05-renderer-debt.md §3.1 点 2）：打开/关闭生命周期回归。
+const settle = () => new Promise((r) => setTimeout(r, 200))
+
+/** 与 openGuide 同层级，供 rerender 复用（增删包裹层会整棵重挂，破坏"只加载一次"断言） */
+function wrapGuide(open: boolean) {
+  return (
+    <AntdApp>
+      <FirstRunGuide open={open} onClose={vi.fn()} />
+    </AntdApp>
+  )
+}
+
+/** 展开「高级参数」折叠区，返回「同时连接人数上限」输入框 */
+async function openAdvanced(): Promise<HTMLInputElement> {
+  fireEvent.click(screen.getByText('高级参数（绝大多数人不需要碰）'))
+  return (await screen.findByPlaceholderText('不限')) as HTMLInputElement
+}
+
+describe('FirstRunGuide · 打开/关闭生命周期（set-state-in-effect 迁移回归）', () => {
+  it('打开→恰好 1 次 api.disk.suggestRoot()；重复渲染与静置 200ms 都不重发', async () => {
+    const { rerender } = openGuide()
+    await vi.waitFor(() => expect(pathInput()).toHaveValue(SUGGESTED))
+    expect(suggestRoot).toHaveBeenCalledTimes(1)
+
+    rerender(wrapGuide(true))
+    await settle()
+    expect(suggestRoot).toHaveBeenCalledTimes(1)
+  })
+
+  it('走完三步填写后关闭→重开：回到第 1 步，路径/名字/权限档/高级参数全部回到初始', async () => {
+    const { rerender } = openGuide()
+    await toStep2()
+    fireEvent.click(screen.getByRole('radio', { name: nameRe('完全交给他们') }))
+    fireEvent.click(byLabel('下一步'))
+    fireEvent.change(nameInput(), { target: { value: '手填的名字' } })
+
+    // 回到第 1 步设置一个高级参数（setAdvanced 语义：重开不得残留）
+    fireEvent.click(byLabel('上一步'))
+    fireEvent.click(byLabel('上一步'))
+    const limit = await openAdvanced()
+    fireEvent.change(limit, { target: { value: '5' } })
+    await vi.waitFor(() => expect(limit).toHaveValue('5'))
+
+    rerender(wrapGuide(false))
+    await settle()
+    rerender(wrapGuide(true))
+
+    // 回到第 1 步：路径重新来自 suggestRoot，名字不再残留（名字输入只在第 3 步出现）
+    await vi.waitFor(() => expect(pathInput()).toHaveValue(SUGGESTED))
+    expect(screen.queryByLabelText('共享名')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: nameRe('下一步') })).toBeInTheDocument()
+
+    // 高级参数不残留
+    const limit2 = await openAdvanced()
+    expect(limit2).toHaveValue('')
+
+    // 权限档回到默认「只让他们看看」
+    fireEvent.click(byLabel('下一步'))
+    expect(screen.getByRole('radio', { name: nameRe('只让他们看看') })).toBeChecked()
+    // 共享名重新由路径末级带出
+    fireEvent.click(byLabel('下一步'))
+    expect(nameInput()).toHaveValue('Photos')
+  })
+
+  it('「手改过名字」标记被重置：重开后换路径，名字重新由路径末级带出', async () => {
+    const { rerender } = openGuide()
+    await toLastStep()
+    // 手改名后换路径：本次打开内不再自动覆盖
+    fireEvent.change(nameInput(), { target: { value: '手改的名' } })
+    fireEvent.click(byLabel('上一步'))
+    fireEvent.click(byLabel('上一步'))
+    fireEvent.change(pathInput(), { target: { value: 'E:\\Movies' } })
+    fireEvent.click(byLabel('下一步'))
+    fireEvent.click(byLabel('下一步'))
+    expect(nameInput()).toHaveValue('手改的名')
+
+    // 关闭重开 → 标记复位
+    rerender(wrapGuide(false))
+    await settle()
+    rerender(wrapGuide(true))
+    await vi.waitFor(() => expect(pathInput()).toHaveValue(SUGGESTED))
+    fireEvent.change(pathInput(), { target: { value: 'E:\\Movies' } })
+    fireEvent.click(byLabel('下一步'))
+    fireEvent.click(byLabel('下一步'))
+    expect(nameInput()).toHaveValue('Movies')
+  })
+
+  it('创建失败后再重开：错误条清空（不把上次的失败带回来）', async () => {
+    const { rerender } = openGuide()
+    await toLastStep()
+    create.mockRejectedValueOnce(new Error('名称已被占用'))
+    fireEvent.click(byLabel('创建'))
+    await vi.waitFor(() => expect(screen.getByText('名称已被占用')).toBeInTheDocument())
+
+    rerender(wrapGuide(false))
+    await settle()
+    rerender(wrapGuide(true))
+
+    await vi.waitFor(() => expect(pathInput()).toHaveValue(SUGGESTED))
+    expect(screen.queryByText('名称已被占用')).not.toBeInTheDocument()
+  })
+})

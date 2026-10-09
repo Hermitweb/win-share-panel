@@ -39,6 +39,9 @@ import {
   presetRules,
 } from '../services/firewall'
 import { runDiagnose, applyFix } from '../services/diagnose'
+import { checkForUpdate } from '../services/update'
+import { isSafeExternalUrl } from '../lib/url'
+import { exportSettings, importSettings } from '../services/transfer'
 import type {
   Protocol,
   CreateShareInput,
@@ -633,4 +636,28 @@ export function registerIpc(): void {
     }
     return wrap(() => applyFix(kind, { shareName }), 'diagnoseFix', `${kind}:${shareName || ''}`)
   })
+
+  // === update: 应用内检查更新（只检查 + 提示，不自动下载安装） ===
+  // 当前版本由主进程提供；service 层刻意不依赖 electron，便于 node 环境单测
+  ipcMain.handle('update:check', () =>
+    wrap(() => checkForUpdate(app.getVersion()), 'updateCheck', app.getVersion()),
+  )
+
+  // === system:openExternal: 用系统默认浏览器打开外部链接 ===
+  // 只放行 http/https：防止渲染层诱导打开 file:// 等协议（本窗口 sandbox 且未设 setWindowOpenHandler）
+  ipcMain.handle('system:openExternal', (_e, url: unknown) => {
+    if (!isSafeExternalUrl(url)) {
+      throw Errors.invalidParam('仅支持 http/https 链接')
+    }
+    return wrap(() => shell.openExternal(url).then(() => null), 'openExternal', url)
+  })
+
+  // === state:exportAll / state:importAll: 设置整体导入导出 ===
+  // 与 share/preset 导出的分工见 services/transfer.ts 头注释（偏好 vs 业务数据）
+  ipcMain.handle('state:exportAll', () =>
+    wrap(() => Promise.resolve(exportSettings()), 'settingsExport', 'all'),
+  )
+  ipcMain.handle('state:importAll', (_e, json: unknown) =>
+    wrap(() => Promise.resolve(importSettings(json)), 'settingsImport', 'all'),
+  )
 }

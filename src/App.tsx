@@ -16,6 +16,7 @@ import { useUiStore } from './stores/uiStore'
 import { useAppStore } from './stores/appStore'
 import { api, call } from './api'
 import { readFirstRunFlag, shouldShowGuide } from './utils/firstRun'
+import { applyThemeToDocument } from './utils/theme'
 
 // B1 试点：页面数据层迁移 react-query（轮询/去重/失焦控制内建，替代手写 load+inflight）
 const queryClient = new QueryClient({
@@ -67,10 +68,10 @@ export default function App() {
   useEffect(() => {
     void hydrate()
   }, [hydrate])
-  // 主题落到 <html>，CSS 变量与 antd 算法都据此切换（见 index.css / Layout）
+  // 主题落到 <html>：自有 CSS 变量（index.css）与 tailwind 的 dark: 变体都据此切换。
+  // antd 那一轨在 ThemeProvider（ConfigProvider 的 algorithm），三轨同源 appStore.state.theme。
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    document.documentElement.classList.toggle('dark', theme === 'dark')
+    applyThemeToDocument(theme)
   }, [theme])
   const paletteOpen = useUiStore((s) => s.paletteOpen)
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen)

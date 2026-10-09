@@ -704,7 +704,7 @@ export default function Shares({ toolbarSlots, rowActions }: SharesProps = {}) {
                   isPinned ? (
                     <StarFilled style={{ color: '#faad14' }} />
                   ) : (
-                    <StarOutlined style={{ color: 'rgba(0,0,0,0.25)' }} />
+                    <StarOutlined style={{ color: 'var(--icon-muted)' }} />
                   )
                 }
                 onClick={() => {

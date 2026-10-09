@@ -238,67 +238,74 @@ export default function PermissionMatrix() {
   const [shares, setShares] = useState<Share[]>([])
   const [accounts, setAccounts] = useState<{ name: string; type: 'User' | 'Group' }[]>([])
   const [matrix, setMatrix] = useState<Record<string, Record<string, Access>>>({})
-  const [loading, setLoading] = useState(false)
+  // 本组件挂载即加载，所以 true 才是真实初值（不再先渲染一帧空态再切加载态）
+  const [loading, setLoading] = useState(true)
+  // 渲染期重读序号：「重新加载」只 bump 它（事件处理器先置加载态），取数路径与挂载共用一条 effect
+  const [nonce, setNonce] = useState(0)
   const cancelRef = useRef(false)
 
-  const load = async () => {
-    setLoading(true)
-    cancelRef.current = false
-    try {
-      const [shareList, users, groups] = await Promise.all([
-        call(api.share.list).catch(() => [] as Share[]),
-        call(api.user.list).catch(() => [] as LocalUser[]),
-        call(api.user.groups).catch(() => [] as LocalGroup[]),
-      ])
-      // 仅展示普通共享，过滤 IPC/Special
-      const normalShares = (shareList || []).filter((s) => s.type !== 'Special' && s.type !== 'IPC')
-      const acctList = [
-        ...(users || []).map((u) => ({ name: u.name, type: 'User' as const })),
-        ...(groups || []).map((g) => ({ name: g.name, type: 'Group' as const })),
-      ]
-      setShares(normalShares)
-      setAccounts(acctList)
-
-      // 并发拉取每个共享的权限（上限 4）
-      const perms = await mapPool(
-        normalShares,
-        4,
-        (s) => call(() => api.share.permissions(s.name)).catch(() => [] as SharePermission[]),
-        () => cancelRef.current,
-      )
-      if (cancelRef.current) return
-
-      const map: Record<string, Record<string, Access>> = {}
-      normalShares.forEach((s, i) => {
-        const list = perms[i] || []
-        const byAccount: Record<string, Access> = {}
-        // 按 account 分组
-        const grouped: Record<string, SharePermission[]> = {}
-        list.forEach((p) => {
-          if (!grouped[p.account]) grouped[p.account] = []
-          grouped[p.account].push(p)
-        })
-        acctList.forEach((a) => {
-          byAccount[a.name] = grouped[a.name] ? pickAccess(grouped[a.name]) : '-'
-        })
-        map[s.name] = byAccount
-      })
-      setMatrix(map)
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // 取数函数定义在 effect 内部（B-1/P-3）：组件体函数即使 setState 全在 await 之后，
+  // 从 effect 调用仍会在调用点被报为 set-state-in-effect。
   useEffect(() => {
-    load()
+    let dead = false
+    cancelRef.current = false
+    const load = async () => {
+      try {
+        const [shareList, users, groups] = await Promise.all([
+          call(api.share.list).catch(() => [] as Share[]),
+          call(api.user.list).catch(() => [] as LocalUser[]),
+          call(api.user.groups).catch(() => [] as LocalGroup[]),
+        ])
+        if (dead) return
+        // 仅展示普通共享，过滤 IPC/Special
+        const normalShares = (shareList || []).filter(
+          (s) => s.type !== 'Special' && s.type !== 'IPC',
+        )
+        const acctList = [
+          ...(users || []).map((u) => ({ name: u.name, type: 'User' as const })),
+          ...(groups || []).map((g) => ({ name: g.name, type: 'Group' as const })),
+        ]
+        setShares(normalShares)
+        setAccounts(acctList)
+
+        // 并发拉取每个共享的权限（上限 4）
+        const perms = await mapPool(
+          normalShares,
+          4,
+          (s) => call(() => api.share.permissions(s.name)).catch(() => [] as SharePermission[]),
+          () => cancelRef.current,
+        )
+        if (dead || cancelRef.current) return
+
+        const map: Record<string, Record<string, Access>> = {}
+        normalShares.forEach((s, i) => {
+          const list = perms[i] || []
+          const byAccount: Record<string, Access> = {}
+          // 按 account 分组
+          const grouped: Record<string, SharePermission[]> = {}
+          list.forEach((p) => {
+            if (!grouped[p.account]) grouped[p.account] = []
+            grouped[p.account].push(p)
+          })
+          acctList.forEach((a) => {
+            byAccount[a.name] = grouped[a.name] ? pickAccess(grouped[a.name]) : '-'
+          })
+          map[s.name] = byAccount
+        })
+        setMatrix(map)
+      } catch (e) {
+        if (!dead) message.error((e as Error).message)
+      } finally {
+        if (!dead) setLoading(false)
+      }
+    }
+    void load()
     return () => {
+      dead = true
       cancelRef.current = true
     }
-    // 有意仅挂载时加载一次：load 引用每轮渲染变化，加入依赖会无限循环；迟到响应由 cancelRef 机制作废
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意仅依赖 nonce（挂载时 nonce=0 即首轮加载，重新加载只 bump 它）；message 为上下文稳定引用，纳入依赖会重复触发
+  }, [nonce])
 
   const cancel = () => {
     cancelRef.current = true
@@ -392,7 +399,13 @@ export default function PermissionMatrix() {
               取消
             </Button>
           ) : (
-            <Button icon={<ReloadOutlined />} onClick={load}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                setLoading(true)
+                setNonce((n) => n + 1)
+              }}
+            >
               重新加载
             </Button>
           )}

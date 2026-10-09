@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Modal, Form, Input, Switch, App, Select, Progress, Tag, Tooltip, Space } from 'antd'
 import { ThunderboltOutlined } from '@ant-design/icons'
 import { api, call } from '../api'
+import { useResetOnOpen } from '../hooks/useResetOnOpen'
 import type { LocalGroup } from '../types'
 import {
   generatePassword,
@@ -24,27 +25,33 @@ export default function UserCreateModal({ open, onClose, onSuccess }: Props) {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   const [pwdStrength, setPwdStrength] = useState<'weak' | 'medium' | 'strong' | null>(null)
 
-  const loadGroups = async () => {
-    try {
-      const g = await call(api.user.groups)
-      setGroups(g)
-    } catch {
-      // 加载失败不影响创建
-    }
-  }
+  // 打开时归零：已选组与密码强度提示（纯本地态走渲染期调整，见 useResetOnOpen）
+  useResetOnOpen(open, () => {
+    setSelectedGroups([])
+    setPwdStrength(null)
+  })
 
-  // 有意仅在 open 变化时初始化：loadGroups/form 引用稳定，加入依赖会重复触发
+  // 表单重置 + 组列表（取数函数定义在 effect 内部，异步延续里才写 state）
   useEffect(() => {
-    if (open) {
-      form.resetFields()
-      form.setFieldsValue({
-        enabled: true,
-        userMayChangePassword: true,
-        passwordNeverExpires: true,
-      })
-      setSelectedGroups([])
-      setPwdStrength(null)
-      loadGroups()
+    if (!open) return
+    form.resetFields()
+    form.setFieldsValue({
+      enabled: true,
+      userMayChangePassword: true,
+      passwordNeverExpires: true,
+    })
+    let dead = false
+    const loadGroups = async () => {
+      try {
+        const g = await call(api.user.groups)
+        if (!dead) setGroups(g)
+      } catch {
+        // 加载失败不影响创建（既有语义，静默）
+      }
+    }
+    void loadGroups()
+    return () => {
+      dead = true
     }
   }, [open, form])
 

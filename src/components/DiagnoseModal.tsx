@@ -7,6 +7,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons'
 import { api, call } from '../api'
+import { useResetOnKeyChange } from '../hooks/useResetOnOpen'
 import type { DiagnoseFixKind, DiagnoseItem, Share } from '../types'
 
 /**
@@ -151,14 +152,19 @@ export default function DiagnoseModal({ open, onClose, initialShareName }: Props
   // 只认最后一次请求：快速切换共享、修复复检时，迟到的旧结果不得覆盖新结果
   const runIdRef = useRef(0)
 
-  // 打开时带入目标共享、清空上次结果，并拉真实共享列表喂下拉
-  useEffect(() => {
+  // 打开/换目标：带入目标共享、清空上次结果（纯本地态归零走渲染期调整，见 useResetOnOpen）
+  useResetOnKeyChange(`${open}|${initialShareName ?? ''}`, () => {
     if (!open) return
-    runIdRef.current += 1
     setShareName(initialShareName)
     setItems(null)
     setRunError(null)
     setRunning(false)
+  })
+
+  // 打开时作废上一次诊断的请求号，并拉真实共享列表喂下拉（.then 回调里的 setState 不在 effect 同步路径上）
+  useEffect(() => {
+    if (!open) return
+    runIdRef.current += 1
     let dead = false
     call(() => api.adapter.list('smb'))
       .then((list) => {
@@ -346,13 +352,13 @@ export default function DiagnoseModal({ open, onClose, initialShareName }: Props
                 data-key={it.key}
                 data-status={it.status}
                 data-color={meta.tag}
-                className="rounded-xl border border-black/5 bg-white/40 px-3 py-2"
+                className="rounded-xl border border-black/5 bg-white/40 px-3 py-2 dark:border-white/10 dark:bg-white/5"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge color={meta.dot} />
-                      <span className="font-medium text-ink">{it.label}</span>
+                      <span className="font-medium text-ink dark:text-night-ink">{it.label}</span>
                       <Tag className="m-0" color={meta.tag}>
                         {meta.text}
                       </Tag>
@@ -360,7 +366,7 @@ export default function DiagnoseModal({ open, onClose, initialShareName }: Props
                     {/* detail 与 label 分显：详情可能很长（路径/状态），另起一行不挤压标题 */}
                     <div className="mt-1 break-all text-xs text-fog">{it.detail}</div>
                     {it.status === 'fail' && fix === undefined && (
-                      <div className="mt-2 rounded-lg bg-mist/70 px-2 py-1 text-xs text-ink">
+                      <div className="mt-2 rounded-lg bg-mist/70 px-2 py-1 text-xs text-ink dark:bg-white/5 dark:text-night-ink">
                         下一步：{NEXT_STEP[it.key] ?? GENERIC_STEP}
                       </div>
                     )}

@@ -346,7 +346,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     return (
       <>
         {text.slice(0, idx)}
-        <mark className="bg-primary/30 rounded px-0.5 text-ink">
+        <mark className="bg-primary/30 rounded px-0.5 text-ink dark:text-night-ink">
           {text.slice(idx, idx + q.length)}
         </mark>
         {text.slice(idx + q.length)}
@@ -387,7 +387,9 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         )}
         {grouped.map((g) => (
           <div key={g.group}>
-            <div className="px-4 py-1 text-xs text-fog bg-mist/40">{GROUP_LABEL[g.group]}</div>
+            <div className="px-4 py-1 text-xs text-fog bg-mist/40 dark:bg-white/5">
+              {GROUP_LABEL[g.group]}
+            </div>
             {g.items.map((c) => {
               runningIndex++
               const idx = runningIndex
@@ -401,7 +403,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
                     idx === activeIndex ? 'bg-primary/15' : 'hover:bg-primary/10'
                   }`}
                 >
-                  <div className="text-sm text-ink">{highlight(c.label)}</div>
+                  <div className="text-sm text-ink dark:text-night-ink">{highlight(c.label)}</div>
                   {c.hint && <div className="text-xs text-fog truncate">{c.hint}</div>}
                 </div>
               )
@@ -409,7 +411,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           </div>
         ))}
       </div>
-      <div className="px-4 py-2 text-xs text-fog border-t border-black/5 flex gap-3">
+      <div className="px-4 py-2 text-xs text-fog border-t border-black/5 dark:border-white/10 flex gap-3">
         <Tag style={{ margin: 0 }}>↑↓ 选择</Tag>
         <Tag style={{ margin: 0 }}>Enter 执行</Tag>
         <Tag style={{ margin: 0 }}>Esc 关闭</Tag>

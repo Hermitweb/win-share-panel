@@ -1,20 +1,10 @@
-import { useEffect, useState } from 'react'
-import {
-  Table,
-  Button,
-  Space,
-  Select,
-  Input,
-  Popconfirm,
-  App,
-  Tag,
-  Empty,
-  Spin,
-  Tooltip,
-} from 'antd'
-import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
-import { api, call } from '../../api'
+import { useState } from 'react'
+import type { TableColumnsType } from 'antd'
+import { App, Button, Input, Select, Tag, Tooltip } from 'antd'
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import type { Share, SharePermission } from '../../types'
+import { useProtocolPermissions } from '../../hooks/useProtocolPermissions'
+import { ProtocolPermissionShell } from '../ProtocolPermissionShell'
 
 interface Props {
   share: Share
@@ -48,9 +38,9 @@ function toRule(p: SharePermission): WebdavRule {
   }
 }
 
-function toSharePerm(share: Share, r: WebdavRule): SharePermission {
+function toSharePerm(r: WebdavRule, shareName: string): SharePermission {
   return {
-    shareName: share.name,
+    shareName,
     account: r.account,
     accountType: r.accountType,
     access: r.perm === 'full' ? 'Full' : r.perm === 'rw' ? 'Change' : 'Read',
@@ -60,30 +50,18 @@ function toSharePerm(share: Share, r: WebdavRule): SharePermission {
 
 export default function WebdavPermPanel({ share }: Props) {
   const { message } = App.useApp()
-  const [rows, setRows] = useState<WebdavRule[]>([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [newAccount, setNewAccount] = useState('')
   const [newType, setNewType] = useState<'User' | 'Group'>('User')
   const [newPerm, setNewPerm] = useState<WebdavPerm>('ro')
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const list = await call(() => api.adapter.permissions('webdav', share.name))
-      setRows(list.map(toRule))
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    load()
-    // 仅在切换共享时重载权限：load 引用每轮渲染变化，纳入依赖会无限循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [share.name])
+  const { rows, loading, saving, reload, save, addRow, removeRow, updateRow, hasRow } =
+    useProtocolPermissions<WebdavRule>({
+      protocol: 'webdav',
+      shareName: share.name,
+      toRow: toRule,
+      toPerm: toSharePerm,
+      rowKey: 'account',
+    })
 
   const handleAdd = () => {
     const acct = newAccount.trim()
@@ -91,37 +69,15 @@ export default function WebdavPermPanel({ share }: Props) {
       message.warning('请输入账号名')
       return
     }
-    if (rows.some((r) => r.account === acct)) {
+    if (hasRow(acct)) {
       message.warning('该账号已存在')
       return
     }
-    setRows([...rows, { account: acct, accountType: newType, perm: newPerm }])
+    addRow({ account: acct, accountType: newType, perm: newPerm })
     setNewAccount('')
   }
 
-  const handleRemove = (account: string) => {
-    setRows(rows.filter((r) => r.account !== account))
-  }
-
-  const handlePermChange = (account: string, perm: WebdavPerm) => {
-    setRows(rows.map((r) => (r.account === account ? { ...r, perm } : r)))
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const perms = rows.map((r) => toSharePerm(share, r))
-      await call(() => api.adapter.setPermissions('webdav', share.name, perms))
-      message.success('作者规则已保存')
-      load()
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const columns = [
+  const columns: TableColumnsType<WebdavRule> = [
     { title: '账号', dataIndex: 'account', ellipsis: true },
     {
       title: '类型',
@@ -135,12 +91,12 @@ export default function WebdavPermPanel({ share }: Props) {
       title: '权限',
       dataIndex: 'perm',
       width: 200,
-      render: (v: WebdavPerm, r: WebdavRule) => (
+      render: (v: WebdavPerm, r) => (
         <Select
           size="small"
           value={v}
           options={PERM_OPTIONS}
-          onChange={(next) => handlePermChange(r.account, next)}
+          onChange={(next) => updateRow(r.account, { perm: next })}
           style={{ width: 200 }}
         />
       ),
@@ -148,13 +104,13 @@ export default function WebdavPermPanel({ share }: Props) {
     {
       title: '',
       width: 50,
-      render: (_: unknown, r: WebdavRule) => (
+      render: (_: unknown, r) => (
         <Tooltip title="移除">
           <Button
             size="small"
             danger
             icon={<DeleteOutlined />}
-            onClick={() => handleRemove(r.account)}
+            onClick={() => removeRow(r.account)}
           />
         </Tooltip>
       ),
@@ -162,34 +118,25 @@ export default function WebdavPermPanel({ share }: Props) {
   ]
 
   return (
-    <Spin spinning={loading}>
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm text-fog">
+    <ProtocolPermissionShell<WebdavRule>
+      loading={loading}
+      saving={saving}
+      headerText={
+        <>
           WebDAV 作者规则基于用户/组授予 Read / Read+Write /
           Read+Write+Source，仅允许（无拒绝）。保存时覆盖现有规则。
-        </span>
-        <Space>
-          <Button size="small" icon={<ReloadOutlined />} onClick={load}>
-            重新加载
-          </Button>
-          <Popconfirm title="确认覆盖当前 WebDAV 作者规则？" onConfirm={handleSave}>
-            <Button size="small" type="primary" loading={saving}>
-              保存
-            </Button>
-          </Popconfirm>
-        </Space>
-      </div>
-      <Table
-        dataSource={rows}
-        rowKey="account"
-        columns={columns}
-        pagination={false}
-        size="small"
-        locale={{ emptyText: <Empty description="暂无作者规则" /> }}
-      />
-      <div className="mt-4 p-3 rounded-card bg-white/60">
-        <div className="text-xs text-fog mb-2">添加作者规则</div>
-        <Space wrap>
+        </>
+      }
+      onReload={reload}
+      onSave={() => void save('作者规则已保存')}
+      saveConfirmTitle="确认覆盖当前 WebDAV 作者规则？"
+      columns={columns}
+      rows={rows}
+      rowKey="account"
+      emptyText="暂无作者规则"
+      addTitle="添加作者规则"
+      addBox={
+        <>
           <Input
             placeholder="账号名（如 * 或 Administrators）"
             value={newAccount}
@@ -214,12 +161,14 @@ export default function WebdavPermPanel({ share }: Props) {
           <Button icon={<PlusOutlined />} onClick={handleAdd}>
             添加
           </Button>
-        </Space>
-        <div className="mt-2 text-xs text-fog">
+        </>
+      }
+      hint={
+        <>
           <Tag color="orange">WebDAV</Tag>
           Source 权限允许客户端修改文件元数据（如属性）；组授权使用 roles，用户授权使用 users。
-        </div>
-      </div>
-    </Spin>
+        </>
+      }
+    />
   )
 }

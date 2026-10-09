@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, fireEvent, cleanup, within } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, cleanup, within, act } from '@testing-library/react'
 import { App as AntdApp, ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -845,5 +845,84 @@ describe('设置页 · 读取节奏（无新增轮询风暴）', () => {
     expect(apiStub.state.get).toHaveBeenCalledTimes(1)
     expect(apiStub.firewall.preset).not.toHaveBeenCalled()
     expect(apiStub.firewall.ensure).not.toHaveBeenCalled()
+  })
+})
+
+// 批2（docs/audit/05-renderer-debt.md §3.1 点 14）：磁盘水位草稿的 dirty 语义（C 类派生态迁移回归）
+describe('设置页 · 磁盘水位草稿（C 类派生态：渲染期调整 state）', () => {
+  /** 外部改 appState.alertRules.diskLowGb（模拟主进程落盘后 store 更新） */
+  function externalDiskLowGb(next: number) {
+    act(() => {
+      const s = useAppStore.getState().state
+      useAppStore.setState({ state: { ...s, alertRules: { ...s.alertRules, diskLowGb: next } } })
+    })
+  }
+
+  const diskInput = (card: HTMLElement) =>
+    within(card).getByRole('spinbutton', { name: '磁盘低水位阈值GB' }) as HTMLInputElement
+
+  it('外部值变化→草稿跟随；用户改动→dirty 并只提交这一项', async () => {
+    renderSettings()
+    await openOpsTab()
+    const card = cardByTitle('告警规则')
+    expect(diskInput(card).value).toBe('20')
+
+    // ① 外部值变化：草稿跟随（不再多一次渲染），且不产生任何提交
+    externalDiskLowGb(35)
+    await waitFor(() => expect(diskInput(card).value).toBe('35'))
+    expect(apiStub.state.patch).not.toHaveBeenCalled()
+
+    // ② 用户改动 → dirty（出现「保存」按钮）→ 提交只带 diskLowGb 一个键
+    fireEvent.change(diskInput(card), { target: { value: '30' } })
+    const saveBtn = await within(card).findByRole('button', { name: /保\s*存/ })
+    fireEvent.click(saveBtn)
+    await waitFor(() =>
+      expect(apiStub.state.patch).toHaveBeenCalledWith({ alertRules: { diskLowGb: 30 } }),
+    )
+    expect(apiStub.state.patch).toHaveBeenCalledTimes(1)
+    await expectNotice(/磁盘阈值已保存/)
+    // 提交后不再 dirty
+    await waitFor(() =>
+      expect(within(card).queryByRole('button', { name: /保\s*存/ })).not.toBeInTheDocument(),
+    )
+  })
+
+  it('保存失败：原因可见、草稿退回当前服务端值（不残留脏值）', async () => {
+    apiStub.state.patch.mockImplementation(async () => {
+      throw new Error('diskLowGb 超出允许范围')
+    })
+    renderSettings()
+    await openOpsTab()
+    const card = cardByTitle('告警规则')
+
+    fireEvent.change(diskInput(card), { target: { value: '99999' } })
+    fireEvent.click(await within(card).findByRole('button', { name: /保\s*存/ }))
+
+    await expectNotice(/保存失败：diskLowGb 超出允许范围/)
+    // 草稿退回当前值（20）且不再 dirty
+    await waitFor(() => expect(diskInput(card).value).toBe('20'))
+    await waitFor(() =>
+      expect(within(card).queryByRole('button', { name: /保\s*存/ })).not.toBeInTheDocument(),
+    )
+  })
+
+  it('外部刷新同值不打断"已改但未提交"的草稿（dirty 保持）', async () => {
+    renderSettings()
+    await openOpsTab()
+    const card = cardByTitle('告警规则')
+
+    fireEvent.change(diskInput(card), { target: { value: '30' } })
+    await within(card).findByRole('button', { name: /保\s*存/ })
+
+    // 外部刷新：diskLowGb 仍是 20（值未变），草稿必须保持 30 且仍 dirty
+    externalDiskLowGb(20)
+    expect(diskInput(card).value).toBe('30')
+    expect(within(card).getByRole('button', { name: /保\s*存/ })).toBeInTheDocument()
+
+    // 此时提交的仍是用户改的值
+    fireEvent.click(within(card).getByRole('button', { name: /保\s*存/ }))
+    await waitFor(() =>
+      expect(apiStub.state.patch).toHaveBeenCalledWith({ alertRules: { diskLowGb: 30 } }),
+    )
   })
 })

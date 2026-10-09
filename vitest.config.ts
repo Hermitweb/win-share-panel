@@ -14,6 +14,11 @@ export default defineConfig({
           include: ['electron/**/*.test.ts', 'src/**/*.test.ts'],
           // 压力模拟用例含时序敏感断言（20ms 级 timeout），并发跑高负载时允许重试一次吸收抖动
           retry: 1,
+          // 统一超时基线：默认 5s 在覆盖率插桩 + 全量并发下会被重型 antd+jsdom 用例偶发击穿，
+          // 且超时文件随负载漂移（FirstRunGuide / JournalDrawer / ProtocolSettingsPanels 均出现过），
+          // 逐文件补齐无法覆盖未来新增的重型测试。此处**只放宽超时阈值以消除基建抖动**，
+          // 不代表修好了某个慢测试，也不是性能改进；用例与断言一律未动。
+          testTimeout: 30_000,
         },
       },
       {
@@ -22,6 +27,9 @@ export default defineConfig({
           environment: 'jsdom',
           setupFiles: ['./src/test/setup.ts'],
           include: ['src/**/*.test.tsx'],
+          // 同上：组件测试是重型 antd+jsdom 渲染用例，统一 30s 基线消除负载敏感假红
+          // （放宽阈值，不改任何用例与断言）
+          testTimeout: 30_000,
         },
       },
     ],

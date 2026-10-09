@@ -1,10 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
-import { ConfigProvider, App as AntdApp } from 'antd'
-import zhCN from 'antd/locale/zh_CN'
+import { App as AntdApp } from 'antd'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
+import ThemeProvider from './components/ThemeProvider'
 import { api } from './api'
 import './index.css'
 
@@ -38,16 +38,9 @@ console.error = (...args: unknown[]) => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        token: {
-          colorPrimary: '#7EC8F0',
-          borderRadius: 12,
-          colorBgContainer: 'rgba(255,255,255,0.7)',
-        },
-      }}
-    >
+    {/* 主题接线层：ConfigProvider 由此处移入 ThemeProvider，以便读到 appStore 的主题状态。
+        原先它直接写在这里、位于 <App/> 之上，读不到下层 store，algorithm 只能写死浅色。 */}
+    <ThemeProvider>
       <AntdApp>
         <HashRouter>
           <ErrorBoundary>
@@ -55,6 +48,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </ErrorBoundary>
         </HashRouter>
       </AntdApp>
-    </ConfigProvider>
+    </ThemeProvider>
   </React.StrictMode>,
 )
