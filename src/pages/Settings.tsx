@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Form,
   Switch,
@@ -168,6 +168,43 @@ export default function Settings() {
     a.download = `audit-${Date.now()}.log`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  // A4：审计日志美化为结构化行（JSONL → 时间/操作/对象/结果/原因），末 200 条
+  interface AuditRow {
+    ts?: string
+    action?: string
+    target?: string
+    result?: string
+    detail?: string
+  }
+  const auditRows = useMemo<AuditRow[]>(() => {
+    const lines = audit
+      .split(/\r?\n/)
+      .filter((l) => l.trim())
+      .slice(-200)
+    return lines.map((l) => {
+      try {
+        return JSON.parse(l) as AuditRow
+      } catch {
+        return { action: l }
+      }
+    })
+  }, [audit])
+
+  const copyAudit = async () => {
+    try {
+      await navigator.clipboard.writeText(audit)
+      message.success('审计日志已复制')
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = audit
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      message.success('审计日志已复制')
+    }
   }
 
   // === 应用日志（E6）：查看/复制/导出 ===
@@ -607,12 +644,45 @@ export default function Settings() {
                     label: '审计日志',
                     children: (
                       <div className="glass-card p-3">
-                        <Button className="mb-2" onClick={exportAudit}>
-                          导出日志
-                        </Button>
-                        <pre className="text-xs bg-white/40 p-3 rounded-card max-h-96 overflow-auto whitespace-pre-wrap">
-                          {audit || '暂无日志'}
-                        </pre>
+                        <Space className="mb-2">
+                          <Button onClick={exportAudit}>导出日志</Button>
+                          <Button onClick={copyAudit}>复制</Button>
+                        </Space>
+                        <div className="text-xs text-fog mb-2">
+                          最近 200 条操作审计（谁做了什么、成败与原因）；运行日志见"应用日志"Tab。
+                        </div>
+                        {auditRows.length === 0 ? (
+                          <div className="text-xs text-fog p-3">暂无审计记录</div>
+                        ) : (
+                          <div className="max-h-96 overflow-auto text-xs bg-white/40 p-2 rounded-card">
+                            {auditRows.map((r, i) => (
+                              <div
+                                key={i}
+                                className="flex gap-2 items-center py-1 border-b border-black/5 last:border-0"
+                              >
+                                <span className="text-fog shrink-0">
+                                  {(r.ts || '').replace('T', ' ').slice(0, 19)}
+                                </span>
+                                <span className="shrink-0 font-medium">{r.action ?? '-'}</span>
+                                <span className="truncate flex-1">{r.target ?? ''}</span>
+                                {r.detail && (
+                                  <span
+                                    className="text-red-500 truncate max-w-[240px]"
+                                    title={r.detail}
+                                  >
+                                    {r.detail}
+                                  </span>
+                                )}
+                                <Tag
+                                  color={r.result === 'success' ? 'green' : 'red'}
+                                  style={{ margin: 0 }}
+                                >
+                                  {r.result === 'success' ? '成功' : '失败'}
+                                </Tag>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ),
                   },

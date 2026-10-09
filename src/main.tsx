@@ -21,6 +21,21 @@ window.addEventListener('unhandledrejection', (e) => {
   void api.log?.write('error', `[unhandledrejection] ${detail.slice(0, 3000)}`)
 })
 
+// A3：渲染层 console.error 转发持久化（总量 50 条、单条 1200 字符截断），
+// 使组件级警告（未构成未捕获异常）也能在"应用日志"中回溯
+const origConsoleError = console.error.bind(console)
+let forwardedErrors = 0
+console.error = (...args: unknown[]) => {
+  origConsoleError(...args)
+  if (forwardedErrors++ < 50) {
+    const text = args
+      .map((a) => (a instanceof Error ? (a.stack ?? a.message) : String(a)))
+      .join(' ')
+      .slice(0, 1200)
+    void api.log?.write('error', `[console.error] ${text}`)
+  }
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ConfigProvider

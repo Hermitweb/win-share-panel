@@ -17,6 +17,7 @@ import {
   Empty,
   Spin,
   Divider,
+  Typography,
 } from 'antd'
 import {
   ReloadOutlined,
@@ -63,6 +64,26 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
 
   // 仅 SMB 支持详细操作（连接/打开文件/高级属性）
   const isSmb = share?.protocol === 'smb'
+
+  // A2：主机名用于拼网络路径（SMB→UNC；FTP/WebDAV→访问 URL）
+  const [host, setHost] = useState('')
+  useEffect(() => {
+    let dead = false
+    api.system
+      .currentUser()
+      .then((u) => !dead && setHost(u.computerName))
+      .catch(() => {})
+    return () => {
+      dead = true
+    }
+  }, [])
+  const netPath = (s: Share | null): string => {
+    if (!s) return ''
+    if (s.protocol === 'smb') return `\\\\${host}\\${s.name}`
+    if (s.protocol === 'ftp') return `ftp://${host}${s.port ? ':' + s.port : ''}`
+    if (s.protocol === 'webdav') return `http://${host}${s.port ? ':' + s.port : ''}`
+    return s.path
+  }
 
   const loadConnections = async () => {
     if (!share) return
@@ -211,6 +232,18 @@ export default function ShareDetailDrawer({ open, share, onClose, onSuccess }: P
                 ) as unknown as string,
               },
               { key: 't', label: '类型', children: share?.type || '-' },
+              {
+                key: 'net',
+                label: '网络路径',
+                children:
+                  share && host ? (
+                    <Typography.Text copyable style={{ fontSize: 12 }}>
+                      {netPath(share)}
+                    </Typography.Text>
+                  ) : (
+                    '—'
+                  ),
+              },
               {
                 key: 's',
                 label: '状态',

@@ -1,5 +1,5 @@
 import { log } from '../lib/logger'
-import { userInfo } from 'os'
+import { userInfo, hostname } from 'os'
 import { app } from 'electron'
 import { runPowerShell, runPowerShellVoid, psQuote } from '../lib/powershell'
 import { readAuditLog } from '../lib/audit'
@@ -15,8 +15,9 @@ export function isProtocol(v: unknown): v is Protocol {
 }
 
 export async function getCurrentUser(): Promise<UserInfo> {
-  const name = userInfo().username
-  return { username: name, isAdmin: await isAdmin() }
+  const info = userInfo()
+  // A2：附计算机名供 UI 拼 UNC 路径（\\computer\share）
+  return { username: info.username, isAdmin: await isAdmin(), computerName: hostname() }
 }
 
 export async function isAdmin(): Promise<boolean> {

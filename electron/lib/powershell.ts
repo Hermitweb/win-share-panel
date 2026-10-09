@@ -199,6 +199,16 @@ export function validateShareName(name: unknown): boolean {
   return /^[A-Za-z0-9._\u4e00-\u9fa5 -]{1,79}\$?$/.test(name)
 }
 
+// A1 域账号支持：授权条目/组成员账户名，在共享名校验字符集上额外放行
+// 反斜杠（DOMAIN\user、NT AUTHORITY\SYSTEM、WORKGROUP\machine$）与任意位置 $。
+// 安全性论证：账户名仅经 psQuote 单引号上下文嵌入（已逐点核对 grant/block/revoke/
+// add-member/New-SmbShare 访问列表），单引号串内无插值/转义语义；控制字符与引号
+// 均不在白名单字符集内，长度 ≤120 与 PowerShell 命令行余量兼容。
+export function validateAccountName(name: unknown): boolean {
+  if (typeof name !== 'string' || !name || name.length > 120) return false
+  return /^[A-Za-z0-9._\-\u4e00-\u9fa5 \\$]+$/.test(name)
+}
+
 // Windows 路径校验
 export function validatePath(p: string): boolean {
   // eslint-disable-next-line no-control-regex -- \u0000-\u001f 为显式排除控制字符，正是校验意图本身

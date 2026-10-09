@@ -90,10 +90,10 @@
 
 ### 环境要求 / Prerequisites
 
-- **Node.js** `^20.19.0` 或 `>=22.12.0`（electron-vite 引擎要求；pnpm 11.20+ 需 Node 22）
-- **pnpm** `>=11`（推荐 / recommended）
+- **Node.js** `>=20`（engines 声明；vite7 要求 `^20.19` 或 `>=22.12`，实测 Node 24 可用）
+- **pnpm** `9.x`（package.json `packageManager: pnpm@9.12.0` 为唯一真相源，CI 同源；engines `>=9 <10`）
 - **Windows 10 / 11**（依赖 SMB/NFS PowerShell cmdlet 与 IIS FTP/WebDAV）
-- **管理员权限**（运行时需 UAC 提权 / runtime UAC elevation required）
+- **管理员权限**（打包版经 UAC 自动提权；**开发模式需以管理员终端启动**，否则共享写操作报"权限不足"）
 
 ### 安装与运行 / Install & Run
 
@@ -102,21 +102,23 @@
 #    首次安装会下载 Electron 二进制，已通过 .npmrc 配置 npmmirror 镜像加速
 pnpm install
 
-# 2. 开发模式（HMR）/ Development mode
+# 2. 开发模式（HMR）/ Development mode —— 建议在【管理员终端】中运行
 pnpm dev
 
 # 3. 构建产物（main + preload + renderer）/ Build output
 pnpm build
 
-# 4. 类型检查 / Type check
-pnpm typecheck
-
-# 5. 单元测试 / Unit tests
-pnpm test
+# 4. 质量门禁 / Quality gates（提交前全跑，与 CI 同链）
+pnpm typecheck      # 类型检查（含测试代码，noUnusedLocals/Parameters 收紧）
+pnpm lint           # ESLint（flat config，--max-warnings=0）
+pnpm format:check   # Prettier 风格检查
+pnpm test           # vitest（244 用例）
+pnpm test:coverage  # 含覆盖率棘轮阈值
 ```
 
-> 若 Electron 二进制下载失败 / If Electron binary download fails：
-> 设置环境变量 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 可跳过（仅构建不需要，运行 `pnpm dev` 必须下载）。
+> **日志系统**：运行日志持久化于 `%APPDATA%\WinSharePanel\logs\app.log`（2MB×3 轮转），
+> 渲染层错误/未捕获拒绝自动汇入；应用内查看：设置 →"应用日志"（复制/导出），
+> 或托盘菜单"打开日志文件夹"；命令面板（Ctrl+K）亦有直达入口。
 
 ---
 

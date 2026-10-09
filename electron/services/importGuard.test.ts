@@ -12,6 +12,8 @@ vi.mock('../lib/powershell', () => ({
   psEnum: (v: unknown, allowed: ReadonlySet<string>) =>
     typeof v === 'string' && allowed.has(v) ? v : null,
   validateName: (v: string) => !!v && /^[A-Za-z0-9._\- ]{1,80}$/.test(v),
+  validateShareName: (v: string) => !!v && v.length <= 80,
+  validateAccountName: (v: string) => !!v && v.length <= 120,
   validatePath: (v: string) => /^[A-Za-z]:[\\/]/.test(v),
 }))
 

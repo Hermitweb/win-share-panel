@@ -8,6 +8,7 @@ import {
   psEnum,
   validateName,
   validateShareName,
+  validateAccountName,
   validatePath,
 } from '../lib/powershell'
 import { Errors } from '../lib/errors'
@@ -118,6 +119,12 @@ export async function getShare(name: string): Promise<Share> {
 export async function createShare(opts: CreateShareOpts): Promise<Share> {
   if (!validateName(opts.name)) throw Errors.invalidParam('共享名非法')
   if (!validatePath(opts.path)) throw Errors.invalidParam('路径非法')
+  // A1：访问控制账户逐条账户校验（放行 DOMAIN\user、Everyone 等合法形态，非法即时拒绝）
+  for (const list of [opts.fullAccess, opts.changeAccess, opts.readAccess, opts.noAccess]) {
+    for (const acct of list ?? []) {
+      if (!validateAccountName(acct)) throw Errors.invalidParam(`账号名非法：${acct}`)
+    }
+  }
   // 校验路径必须存在（New-SmbShare 对不存在路径会创建空文件夹，可能不符预期）
   const parts = ['New-SmbShare', `-Name ${psQuote(opts.name)}`, `-Path ${psQuote(opts.path)}`]
   if (opts.description) parts.push(`-Description ${psQuote(opts.description)}`)

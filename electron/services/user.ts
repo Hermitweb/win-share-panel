@@ -5,6 +5,7 @@ import {
   psQuote,
   validateName,
   validateShareName,
+  validateAccountName,
   validatePath,
 } from '../lib/powershell'
 import { Errors } from '../lib/errors'
@@ -298,7 +299,8 @@ export async function renameGroup(name: string, newName: string): Promise<void> 
 
 export async function addGroupMember(group: string, member: string): Promise<void> {
   if (!validateName(group)) throw Errors.invalidParam('组名非法')
-  if (!validateName(member)) throw Errors.invalidParam('成员名非法')
+  // A1：成员允许 DOMAIN\user、机器账户尾 $ 等形态（psQuote 单引号上下文内嵌入）
+  if (!validateAccountName(member)) throw Errors.invalidParam('成员名非法')
   await runPowerShellVoid(
     `Add-LocalGroupMember -Group ${psQuote(group)} -Member ${psQuote(member)}`,
     { retries: 0 },
@@ -307,7 +309,7 @@ export async function addGroupMember(group: string, member: string): Promise<voi
 
 export async function removeGroupMember(group: string, member: string): Promise<void> {
   if (!validateName(group)) throw Errors.invalidParam('组名非法')
-  if (!validateName(member)) throw Errors.invalidParam('成员名非法')
+  if (!validateAccountName(member)) throw Errors.invalidParam('成员名非法')
   await runPowerShellVoid(
     `Remove-LocalGroupMember -Group ${psQuote(group)} -Member ${psQuote(member)}`,
     { retries: 0 },
@@ -349,9 +351,10 @@ export async function setSharePermissions(
   shareName: string,
   perms: SharePermission[],
 ): Promise<void> {
-  if (!validateName(shareName)) throw Errors.invalidParam('共享名非法')
+  if (!validateShareName(shareName)) throw Errors.invalidParam('共享名非法')
   // 入参校验：account 必须合法，不静默跳过（避免用户误以为权限已设但实际未设）
-  const invalid = perms.filter((p) => !validateName(p.account))
+  // A1：account 用账户校验（放行 DOMAIN\user、NT AUTHORITY\SYSTEM、尾 $）
+  const invalid = perms.filter((p) => !validateAccountName(p.account))
   if (invalid.length) {
     throw Errors.invalidParam(`账号名非法：${invalid.map((p) => p.account).join(', ')}`)
   }

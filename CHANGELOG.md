@@ -38,6 +38,11 @@
 - **修复顺带**：SMB"请求压缩"下拉选项与后端白名单不一致（Allow/Require → OptimizeForSpeed/OptimizeForSize，原选项被 psEnum 静默丢弃）
 - **路径选择修复**：新建共享与 FTP 站点配置的路径字段新增"浏览"原生文件夹选择按钮（补注册缺失的 `system:selectFolder` IPC handler → `dialog.showOpenDialog`，此前 preload 暴露了 API 但主进程从未注册，调用必报错）；拖拽取路径从已被 Electron 32+ 移除的 `File.path` 迁移至官方 `webUtils.getPathForFile`（preload 暴露，异常回退空串），手动拖拽与浏览双通道均可用
 - **命令面板完善**：新增"操作"命令组——新建共享 / 强制刷新 / 重新检测协议能力 / 检查服务健康 / **打开日志文件夹**（新 IPC `system:openLogFolder` → shell.openPath）；共享搜索结果提供两个直达动作：**打开详情抽屉**（store 意图 detailTick+detailShare 跨组件直达）与**复制本地路径**；会话结果跳转并自动选中；footer 快捷键提示（↑↓/Enter/Esc）
+- **A1 域账号支持**：新增 `validateAccountName`（放行 `DOMAIN\user`、`NT AUTHORITY\SYSTEM` 形态的反斜杠与尾 `$`，控制字符/引号仍拒；账户名全部经 psQuote 单引号上下文嵌入无插值风险）；应用于权限条目校验、组成员添加/移除、新建共享访问列表逐条守卫、preset 应用（修复内置模板 apply 时账户校验过严的隐患）
+- **A2 UNC/网络路径**：`UserInfo` 增 `computerName`（os.hostname）；共享详情"网络路径"行按协议生成 `\\host\share` / `ftp://host:port` / `http://host:port` 并可一键复制
+- **A3 渲染层 console.error 转发**：main.tsx 拦截 console.error（50 条限额+截断）汇入 app.log，组件级错误亦可回溯
+- **A4 审计日志 Tab 美化**：JSONL 解析为结构化行（时间/操作/对象/原因/成败 Tag）+ 复制按钮，末 200 条
+- **A5 文档同步**：README 环境要求修正（pnpm 11 → 9.x 与 packageManager 同源）、质量门禁命令表、管理员终端提示、日志系统说明
 - **新建共享常见预设**：协议感知场景 chips 一键填入表单（SMB：团队协作/公开只读/私有加密；NFS：只读发布/读写共享/Kerberos 安全共享；FTP：安全分发/匿名下载/内网共享；WebDAV：只读发布/匿名投递），填入后仍可逐项调整
 - 仍开放（专项级，见 docs/audit/00-backlog.md §3.5）：R-8 数据获取模式重构（复启 set-state-in-effect）、R-5 全量组件抽象（三 PermPanel/面板表单复用）、jsdom 组件测试基建
 

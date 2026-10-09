@@ -223,6 +223,8 @@ export interface PresetEntry {
 export interface UserInfo {
   username: string
   isAdmin: boolean
+  /** A2：计算机名，用于拼 UNC 路径（\\computer\share） */
+  computerName: string
 }
 
 export interface DashboardStats {

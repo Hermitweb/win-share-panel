@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import { Errors } from '../lib/errors'
-import { validateName } from '../lib/powershell'
+import { validateName, validateAccountName } from '../lib/powershell'
 import { setSharePermissions, getSharePermissions } from './user'
 import type { PermissionPreset, SharePermission, PresetEntry } from '../types'
 
@@ -262,6 +262,13 @@ export async function applyPreset(
   }
 
   // 复用 user.setSharePermissions 的事务补偿逻辑（含备份+回滚）
+  // A1：resolved account 用账户校验放行域账号反斜杠/尾 $，否则内置模板（Everyone 等）
+  // 或含域账号的自定义模板在 apply 时仍会被 validateName 拒绝
+  for (const p of targetPerms) {
+    if (!validateAccountName(p.account)) {
+      throw Errors.invalidParam(`预设条目账号非法：${p.account}`)
+    }
+  }
   await setSharePermissions(shareName, targetPerms)
 }
 
