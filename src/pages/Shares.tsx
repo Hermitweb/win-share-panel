@@ -36,14 +36,8 @@ import {
   FolderOpenOutlined,
 } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
-import type {
-  Share,
-  PermissionPreset,
-  Protocol,
-  ProtocolCapabilities,
-  LocalUser,
-  LocalGroup,
-} from '../types'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Share, Protocol, ProtocolCapabilities, LocalUser, LocalGroup } from '../types'
 import { api, call } from '../api'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
@@ -141,17 +135,6 @@ const CREATE_SCENARIO_PRESETS: Record<
 
 export default function Shares() {
   const { message, modal } = App.useApp()
-  const [shares, setShares] = useState<Share[]>([])
-  const [presets, setPresets] = useState<PermissionPreset[]>([])
-  const [users, setUsers] = useState<LocalUser[]>([])
-  const [groups, setGroups] = useState<LocalGroup[]>([])
-  const [caps, setCaps] = useState<Record<Protocol, ProtocolCapabilities | null>>({
-    smb: null,
-    nfs: null,
-    ftp: null,
-    webdav: null,
-  })
-  const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editShare, setEditShare] = useState<Share | null>(null)
@@ -177,33 +160,47 @@ export default function Shares() {
   const setProtocolCaps = useUiStore((s) => s.setProtocolCaps)
   const [installingProto, setInstallingProto] = useState<Protocol | null>(null)
 
-  const load = async () => {
-    setLoading(true)
-    try {
+  const queryClient = useQueryClient()
+
+  // B1：数据层 react-query（shares 列表随协议筛选=queryKey；presets/能力/用户/组同批拉取）。
+  // load 保留名称、语义=失效重取，12 处变更回调零改动。
+  const { data, isFetching, error } = useQuery({
+    queryKey: ['shares-page', activeProtocol],
+    queryFn: async () => {
       const proto = activeProtocol === 'all' ? undefined : activeProtocol
       const [s, p, c, u, g] = await Promise.all([
-        call(() => api.adapter.list(proto)),
-        call(api.preset.list),
-        call(api.adapter.capabilities),
-        call(api.user.list).catch(() => [] as LocalUser[]),
-        call(api.user.groups).catch(() => [] as LocalGroup[]),
+        api.adapter.list(proto),
+        api.preset.list(),
+        api.adapter.capabilities(),
+        api.user.list().catch(() => [] as LocalUser[]),
+        api.user.groups().catch(() => [] as LocalGroup[]),
       ])
-      setShares(s)
-      setPresets(p)
-      setCaps(c)
-      setUsers(u)
-      setGroups(g)
-    } catch (e) {
-      message.error((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
+      return { s, p, c, u, g }
+    },
+  })
+  // 引用稳定化：data 不变时保持同一数组引用（react-hooks/exhaustive-deps 要求，防下游 useMemo 失效）
+  const shares = useMemo(() => data?.s ?? [], [data])
+  const presets = useMemo(() => data?.p ?? [], [data])
+  const users = useMemo(() => data?.u ?? [], [data])
+  const groups = useMemo(() => data?.g ?? [], [data])
+  const caps: Record<Protocol, ProtocolCapabilities | null> = data?.c ?? {
+    smb: null,
+    nfs: null,
+    ftp: null,
+    webdav: null,
   }
+  const loading = isFetching
+  const load = () => {
+    void queryClient
+      .invalidateQueries({ queryKey: ['shares-page', activeProtocol] })
+      .catch(() => {})
+  }
+
+  // 首轮失败提示（与原 load catch 语义一致）
   useEffect(() => {
-    load()
-    // 仅协议筛选变化时重载：load 引用每轮渲染变化，有意省略以免无限循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProtocol])
+    if (error && !data) message.error((error as Error).message)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- error/data 引用稳定于单次状态迁移
+  }, [error, data])
 
   // 安装协议
   const handleInstall = async (proto: Protocol) => {
