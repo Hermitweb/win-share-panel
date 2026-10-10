@@ -545,3 +545,13 @@ export interface UpdateCheckResult {
   unavailable: boolean
   reason: string | null
 }
+
+/** 应用与运行时版本（「应用设置 · 关于」卡使用） */
+export interface AppInfo {
+  version: string
+  electron: string
+  chrome: string
+  node: string
+  platform: string
+  arch: string
+}

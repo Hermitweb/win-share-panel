@@ -1,6 +1,7 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { getPool, isPoolEnabled } from './powershellPool'
+import { nativePowerShellExe } from './nativePaths'
 
 const execFileAsync = promisify(execFile)
 
@@ -31,12 +32,14 @@ function encodeCommand(command: string): string {
 
 // 回退路径（WINSHARE_PSPOOL=0 或池禁用时）：单次 execFile 拉起 powershell.exe
 // withJson=true 拼接 ConvertTo-Json（runPowerShell 用），false 则不拼接（runPowerShellVoid 用）
+// 可执行文件走 nativePowerShellExe()：32 位包必须用原生 64 位 PowerShell（理由与实测见
+// lib/nativePaths.ts —— 32 位 PS 没有 Get-LocalUser、IIS COM 未注册）
 async function execOnce(command: string, withJson: boolean, timeout: number): Promise<string> {
   const fullCmd = withJson
     ? `${UTF8_PREFIX}${command} | ConvertTo-Json -Depth 5 -Compress`
     : `${UTF8_PREFIX}${command}`
   const { stdout } = await execFileAsync(
-    'powershell.exe',
+    nativePowerShellExe(),
     [
       '-NoProfile',
       '-NonInteractive',

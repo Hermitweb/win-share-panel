@@ -50,6 +50,7 @@
 | 👥 用户权限 / Users | 本地用户/组 CRUD、共享权限（Full/Change/Read/Deny）、NTFS 权限查看、权限矩阵视图 |
 | 🔄 会话监控 / Sessions | 多协议实时会话、打开文件、强制断开、可配置刷新间隔（1s/5s/10s/30s） |
 | ⚙️ 协议配置 / Settings | SMB / NFS / FTP / WebDAV 服务器配置、服务启停、配置快照与回滚、协议能力探测与引导安装 |
+| 🎛 应用设置 / App Settings | 版本与运行时、项目地址/反馈/下载页、检查更新、偏好与运维（使用模式/主题、开机自启、告警规则、防火墙组内规则、账号安全体检）、设置导入导出、应用日志与审计日志 |
 
 **工程特性 / Engineering Highlights**：
 - **多协议适配器架构**：`ProtocolAdapter` 统一接口，SMB / NFS / FTP / WebDAV 各自实现，`registry` 按协议路由
@@ -62,7 +63,9 @@
 - **审计日志**：轮转上限 5MB×10
 - **崩溃捕获**：electron crashReporter + 本地错误日志轮转
 - **窗口风格化**：无边框 + 自定义标题栏 + Win11 Acrylic/Mica 磨砂材质
-- **全面测试**：191 个单元测试（10 个文件），覆盖注入防护、事务回滚、进程池排队/超时/崩溃、100 并发压测
+- **三架构对齐**：x86 / x64 / arm64 逐架构单独打包（不做内嵌多架构的"胖"安装包）+ 产物 PE 头架构硬校验；x86 包经 `Sysnative` 使用原生 64 位 PowerShell，避免 32 位 PowerShell 的能力缺口
+- **体积优化**：依赖全部由 Vite 打包进 `out/`，故一律放 `devDependencies`（**不要**把 react/antd 搬回 `dependencies`，那会让 electron-builder 把整棵依赖树塞进 `app.asar`：实测 6.51 MiB → 147.9 MiB）；Electron 语言包只保留 `zh-CN` + `en-US`。合计 `Setup-x64` 96.5 → 69.2 MiB、`x64.msi` 106 → 79.0 MiB
+- **全面测试**：710 个单元测试（含注入防护、事务回滚、进程池排队/超时/崩溃、架构路径解析、100 并发压测）
 
 > 📸 截图占位 / Screenshots placeholder（待补充 / TBD）
 
@@ -105,16 +108,40 @@ pnpm install
 # 2. 开发模式（HMR）/ Development mode —— 建议在【管理员终端】中运行
 pnpm dev
 
-# 3. 构建产物（main + preload + renderer）/ Build output
-pnpm build
+# 3. 打包（三架构）/ Package —— 产物在 release/
+pnpm build:win            # x86 + x64 + arm64 全打（逐架构单独打包，产物名带架构标识）
+pnpm build:win:x64        # 只打某个架构（等价：pnpm build:win --arch arm64）
+pnpm build               # 只做 electron-vite 构建（main + preload + renderer），不打包
 
 # 4. 质量门禁 / Quality gates（提交前全跑，与 CI 同链）
 pnpm typecheck      # 类型检查（含测试代码，noUnusedLocals/Parameters 收紧）
 pnpm lint           # ESLint（flat config，--max-warnings=0）
 pnpm format:check   # Prettier 风格检查
-pnpm test           # vitest（244 用例）
+pnpm test           # vitest（710 用例）
 pnpm test:coverage  # 含覆盖率棘轮阈值
 ```
+
+### 下载哪个安装包 / Which build to download
+
+| 架构标识 / Label | 适用系统 / Target OS | 安装包 / Installer |
+|---|---|---|
+| `x64` | 64 位 Windows 10 / 11（绝大多数机器） | `WinShare.Panel-<版本>-Setup-x64.exe` |
+| `x86` | 32 位 Windows 10，或需要在 32 位进程下运行 | `WinShare.Panel-<版本>-Setup-x86.exe` |
+| `arm64` | Windows on ARM（骁龙 X 系列 / Surface Pro X 等） | `WinShare.Panel-<版本>-Setup-arm64.exe` |
+
+每个架构另有免安装的 `-portable-<架构>.exe`；MSI 只提供 `x86` 与 `x64`
+（**arm64 没有 MSI**：electron-builder 25 内置的 WiX 不支持 arm64，会静默把 arm64 请求
+打包成 x64 MSI，那等于给用户一个架构标识错误的安装包，故不提供）。
+`release/SHA256SUMS.txt` 是全部安装包的 SHA-256 校验和。
+
+> **架构标识是硬校验的**：`scripts/build-win.mjs` 在每个架构打包后读取解包主程序的 PE 头
+> Machine 字段（0x014c=x86 / 0x8664=x64 / 0xaa64=arm64），不一致直接构建失败 ——
+> 不会出现"文件名写 arm64、里面装 x64"的包。
+>
+> **x86 包在 64 位系统上会自动使用原生 64 位 PowerShell**（经 `Sysnative`）：
+> 32 位 PowerShell 缺少 `Get-LocalUser`（本地用户页 / 账号体检）且 IIS 的 COM 组件未注册
+> （FTP / WebDAV 站点管理），实测差异见 [electron/lib/nativePaths.ts](electron/lib/nativePaths.ts)。
+> 应用启动时把"进程位宽 → 实际使用的 PowerShell"写进应用日志，可在「应用设置 → 日志」直接核对。
 
 > **日志系统**：运行日志持久化于 `%APPDATA%\WinSharePanel\logs\app.log`（2MB×3 轮转），
 > 渲染层错误/未捕获拒绝自动汇入；应用内查看：设置 →"应用日志"（复制/导出），

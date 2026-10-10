@@ -44,6 +44,7 @@ import type {
   DiagnoseItem,
   DiagnoseFixKind,
   UpdateCheckResult,
+  AppInfo,
 } from '../electron/types'
 
 export type {
@@ -92,6 +93,7 @@ export type {
   DiagnoseItem,
   DiagnoseFixKind,
   UpdateCheckResult,
+  AppInfo,
 }
 
 // 共享连接信息
@@ -215,6 +217,8 @@ export interface WinShareApi {
     /** 升级后重启到新版本；旧进程无此通道，调用方必须先探测存在性 */
     relaunch: () => Promise<void>
     openExternal: (url: string) => Promise<null>
+    /** 应用与运行时版本（应启动时读取一次，不随主题/路由变化） */
+    appInfo: () => Promise<AppInfo>
     pathForFile: (file: File) => string
   }
   log: {

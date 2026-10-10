@@ -44,6 +44,13 @@ const STATIC_NAV: Command[] = [
     group: 'nav',
     action: () => {},
   },
+  {
+    key: '/app-settings',
+    label: '前往：应用设置',
+    hint: '版本 / 项目地址 / 偏好与运维 / 日志',
+    group: 'nav',
+    action: () => {},
+  },
 ]
 
 const GROUP_LABEL: Record<Command['group'], string> = {

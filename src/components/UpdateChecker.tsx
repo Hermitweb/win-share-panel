@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { App, Alert, Button, Space, Tag } from 'antd'
 import { ExportOutlined, ReloadOutlined } from '@ant-design/icons'
 import { api, call } from '../api'
+import { RELEASES_URL as RELEASES_PAGE } from '../utils/appMeta'
 import type { UpdateCheckResult } from '../types'
-
-const RELEASES_PAGE = 'https://github.com/Hermitweb/win-share-panel/releases/latest'
 
 /**
  * 「检查更新」卡片 —— 只检查与提示，**不自动下载安装**。

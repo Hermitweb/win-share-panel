@@ -5,18 +5,36 @@ directories:
   buildResources: resources
 files:
   - out/**/*
+  # out/ 是构建目录，历史上有人往里写过诊断日志（diagnose-test*.log），不该随包发布
+  - '!out/**/*.log'
 asar: true
+# 体积优化：全部第三方依赖由 electron-vite 打进 out/（主进程/预加载实测只 require electron 与
+# node 内置模块），因此它们都在 devDependencies。**不要**把 react/antd 一类搬回 dependencies：
+# electron-builder 会把生产依赖整棵树塞进 app.asar —— 实测 6.51 MiB → 147.9 MiB，安装体积多 180+ MiB。
+# Electron 自带 55 个语言包共 38.3MB，本应用界面是中文（英文备用），
+# 实测只留 zh-CN + en-US 共 0.9MB → 每个架构少 37.4MB（见 docs/DEVELOPMENT.md §11.6）
+electronLanguages:
+  - zh-CN
+  - en-US
 extraResources:
   - from: resources
     to: resources
     filter: ['**/*']
 win:
+  # 三架构：x86(ia32) / x64 / arm64。
+  # 这里的 arch 列表是「基线声明」；实际打包由 scripts/build-win.mjs 逐架构单独调用
+  # electron-builder（避免多个 arch 落在同一次调用里产出「胖」安装包），
+  # 命名里的架构标识由该脚本注入 WINSHARE_ARCH_LABEL（32 位对外写 x86，不写 Electron 的 ia32）。
   target:
     - target: nsis
-      arch: [x64, ia32]
+      arch: [x64, ia32, arm64]
     - target: portable
-      arch: [x64, ia32]
+      arch: [x64, ia32, arm64]
     - target: msi
+      # arm64 不在这里：electron-builder 25 内置的 wix 4.0.0.5512.2 不支持 arm64，
+      # 它会静默把 arm64 请求降级成 x64 MSI（"installs an arm64 version" 的 x64 包装），
+      # 那等于给用户一个架构标识错误的安装包 —— 宁可不提供 arm64 MSI。
+      # arm64 用户用 Setup-arm64.exe（NSIS，原生支持 arm64）或 portable-arm64.exe。
       arch: [x64, ia32]
   icon: resources/icon.ico
   requestedExecutionLevel: requireAdministrator
@@ -27,9 +45,11 @@ nsis:
   createStartMenuShortcut: true
   installerIcon: resources/icon.ico
   uninstallerIcon: resources/icon.ico
-  artifactName: ${productName}-${version}-Setup-${arch}.exe
+  # 架构标识：x86 / x64 / arm64（WINSHARE_ARCH_LABEL 由 scripts/build-win.mjs 注入；
+  # 直接裸跑 electron-builder 会因该变量未定义而明确报错，而不是产出错命名）
+  artifactName: WinShare.Panel-${version}-Setup-${env.WINSHARE_ARCH_LABEL}.${ext}
 portable:
-  artifactName: ${productName}-${version}-portable-${arch}.exe
+  artifactName: WinShare.Panel-${version}-portable-${env.WINSHARE_ARCH_LABEL}.${ext}
 msi:
   oneClick: false
-  artifactName: ${productName}-${version}-${arch}.msi
+  artifactName: WinShare.Panel-${version}-${env.WINSHARE_ARCH_LABEL}.${ext}

@@ -8,6 +8,12 @@
  *   ${productName}-${version}-${arch}.msi
  *
  * 用法：node scripts/build-msi.mjs [--arch x64|ia32]
+ *
+ * 架构标识与 scripts/build-win.mjs 一致：32 位对外写 x86（不写 Electron 内部 id ia32），
+ * 与 electron-builder.yml 的 msi.artifactName 对齐：
+ *   ${productName}-${version}-${arch}.msi  →  WinShare.Panel-<version>-x86.msi / -x64.msi
+ * arm64 不支持：wixl 的 -a 只接受 x86/x64（与 electron-builder 内置 wix 的限制同源），
+ * arm64 安装包请用 NSIS 的 Setup-arm64.exe 或 portable-arm64.exe。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -19,6 +25,19 @@ let arch = 'x64'
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--arch') arch = args[++i]
 }
+
+// 输入别名归一：x86/ia32/32 → ia32（Electron 内部 id）；arm64 明确拒绝而不是静默降级
+const alias = { x86: 'ia32', ia32: 'ia32', 32: 'ia32', x64: 'x64', amd64: 'x64' }
+const normalized = alias[String(arch).toLowerCase()]
+if (!normalized) {
+  console.error(
+    `不支持的架构：${arch}（本脚本只做 x86/x64；arm64 的 MSI 无可用 WiX 支持，请用 Setup-arm64.exe）`,
+  )
+  process.exit(2)
+}
+arch = normalized
+/** 对外架构标识（文件名里用的那个） */
+const archLabel = arch === 'ia32' ? 'x86' : 'x64'
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
 const version = pkg.version
@@ -32,7 +51,7 @@ const win64 = arch === 'x64'
 const unpackedDir = path.resolve(
   arch === 'ia32' ? 'release/win-ia32-unpacked' : 'release/win-unpacked',
 )
-const outMsi = path.resolve('release', `${productName}-${version}-${arch}.msi`)
+const outMsi = path.resolve('release', `WinShare.Panel-${version}-${archLabel}.msi`)
 const wxsPath = path.resolve('release', `msi-${arch}.wxs`)
 
 if (!fs.existsSync(unpackedDir)) {

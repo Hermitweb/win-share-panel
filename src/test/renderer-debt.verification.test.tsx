@@ -188,7 +188,7 @@ const stub = vi.hoisted(() => {
 import PermissionDrawer from '../components/PermissionDrawer'
 import JournalDrawer from '../components/JournalDrawer'
 import NfsSettingsPanel from '../components/NfsSettingsPanel'
-import Settings from '../pages/Settings'
+import AppSettings from '../pages/AppSettings'
 import { useAppStore } from '../stores/appStore'
 import { useUiStore } from '../stores/uiStore'
 
@@ -806,8 +806,8 @@ describe('t4 探针 · JournalDrawer（点 4：B 类迁移）', () => {
 // ============================================================================
 describe('t4 探针 · Settings 磁盘水位草稿（点 14：C 类派生态迁移）', () => {
   const openOpsTab = async () => {
-    renderProbe(<Settings diagnoseLoader={null} />)
-    fireEvent.click(screen.getByRole('tab', { name: /偏好与安全/ }))
+    // 该卡片随「应用设置」提为侧栏独立页（原先挂在设置页的一个页签下），故直接渲染该页
+    renderProbe(<AppSettings />)
     await screen.findByText('磁盘低水位阈值（GB）')
   }
 

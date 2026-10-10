@@ -2,6 +2,35 @@
 
 本文件记录 WinShare Panel 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-10-10
+
+### 🖥 三架构发布（x86 / x64 / arm64）与架构对齐
+
+- **安装包按架构区分并以标识命名**：`WinShare.Panel-<版本>-Setup-{x86,x64,arm64}.exe`（+ 对应的 `-portable-<架构>.exe`）。32 位对外写 **x86**（不再沿用 Electron 内部 id `ia32`）。命名由 `scripts/build-win.mjs` 注入 `WINSHARE_ARCH_LABEL` 生成，裸跑 electron-builder 会因该变量未定义而明确报错，不会产出错命名
+- **逐架构单独打包，不再产出"胖"安装包**：原先一次调用给 `arch: [x64, ia32]`，NSIS/portable 会产出**同时内嵌两套 Electron** 的 196 MB `Setup.exe` / `-portable.exe`（实测与 101 MB / 96 MB 的单架构包并存）。现在每个架构单独调用 electron-builder 并各自输出到 `release/arch-<label>/`，再由脚本收敛产物 —— 用户只下载自己那套
+- **PE 头架构硬校验**：每个架构打包后读取解包主程序 PE `Machine`（`0x014c`=x86 / `0x8664`=x64 / `0xaa64`=arm64），与标识不一致即构建失败。**宁可构建失败，也不发出名字写 arm64、里面装 x64 的包**
+- **arm64 新增支持**：NSIS `Setup-arm64.exe` 与 `portable-arm64.exe` 原生 arm64；**arm64 不提供 MSI** —— electron-builder 25 内置的 wix 4.0.0.5512.2 不支持 arm64，会把请求静默降级成 x64 MSI（其源码注释即写明"results in an x64 MSI installer that installs an arm64 version"），那等于给用户一个架构标识错误的安装包
+- **体积优化（实测取舍）**：
+  - **`app.asar` 去掉整棵生产依赖树**：`externalizeDepsPlugin()` 让 electron-builder 把 `package.json` 的 `dependencies` 全树塞进 asar —— 实测 **147.9 MiB**，而应用源码只有 6.5 MiB；实测 `out/main/index.js` 与 `out/preload/index.js` 只 `require` electron 与 node 内置模块（第三方全部由 Vite 打进 `out/`）。按 electron-vite 约定把 10 个依赖迁到 `devDependencies` 后：**asar 147.9 → 6.51 MiB，解包总量 380 → 198.6 MiB**（同步更新 `pnpm-lock.yaml`，`pnpm install --frozen-lockfile` 通过）
+  - **语言包收敛** `electronLanguages: [zh-CN, en-US]`：55 个 / 38.3 MB → 2 个 / 0.89 MB
+  - **合计**：`Setup-x64` 96.5 → **69.2 MiB**、`portable-x64` 96.3 → **69.0 MiB**、`x64.msi` 106 → **79.0 MiB**（x86 同幅：Setup 91.7 → 64.3 MiB）；不再产出 187.7 MiB 的"胖"安装包
+  - **否决 `compression: maximum`**：实测只省 **10 KB（0.014%）** 却让单次打包多花约 45 秒
+  - 顺手排除 `out/**/*.log`：`out/` 里历史上被写入过 7 个诊断日志（`diagnose-test*.log`），不该随包发布
+- `release/SHA256SUMS.txt`：本版本全部安装包本体的 SHA-256；`release.yml` 上传 `*.exe` + `*.msi` + 校验和（不再上传 `latest.yml` —— 本应用未集成 electron-updater，「检查更新」直接查 GitHub Releases API）
+
+### 🔧 修复 / Fixed（32 位包的功能性缺陷）
+
+- **32 位包改取原生 64 位 PowerShell（`electron/lib/nativePaths.ts` 新增）**：32 位进程在 64 位 Windows 上，`System32` 被 WOW64 重定向到 `SysWOW64`，裸名 `powershell.exe` 拉起的是 32 位 PowerShell。本机实测同一段探针在两种位宽下的差异：`Get-LocalUser` 在 32 位下**命令不存在**（缺 `Microsoft.PowerShell.LocalAccounts`）→ 用户权限页与账号安全体检直接不可用；IIS `Get-Website`（WebAdministration）**COM 类未注册 0x80040154** → FTP/WebDAV 面板与 IIS 能力探测失败；`ProgramFilesDir` 落在 WOW6432Node 视图。修复方式是按「存在即优先」探测 `Sysnative → System32`（`Sysnative` 只有 32 位进程可见，指向真正的原生 System32；本机实测 64 位进程 `Test-Path`=False、32 位进程=True），三种情形各自得到与操作系统同位宽的 PowerShell，且不依赖 `PROCESSOR_ARCHITEW6432` 一类环境推断。主进程启动时把「进程位宽 → 实际使用的 PowerShell」写进应用日志，用户可在「应用设置 → 日志」自行核对；`electron/lib/nativePaths.test.ts` 用注入的 `exists` 固化三条分支（9 例）
+- 应用设置页的审计日志表改用稳定 `key`（原 `rowKey={(_, i) => String(i)}` 触发 antd v6「rowKey 函数取下标已废弃」告警）；测试桩补齐 HealthBar 所需通道，消除 `AppSettings.test.tsx` 的未处理 Promise 拒绝（此前 701 例全绿但 vitest 报 `Errors 1 error`）
+
+### ✨ 新增 / Added（应用设置独立成页）
+
+- **「应用设置」从「服务配置」的页签提为侧栏独立一项（`/app-settings`）**：原先它混在服务与协议配置的页签里，应用级开关（使用模式/主题、开机自启、告警规则、防火墙组内规则、账号安全体检）与模块 5 的 SMB/NFS/FTP/WebDAV 服务参数互不相干，入口难找。现拆成 `pages/AppSettings.tsx` + `components/AppSettingsCards.tsx`（五张卡片纯位移，查询 key / 乐观更新 / F5 tick 行为逐字保留），`pages/Settings.tsx` 只留服务与协议内容（净减 800 余行）
+- **新增「关于」卡**：版本号与运行时（Electron/Chromium/Node/platform/arch）来自主进程新通道 `system:appInfo`（`app.getVersion()` + `process.versions`），**不在前端写死**；项目地址 / 问题反馈 / 下载页可一键复制或经 `system:openExternal`（主进程 http/https 白名单校验）在浏览器打开。仓库地址收敛到 `src/utils/appMeta.ts` 单一落点（`UpdateChecker` 里原先另写一份的常量随之收口；与主进程 `services/update.ts` 的双份常量关系已在文件头注明）
+- **日志集成到本页**：应用日志（`app.log` 尾部 300 行，可刷新/复制/导出/打开日志目录）与审计日志（JSONL 解析为「时间/操作/对象/原因/结果」表格，末 200 条）从**错挂在 SMB 页签下**的位置搬来，与「关于 / 版本 / 项目地址」同处一处；两个面板各自持有 `useQuery`，不再搭上服务配置页那条「一次并发拉 6 项」的大查询
+- **导航补齐**：命令面板（Ctrl+K）新增「前往：应用设置」；侧栏入口的回归用例落在 `src/pages/AppSettings.test.tsx`（原先的偏好/运维/体检用例整体迁到该文件与 `Settings.test.tsx` 的 `renderAppSettings()`）
+- 主进程新增通道 `system:appInfo`（`electron/ipc/index.ts` + `preload.ts` + `electron/types.ts`/`src/types.ts` 的 `AppInfo` 类型），属新增通道：旧进程缺它时按既有「界面与后台版本不一致」提示处理
+
 ## [1.2.0] - 2026-10-10
 
 ### 🧹 技术债清零 / Debt（渲染层批 2：renderer-debt）

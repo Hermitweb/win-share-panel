@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import Sessions from './pages/Sessions'
 import Settings from './pages/Settings'
+import AppSettings from './pages/AppSettings'
 import { useHotkeys } from './hooks/useHotkeys'
 import { useUiStore } from './stores/uiStore'
 import { useAppStore } from './stores/appStore'
@@ -86,6 +87,7 @@ export default function App() {
           <Route path="/users" element={<Users />} />
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/app-settings" element={<AppSettings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />

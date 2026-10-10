@@ -35,6 +35,7 @@ import type {
   DiagnoseItem,
   DiagnoseFixKind,
   UpdateCheckResult,
+  AppInfo,
 } from './types'
 
 const api = {
@@ -180,6 +181,8 @@ const api = {
     relaunch: (): Promise<void> => ipcRenderer.invoke('system:relaunch'),
     // 打开外部链接（仅 http/https，由主进程校验后交给系统默认浏览器）
     openExternal: (url: string): Promise<null> => ipcRenderer.invoke('system:openExternal', url),
+    // 应用与运行时版本（应用设置页的「关于」）
+    appInfo: (): Promise<AppInfo> => ipcRenderer.invoke('system:appInfo'),
     // 拖拽取路径：Electron 32+ 已移除 sandbox 渲染进程的 File.path，官方替代为 webUtils；
     // 无本地路径的 File（如网页数据）返回空串，由调用方回退处理
     pathForFile: (file: unknown): string => {

@@ -2,6 +2,7 @@ import { log } from './logger'
 import { spawn } from 'child_process'
 import { randomBytes } from 'crypto'
 import type { Writable, Readable } from 'stream'
+import { nativePowerShellExe } from './nativePaths'
 
 // === PowerShell 常驻进程池 ===
 //
@@ -115,10 +116,12 @@ function buildServerScript(
   ].join('\n')
 }
 
-// 默认工厂：spawn 真实 powershell.exe，加载服务端脚本
+// 默认工厂：spawn 真实 powershell.exe，加载服务端脚本。
+// 可执行文件走 nativePowerShellExe()：32 位包在 64 位系统上必须取原生 64 位 PowerShell，
+// 否则 Get-LocalUser / IIS 站点查询等能力直接缺失（实测见 lib/nativePaths.ts）
 export function defaultWorkerFactory(serverEncoded: string): WorkerHandle {
   const child = spawn(
-    'powershell.exe',
+    nativePowerShellExe(),
     [
       '-NoProfile',
       '-NonInteractive',

@@ -92,7 +92,8 @@ WinShare Panel
 ├── 2. 共享文件夹管理 (Shares)       ← 核心：增删改查共享
 ├── 3. 用户与权限管理 (Users)        ← 用户/组、共享权限、NTFS 权限
 ├── 4. 会话与连接监控 (Sessions)     ← 实时会话、打开文件、强制断开
-└── 5. SMB 服务配置 (Settings)      ← SMB 服务器参数、日志、审计
+├── 5. 服务配置 (Settings)          ← 服务与协议参数：SMB/NFS/FTP/WebDAV、权限模板、快照
+└── 6. 应用设置 (AppSettings)       ← 应用自身：版本/项目地址/检查更新、偏好与运维、应用与审计日志
 ```
 
 ### 3.2 模块详细设计
@@ -140,17 +141,29 @@ WinShare Panel
 - **实时刷新**：可配置刷新间隔（1s/5s/10s/30s），支持暂停
 - **历史记录**（可选，v2）：会话连接/断开日志
 
-#### 模块 5：SMB 服务配置
+#### 模块 5：服务配置（Settings，侧栏「服务配置」）
 - **服务器配置**
   - SMB 协议版本启用（SMB1/SMB2/SMB3）
   - 未身份验证的来宾访问
   - 加密设置
   - 审核日志级别
   - 保持连接超时、空闲超时等参数
+- **协议面板**：NFS / FTP（含被动端口段）/ WebDAV 的服务参数与共享权限
+- **权限模板**：内置模板查看/复制，自定义模板编辑/删除，支持导入导出
+- **快照历史**：SMB 配置写入前的自动快照与回滚
 - **日志查看**：SMB 相关 Windows 事件日志
-- **审计设置**：记录所有面板操作到本地日志文件
 - **服务控制**：重启 Server 服务（lanmanserver）
 - **危险操作二次确认**
+
+#### 模块 6：应用设置（AppSettings，侧栏「应用设置」）
+> 与模块 5 的分工：模块 5 改的是**被管理的服务与协议**，本模块改的是**这个面板自己**。
+> 原先它混在模块 5 的页签里，应用级开关（自启/告警/体检）与日志错挂在 SMB 页签下。
+- **关于**：版本号与运行时（Electron/Chromium/Node，来自主进程 `system:appInfo`，非前端写死）、
+  项目地址、问题反馈、下载页（复制 / 走白名单校验的 `system:openExternal` 在浏览器打开）
+- **检查更新**：查 GitHub Releases，只提示不自动下载安装
+- **备份与恢复**：应用偏好与运维规则的导出/导入（`state:exportAll/importAll`）
+- **偏好与运维**：新手/专家模式与主题、开机自启、告警规则四项、防火墙组内规则、账号安全体检
+- **日志**：应用日志（`app.log` 尾部，可复制/导出/打开日志目录）与审计日志（JSONL → 结构化表格）
 
 ---
 
@@ -659,12 +672,12 @@ win-share-panel/
 
 | 能力 | 主进程 | 渲染层入口 | 诚实边界 |
 |---|---|---|---|
-| 一键诊断 | `services/diagnose.ts` + `diagnose:run/applyFix` | 共享页工具栏 / 行内「诊断此共享」/ 设置页 / 命令面板 | 修复动作需管理员；路径一律服务端重解析后走 `validatePath` |
+| 一键诊断 | `services/diagnose.ts` + `diagnose:run/applyFix` | 共享页工具栏 / 行内「诊断此共享」/ 服务配置页 / 命令面板 | 修复动作需管理员；路径一律服务端重解析后走 `validatePath` |
 | 操作回收站 | `lib/stateStore.ts` journal + `services/journal.ts` | 共享页「操作回收站」抽屉 / 命令面板 | 仅 SMB 的删除/禁用/权限变更可撤销；create 与非 SMB 删除只留档 |
 | 磁盘水位 | `services/disk.ts`（`Get-PSDrive`） | 共享页行内标 + 仪表板概览 | UNC 无盘符不显示水位（未知即未知） |
-| 防火墙组内规则 | `services/firewall.ts`（`WinShare Panel` 组） | 设置页防火墙卡 + 诊断修复按钮 | 只增删本应用组内规则，不动系统/第三方规则 |
+| 防火墙组内规则 | `services/firewall.ts`（`WinShare Panel` 组） | 应用设置页防火墙卡 + 诊断修复按钮 | 只增删本应用组内规则，不动系统/第三方规则 |
 | 首启向导 | `disk:suggestRoot` + `appstate.json` | `components/FirstRunGuide`（`App.tsx` 的 FirstRunMount） | 空共享 + 未标记 + 新手模式才弹；「以后再说」只关本次会话 |
-| 双模式 | `appState.advancedMode` | 设置页开关，全站读取 | 新手模式只收敛展示，不改变已保存的配置值 |
+| 双模式 | `appState.advancedMode` | 应用设置页开关，全站读取 | 新手模式只收敛展示，不改变已保存的配置值 |
 | 趋势/告警 | 主进程 5min 采样 + `appState.alertRules` | 仪表板趋势卡与「需要关注」 | 服务未起跳过采样（不写假点）；字段缺失的检查项如实省略 |
 | 权限报告 | —（复用既有权限矩阵数据） | 权限矩阵「导出报告(HTML)」 | 仅共享权限，未含 NTFS 有效权限 |
 
@@ -700,8 +713,9 @@ win-share-panel/
 - **移除 Express**：纯 IPC 通信，不引入 HTTP 服务
 - **ECharts 按需引入**：仅引入仪表板用到的图表模块 + Tree Shaking
 - **Ant Design 按需加载 + Tree Shaking**
-- **自动更新**：electron-updater，发版后自动升级
-- **部署定位**：本应用为 Windows 本地桌面应用（管理本机 SMB 必须在 Windows 跑 PowerShell），Vercel/Railway/树莓派均不适用；低成本方案聚焦便携版 + 自动更新 + 免安装
+- **Electron 语言包收敛**：`electronLanguages: [zh-CN, en-US]`，每架构省 37.4 MB（实测，见 11.6）
+- **更新策略（如实）**：**未集成 electron-updater**（它需要 electron-builder `publish` 配置、代码签名与线上 `latest.yml` 三件套）；应用内「检查更新」查 GitHub Releases 最新版并提示，**不自动下载安装**，由用户手动取新包
+- **部署定位**：本应用为 Windows 本地桌面应用（管理本机 SMB 必须在 Windows 跑 PowerShell），Vercel/Railway/树莓派均不适用；低成本方案聚焦便携版 + 免安装
 
 ### 10.5 预防性清单（防踩坑）
 | 编号 | 建议 | 防的坑 |
@@ -826,8 +840,13 @@ appId: com.winshare.panel
 productName: WinShare Panel
 directories:
   buildResources: resources
+asar: true
+electronLanguages: [zh-CN, en-US]        # 语言包收敛：每架构省 37.4 MB（实测）
 win:
-  target: nsis
+  target:                                # 三架构；实际由 scripts/build-win.mjs 逐架构单独打包
+    - { target: nsis,     arch: [x64, ia32, arm64] }
+    - { target: portable, arch: [x64, ia32, arm64] }
+    - { target: msi,      arch: [x64, ia32] }   # arm64 无 MSI（见 11.6）
   icon: resources/icon.ico                       # 应用图标
   requestedExecutionLevel: requireAdministrator   # 强制管理员权限
 nsis:
@@ -836,11 +855,92 @@ nsis:
   createDesktopShortcut: true
   installerIcon: resources/icon.ico
   uninstallerIcon: resources/icon.ico
+  artifactName: WinShare.Panel-${version}-Setup-${env.WINSHARE_ARCH_LABEL}.${ext}
 ```
 
-### 11.5 CI/CD 发布
+### 11.5 三架构打包与架构对齐（v1.3.0）
 
-推送 `v*` 标签触发 [`.github/workflows/release.yml`](../.github/workflows/release.yml)：`windows-latest` 上 `pnpm install` → `pnpm typecheck` → `pnpm build:win` → 上传 `release/*.exe` + `latest.yml` 到 GitHub Release。
+#### 为什么逐架构单独打包（`scripts/build-win.mjs`）
+
+同一次 electron-builder 调用里给多个 `arch`，NSIS/portable 会产出**内嵌多架构的"胖"安装包**
+（v1.2.0 的 `release/` 里实测同时存在 196 MB 的 `Setup.exe` / `-portable.exe` 与 101 MB / 96 MB
+的单架构包）。逐架构单独调用的收益：① 用户只下载自己那套 Electron；② 架构标识可按架构分别命名
+（Electron 内部 id 是 `ia32`，对外必须写 `x86`）；③ arm64 的 MSI 不会被静默降级。
+
+打包脚本的三道保障：
+
+1. **命名即承诺**：`WINSHARE_ARCH_LABEL`（x86/x64/arm64）注入 `artifactName`；
+   直接裸跑 electron-builder 会因该变量未定义而明确报错，不会产出错命名。
+2. **PE 头硬校验**：每个架构打包后读解包主程序的 PE `Machine`
+   （`0x014c`=x86 / `0x8664`=x64 / `0xaa64`=arm64），不一致直接构建失败。
+3. **校验和**：`release/SHA256SUMS.txt` 覆盖本版本全部安装包本体，供下载方核对。
+
+#### 32 位包为什么必须取原生 64 位 PowerShell（`electron/lib/nativePaths.ts`）
+
+32 位进程在 64 位 Windows 上，`C:\Windows\System32` 会被 WOW64 重定向到 `SysWOW64`，
+裸名 `powershell.exe` 拉起的是 **32 位 PowerShell**。本机实测同脚本在两种位宽下的差异：
+
+| 探针 | 32 位 PowerShell | 64 位 PowerShell | 受影响的界面 |
+|---|---|---|---|
+| `Get-LocalUser` | **命令不存在**（缺 `Microsoft.PowerShell.LocalAccounts`） | 正常 | 用户权限页、账号安全体检 |
+| IIS `Get-Website`（WebAdministration） | **COM 类未注册 0x80040154** | 正常 | FTP / WebDAV 面板、IIS 能力探测 |
+| `HKLM:\...\CurrentVersion` 的 `ProgramFilesDir` | `C:\Program Files (x86)`（WOW6432Node） | `C:\Program Files` | 依赖注册表视图的判断 |
+| `Get-SmbShare` / `Get-SmbServerConfiguration` | 正常 | 正常 | （无差异） |
+
+修复：`Sysnative` 是只有 32 位进程可见的虚拟别名，指向真正的原生 System32
+（本机实测：64 位进程 `Test-Path` = False；32 位进程 = True）。因此按"存在即优先"探测
+`Sysnative → System32`，三种情形各自得到与操作系统同位宽的 PowerShell：32 位进程在 64 位系统上
+命中 Sysnative、64 位进程落回 System32、纯 32 位系统落回 System32（唯一可用版本）。
+
+主进程启动时把「进程位宽 → 实际使用的 PowerShell」写进应用日志，用户无需调试器即可核对；
+`electron/lib/nativePaths.test.ts` 用注入的 `exists` 固化三条分支。
+
+> `inetsrv\appcmd.exe` 无需同样处理：实测 System32 与 SysWOW64 **都存在**该文件，
+> 且拉起原生 PowerShell 后 PS 内部的 `system32` 本身就是原生视图。
+
+### 11.6 体积优化（实测取舍）
+
+| 措施 | 实测效果 | 结论 |
+|---|---|---|
+| 依赖全部放 `devDependencies` | `app.asar` **147.9 → 6.51 MiB**，解包总量 380 → 198.6 MiB | **采纳**（见下方"为什么"） |
+| `electronLanguages: [zh-CN, en-US]` | 语言包 55 个 / 38.3 MB → 2 个 / 0.89 MB | **采纳** |
+| `compression: maximum` | 73,589,372 B → 73,578,834 B（**省 10 KB / 0.014%**），单次打包多花约 45 s | **否决**（净收益为零） |
+| 排除 `out/**/*.log` | 去掉误入包的 7 个诊断日志（`diagnose-test*.log`） | **采纳** |
+| 逐架构单独打包 | 不再产出 187.7 MiB 的胖安装包；每个用户只下自己那套 | **采纳** |
+| arm64 不提供 MSI | 避免"x64 MSI 装 arm64"的错标识包 | **采纳**（用 NSIS/portable） |
+
+最终产物（v1.3.0 实测）：
+
+| 产物 | v1.2.0 | v1.3.0 |
+|---|---|---|
+| `Setup-x64.exe` | 96.5 MiB | **69.2 MiB** |
+| `portable-x64.exe` | 96.3 MiB | **69.0 MiB** |
+| `x64.msi` | 106 MiB | **79.0 MiB** |
+| `Setup-x86.exe` | 91.7 MiB | **64.3 MiB** |
+| `Setup-arm64.exe` | — | **73.0 MiB**（新增） |
+| `Setup.exe` / `portable.exe`（胖） | 187.7 / 187.5 MiB | 不再产出 |
+
+#### 为什么依赖必须放 `devDependencies`
+
+`electron.vite.config.ts` 用 `externalizeDepsPlugin()`（main / preload）。electron-builder 的依赖收集器
+不看"实际 require 了什么"，而是把 `package.json` 的 **`dependencies` 整棵树**复制进 `app.asar`：
+本项目这棵树有 147.9 MiB（antd/echarts/react 等），而应用自身只有 6.5 MiB。
+实测打包产物里 `out/main/index.js` 与 `out/preload/index.js` 只 require
+`electron` / `child_process` / `crypto` / `fs` / `os` / `path` / `util` ——
+第三方全部被 Vite 打包进 `out/`，运行期不需要任何 `node_modules`。
+
+因此规则是：**凡是会被 Vite 打进 `out/` 的依赖，一律放 `devDependencies`**。
+把 `react`/`antd` 一类搬回 `dependencies` 会让每个安装包悄悄胖 20 MiB、安装后多占 180+ MiB，
+`electron-builder.yml` 与本节都写明了这条约束以免被"顺手修好"。
+
+### 11.7 CI/CD 发布
+
+推送 `v*` 标签触发 [`.github/workflows/release.yml`](../.github/workflows/release.yml)：
+`windows-latest` 上 `pnpm install` → `pnpm typecheck` → `pnpm build:win`（三架构）→
+上传 `release/*.exe` + `release/*.msi` + `release/SHA256SUMS.txt` 到 GitHub Release。
+
+> `latest.yml` 不再上传：本应用**没有集成 electron-updater**（应用内「检查更新」直接查
+> GitHub Releases API，只提示、不自动下载安装），`latest.yml` 只对 electron-updater 有意义。
 
 ---
 

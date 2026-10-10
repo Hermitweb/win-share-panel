@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { AppState, AppStatePatch, DesiredRule, SecurityReport } from '../types'
 
 // ============================================================================
-// t6 设置页「偏好与安全」：使用模式 / 开机自启 / 告警规则 / 防火墙组内规则 /
+// 原 t6 设置页「应用设置」页签（现已提为侧栏独立页 pages/AppSettings）：使用模式 / 开机自启 / 告警规则 / 防火墙组内规则 /
 // 账号安全体检 + 「一键诊断」入口。
 // appState 用模块内 persisted 变量模拟主进程落盘，所以"重开仍在"是真的卸载重挂验证，
 // 而不是断言 mock 被调过；写失败用例断言"原因可见 + 值回滚"，不吞错。
@@ -195,6 +195,7 @@ const apiStub = vi.hoisted(() => {
 })
 
 import Settings, { type DiagnoseLoader, type SettingsProps } from './Settings'
+import AppSettings from './AppSettings'
 import { useAppStore } from '../stores/appStore'
 import { useUiStore } from '../stores/uiStore'
 
@@ -293,9 +294,25 @@ function renderSettings(props: SettingsProps = {}) {
   )
 }
 
-/** 打开「偏好与安全」Tab（antd Tabs 懒挂载：没点开就不会发防火墙/体检请求） */
-async function openOpsTab() {
-  fireEvent.click(await screen.findByRole('tab', { name: /偏好与安全/ }))
+/** 渲染「应用设置」独立页（原先它是「服务配置」里的一个页签，现已提为侧栏一项） */
+function renderAppSettings() {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: 0, refetchOnWindowFocus: false } },
+  })
+  return render(
+    <ConfigProvider locale={zhCN}>
+      <AntdApp>
+        <QueryClientProvider client={qc}>
+          <AppSettings />
+        </QueryClientProvider>
+      </AntdApp>
+    </ConfigProvider>,
+  )
+}
+
+/** 打开「应用设置」页并等它渲染完成 */
+async function openAppSettings() {
+  renderAppSettings()
   await screen.findByText('使用模式与外观')
 }
 
@@ -344,10 +361,9 @@ async function pickSelectOption(combobox: HTMLElement, label: string) {
   fireEvent.click(target)
 }
 
-describe('设置页 · 使用模式与外观', () => {
+describe('应用设置 · 使用模式与外观', () => {
   it('切到新手模式写入 advancedMode 并持久化；卸载重挂后仍是新手（重开仍在）', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     expect(
       screen.getByText(/专家模式会展开高级参数（未认证超时 \/ 会话超时 \/ 每连接最大会话/),
     ).toBeInTheDocument()
@@ -359,8 +375,7 @@ describe('设置页 · 使用模式与外观', () => {
 
     cleanup()
     apiStub.state.get.mockClear()
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     // 重挂后要等 hydrate 真正读完主进程偏好；跑全量时并行负载会让首帧慢于默认 1s 轮询窗口
     await waitFor(() => expect(apiStub.state.get).toHaveBeenCalled(), { timeout: 5000 })
     await waitFor(() => expect(segmentSelected('新手模式')).toBe(true), { timeout: 5000 })
@@ -386,8 +401,7 @@ describe('设置页 · 使用模式与外观', () => {
     apiStub.state.patch.mockImplementation(async () => {
       throw new Error('advancedMode 必须为布尔值')
     })
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     await waitFor(() => expect(segmentSelected('专家模式')).toBe(true))
     fireEvent.click(screen.getByRole('radio', { name: '新手模式' }))
     await expectNotice(/advancedMode 必须为布尔值/)
@@ -396,18 +410,16 @@ describe('设置页 · 使用模式与外观', () => {
   })
 
   it('主题切换写入 appState.theme=dark', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     fireEvent.click(screen.getByRole('radio', { name: '深色' }))
     await waitFor(() => expect(apiStub.state.patch).toHaveBeenCalledWith({ theme: 'dark' }))
     expect(persisted.theme).toBe('dark')
   })
 })
 
-describe('设置页 · 开机自启', () => {
+describe('应用设置 · 开机自启', () => {
   it('进入页面读取真实状态：系统已开启则开关显示已开启', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     await waitFor(() => expect(apiStub.system.autoStart).toHaveBeenCalledTimes(1))
     const card = cardByTitle('开机自启')
     await waitFor(() =>
@@ -418,8 +430,7 @@ describe('设置页 · 开机自启', () => {
 
   it('关闭写入成功：以主进程读回的真实值显示，并把意愿持久化', async () => {
     apiStub.system.setAutoStart.mockImplementation(async () => false)
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('开机自启')
     await waitFor(() =>
       expect(within(card).getByRole('switch', { name: '开机自启开关' })).toBeChecked(),
@@ -437,8 +448,7 @@ describe('设置页 · 开机自启', () => {
     apiStub.system.setAutoStart.mockImplementation(async () => {
       throw new Error('设置开机自启失败：拒绝访问')
     })
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('开机自启')
     await waitFor(() =>
       expect(within(card).getByRole('switch', { name: '开机自启开关' })).toBeChecked(),
@@ -457,8 +467,7 @@ describe('设置页 · 开机自启', () => {
   it('系统读回值与请求不一致（被策略驳回）：如实提示当前状态', async () => {
     // 当前真实值=开启；请求关闭但主进程读回仍是开启 → 不能报"已关闭"
     apiStub.system.setAutoStart.mockImplementation(async () => true)
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('开机自启')
     await waitFor(() =>
       expect(within(card).getByRole('switch', { name: '开机自启开关' })).toBeChecked(),
@@ -473,8 +482,7 @@ describe('设置页 · 开机自启', () => {
 
   it('平台不支持（返回 null）：整卡隐藏，不给改不动的开关', async () => {
     apiStub.system.autoStart.mockImplementation(async () => null)
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     await waitFor(() => expect(apiStub.system.autoStart).toHaveBeenCalled())
     await screen.findByText('告警规则') // 其余卡片正常渲染
     expect(screen.queryByText('开机自启')).not.toBeInTheDocument()
@@ -485,8 +493,7 @@ describe('设置页 · 开机自启', () => {
     apiStub.system.autoStart.mockImplementation(async () => {
       throw new Error('IPC 通道未注册')
     })
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('开机自启')
     await waitFor(() =>
       expect(within(card).getByText(/读取开机自启状态失败：IPC 通道未注册/)).toBeInTheDocument(),
@@ -495,10 +502,9 @@ describe('设置页 · 开机自启', () => {
   })
 })
 
-describe('设置页 · 告警规则', () => {
+describe('应用设置 · 告警规则', () => {
   it('四项都可编辑：每次只提交被改的那一项，其余项由浅合并保留', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('告警规则')
 
     fireEvent.click(within(card).getByRole('switch', { name: 'SMB1 接入告警开关' }))
@@ -543,8 +549,7 @@ describe('设置页 · 告警规则', () => {
 
   it('空闲提醒选「关闭」提交 null（而非 0）', async () => {
     persisted.alertRules.idleAlertMinutes = 30
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('告警规则')
     await pickSelectOption(within(card).getByRole('combobox', { name: '空闲会话提醒' }), '关闭')
     await waitFor(() =>
@@ -556,8 +561,7 @@ describe('设置页 · 告警规则', () => {
   })
 
   it('阈值没改动就不提交（避免无意义写入）', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('告警规则')
     const disk = within(card).getByRole('spinbutton', { name: '磁盘低水位阈值GB' })
     fireEvent.change(disk, { target: { value: '20' } })
@@ -570,8 +574,7 @@ describe('设置页 · 告警规则', () => {
     apiStub.state.patch.mockImplementation(async () => {
       throw new Error('idleAlertMinutes 必须为正数或 null')
     })
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('告警规则')
     fireEvent.click(within(card).getByRole('switch', { name: 'SMB1 接入告警开关' }))
     await expectNotice(/保存失败：idleAlertMinutes 必须为正数或 null/)
@@ -581,10 +584,9 @@ describe('设置页 · 告警规则', () => {
   })
 })
 
-describe('设置页 · 防火墙规则（WinShare Panel 组）', () => {
+describe('应用设置 · 防火墙规则（WinShare Panel 组）', () => {
   it('列表只展示组内规则，并写明不动系统规则', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     await waitFor(() => expect(apiStub.firewall.list).toHaveBeenCalledTimes(1))
     const card = cardByTitle('防火墙规则')
     expect(within(card).getByText('WinShare SMB (445/TCP)')).toBeInTheDocument()
@@ -598,8 +600,7 @@ describe('设置页 · 防火墙规则（WinShare Panel 组）', () => {
   })
 
   it('预设添加：期望规则由主进程生成后幂等 ensure；组内已存在时如实说"无需重复添加"', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('防火墙规则')
     fireEvent.click(within(card).getByRole('button', { name: /添加预设规则/ }))
     await waitFor(() => expect(apiStub.firewall.preset).toHaveBeenCalledWith('smb', undefined))
@@ -620,8 +621,7 @@ describe('设置页 · 防火墙规则（WinShare Panel 组）', () => {
   })
 
   it('ftpPassive 需端口范围：from>to 时禁止提交并说明，范围合法才带 opts 调用', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('防火墙规则')
     await pickSelectOption(
       within(card).getByRole('combobox', { name: '防火墙预设' }),
@@ -658,8 +658,7 @@ describe('设置页 · 防火墙规则（WinShare Panel 组）', () => {
   })
 
   it('删除有二次确认：确认前不调用 remove；确认后调用并重读组内规则', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('防火墙规则')
     await waitFor(() => expect(within(card).getAllByRole('row')).toHaveLength(3))
     const row = within(card).getAllByRole('row')[1]
@@ -686,8 +685,7 @@ describe('设置页 · 防火墙规则（WinShare Panel 组）', () => {
     apiStub.firewall.remove.mockImplementation(async () => {
       throw new Error('规则正被占用')
     })
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('防火墙规则')
     await waitFor(() => expect(within(card).getAllByRole('row')).toHaveLength(3))
     const row = within(card).getAllByRole('row')[1]
@@ -706,8 +704,7 @@ describe('设置页 · 防火墙规则（WinShare Panel 组）', () => {
     apiStub.firewall.ensure.mockImplementation(async () => {
       throw new Error('需要管理员权限')
     })
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('防火墙规则')
     fireEvent.click(within(card).getByRole('button', { name: /添加预设规则/ }))
     await expectNotice(/添加防火墙规则失败：需要管理员权限/)
@@ -718,8 +715,7 @@ describe('设置页 · 防火墙规则（WinShare Panel 组）', () => {
     apiStub.firewall.list.mockImplementation(async () => {
       throw new Error('Get-NetFirewallRule 失败')
     })
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('防火墙规则')
     await waitFor(() =>
       expect(
@@ -730,10 +726,9 @@ describe('设置页 · 防火墙规则（WinShare Panel 组）', () => {
   })
 })
 
-describe('设置页 · 账号安全体检', () => {
+describe('应用设置 · 账号安全体检', () => {
   it('显示 checked 数与问题清单：fail 红 / warn 橙，并附一句建议', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('账号安全体检')
     await waitFor(() => expect(within(card).getByText(/已检查 3 个启用账号/)).toBeInTheDocument())
     expect(within(card).getByText('guest')).toBeInTheDocument()
@@ -748,8 +743,7 @@ describe('设置页 · 账号安全体检', () => {
 
   it('无问题时结论与数据一致：只说探测过的三项，不臆造弱口令结论', async () => {
     apiStub.security.report.mockImplementation(async () => reportWith([], 5))
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('账号安全体检')
     await waitFor(() =>
       expect(
@@ -766,8 +760,7 @@ describe('设置页 · 账号安全体检', () => {
     apiStub.security.report.mockImplementation(async () => {
       throw new Error('Get-LocalUser 被策略拒绝')
     })
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('账号安全体检')
     await waitFor(() =>
       expect(within(card).getByText(/体检失败：Get-LocalUser 被策略拒绝/)).toBeInTheDocument(),
@@ -832,10 +825,9 @@ describe('设置页 · 一键诊断入口', () => {
   })
 })
 
-describe('设置页 · 读取节奏（无新增轮询风暴）', () => {
+describe('应用设置 · 读取节奏（无新增轮询风暴）', () => {
   it('打开 Tab 后各读请求只发一次，静置 800ms 不自动重取', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     await waitFor(() => expect(apiStub.security.report).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(apiStub.firewall.list).toHaveBeenCalledTimes(1))
     await new Promise((r) => setTimeout(r, 800))
@@ -849,7 +841,7 @@ describe('设置页 · 读取节奏（无新增轮询风暴）', () => {
 })
 
 // 批2（docs/audit/05-renderer-debt.md §3.1 点 14）：磁盘水位草稿的 dirty 语义（C 类派生态迁移回归）
-describe('设置页 · 磁盘水位草稿（C 类派生态：渲染期调整 state）', () => {
+describe('应用设置 · 磁盘水位草稿（C 类派生态：渲染期调整 state）', () => {
   /** 外部改 appState.alertRules.diskLowGb（模拟主进程落盘后 store 更新） */
   function externalDiskLowGb(next: number) {
     act(() => {
@@ -862,8 +854,7 @@ describe('设置页 · 磁盘水位草稿（C 类派生态：渲染期调整 sta
     within(card).getByRole('spinbutton', { name: '磁盘低水位阈值GB' }) as HTMLInputElement
 
   it('外部值变化→草稿跟随；用户改动→dirty 并只提交这一项', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('告警规则')
     expect(diskInput(card).value).toBe('20')
 
@@ -891,8 +882,7 @@ describe('设置页 · 磁盘水位草稿（C 类派生态：渲染期调整 sta
     apiStub.state.patch.mockImplementation(async () => {
       throw new Error('diskLowGb 超出允许范围')
     })
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('告警规则')
 
     fireEvent.change(diskInput(card), { target: { value: '99999' } })
@@ -907,8 +897,7 @@ describe('设置页 · 磁盘水位草稿（C 类派生态：渲染期调整 sta
   })
 
   it('外部刷新同值不打断"已改但未提交"的草稿（dirty 保持）', async () => {
-    renderSettings()
-    await openOpsTab()
+    await openAppSettings()
     const card = cardByTitle('告警规则')
 
     fireEvent.change(diskInput(card), { target: { value: '30' } })

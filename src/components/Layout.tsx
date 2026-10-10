@@ -7,6 +7,7 @@ import {
   ApiOutlined,
   SettingOutlined,
   ThunderboltOutlined,
+  ControlOutlined,
 } from '@ant-design/icons'
 import TitleBar from './TitleBar'
 import HealthBar from './HealthBar'
@@ -23,6 +24,7 @@ const menus: MenuItem[] = [
   { path: '/users', label: '用户权限', icon: <TeamOutlined /> },
   { path: '/sessions', label: '会话监控', icon: <ApiOutlined /> },
   { path: '/settings', label: '服务配置', icon: <SettingOutlined /> },
+  { path: '/app-settings', label: '应用设置', icon: <ControlOutlined /> },
 ]
 
 export default function Layout({

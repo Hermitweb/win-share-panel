@@ -50,23 +50,48 @@ jobs:
           # 仍保留 ELECTRON_MIRROR 兜底，避免偶发下载失败
           ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
 
-      - name: Verify artifacts
+      - name: Verify artifacts（三架构产物齐备）
         shell: pwsh
         run: |
           Write-Host "=== release artifacts ==="
-          if (Test-Path release) {
-            Get-ChildItem release -Recurse | Select-Object Name, Length, FullName | Format-Table -AutoSize
-          } else {
+          if (-not (Test-Path release)) {
             Write-Host "ERROR: release directory not found"
             exit 1
           }
+          Get-ChildItem release -File | Sort-Object Name | Select-Object Name, Length | Format-Table -AutoSize
+
+          # 三架构的 Setup 必须都在；MSI 只有 x86/x64（arm64 无 MSI，理由见 electron-builder.yml）
+          $missing = @()
+          foreach ($arch in 'x86', 'x64', 'arm64') {
+            if (-not (Get-ChildItem release -Filter "*-Setup-$arch.exe" -ErrorAction SilentlyContinue)) {
+              $missing += "Setup-$arch.exe"
+            }
+            if (-not (Get-ChildItem release -Filter "*-portable-$arch.exe" -ErrorAction SilentlyContinue)) {
+              $missing += "portable-$arch.exe"
+            }
+          }
+          foreach ($arch in 'x86', 'x64') {
+            if (-not (Get-ChildItem release -Filter "*-$arch.msi" -ErrorAction SilentlyContinue)) {
+              $missing += "$arch.msi"
+            }
+          }
+          if (-not (Test-Path release/SHA256SUMS.txt)) { $missing += 'SHA256SUMS.txt' }
+          if ($missing.Count -gt 0) {
+            Write-Host "ERROR: 缺少产物: $($missing -join ', ')"
+            exit 1
+          }
+          # 架构标识与内容的硬校验在 scripts/build-win.mjs 内完成（读解包主程序 PE Machine，
+          # 0x14c=x86 / 0x8664=x64 / 0xaa64=arm64，不一致即该步构建失败），此处只核对文件名齐备
+          Write-Host "=== SHA256SUMS.txt ==="
+          Get-Content release/SHA256SUMS.txt
 
       - name: Upload artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             release/*.exe
-            release/latest.yml
+            release/*.msi
+            release/SHA256SUMS.txt
           generate_release_notes: true
           draft: false
           prerelease: false

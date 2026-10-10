@@ -12,6 +12,7 @@ import { join } from 'path'
 import { existsSync, rmSync } from 'fs'
 import { registerIpc } from './ipc'
 import { prewarmPool, shutdownPool } from './lib/powershellPool'
+import { nativePowerShellExe } from './lib/nativePaths'
 import { logDir, log } from './lib/logger'
 import { pushHistory, loadState } from './lib/stateStore'
 import { getDashboardStats } from './services/system'
@@ -207,6 +208,13 @@ if (!gotTheLock) {
     registerWindowIpc()
     createWindow()
     createTray()
+    // 架构自检（每个进程一次）：把「进程位宽 → 实际使用的 PowerShell」写进应用日志。
+    // 32 位包在 64 位系统上必须命中 Sysnative（原生 64 位 PS），否则用户页/账号体检/IIS 会失效；
+    // 打包后无需调试器即可从「应用设置 · 日志」核对（见 lib/nativePaths.ts 的实测表）。
+    log.info(
+      'main',
+      `[arch] 进程位宽 ${process.arch}（${process.platform}）→ PowerShell: ${nativePowerShellExe()}`,
+    )
     // 后台预热 PowerShell 进程池（不阻塞首屏）；worker 懒 spawn，预热仅提前起 1 个
     prewarmPool()
     // 连接数趋势采样（渲染层关闭也持续采，供仪表板 24h 折线）

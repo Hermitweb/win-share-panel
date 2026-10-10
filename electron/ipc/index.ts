@@ -652,6 +652,23 @@ export function registerIpc(): void {
     return wrap(() => shell.openExternal(url).then(() => null), 'openExternal', url)
   })
 
+  // === system:appInfo: 应用与运行时版本（应用设置页的「关于」） ===
+  ipcMain.handle('system:appInfo', () =>
+    wrap(
+      () =>
+        Promise.resolve({
+          version: app.getVersion(),
+          electron: process.versions.electron ?? '',
+          chrome: process.versions.chrome ?? '',
+          node: process.versions.node ?? '',
+          platform: process.platform,
+          arch: process.arch,
+        }),
+      'appInfo',
+      'app',
+    ),
+  )
+
   // === state:exportAll / state:importAll: 设置整体导入导出 ===
   // 与 share/preset 导出的分工见 services/transfer.ts 头注释（偏好 vs 业务数据）
   ipcMain.handle('state:exportAll', () =>
