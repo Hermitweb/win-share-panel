@@ -20,6 +20,20 @@
 
 ### 🔧 修复 / Fixed（32 位包的功能性缺陷）
 
+- **CI 发布流水线的两处坑（v1.3.0 首次发布实测，均已修）**：
+  - `EP_PUBLISH: never` 拦不住 electron-builder 的自动发布 —— **v1.2.0 的 Release 运行**正是因此报
+    `⨯ GitHub Personal Access Token is not set` 失败（这就是 v1.2.0 有 tag 却没有 Release 的原因）。
+    现在 `scripts/build-win.mjs` 在 CLI 上显式传 `--publish never`（双保险）
+  - 仓库 `.npmrc` 的 `electron_mirror`（npmmirror）会被 pnpm 导出为 `npm_config_electron_mirror`，
+    而 `@electron/get` 的取值优先级是 `npm_config_electron_mirror > npm_package_config_electron_mirror >
+    ELECTRON_MIRROR > 默认值`（源码 `mirrorVar()`）—— workflow 里只设 `ELECTRON_MIRROR` **挡不住镜像**。
+    v1.3.0 首次 Release 运行便从 npmmirror 拉 arm64 Electron，重试后解包目录里没有 `electron.exe`，
+    arm64 打包失败（x86/x64 两步已成功，说明问题只出在那份下载）。workflow 现同时设 `npm_config_*`
+    系列环境变量指向官方源
+  - 打包脚本对**每个架构**增加一次重试（仅针对下载类瞬时故障；两次都失败仍照原样中止并抛出原始错误，不掩盖真实失败）
+- **发布事实（如实留档）**：v1.3.0 的 9 个资产是**在本机构建并逐项校验后上传**的
+  （PE 架构、FileVersion=1.3.0、运行时启动验证、SHA-256 全部核对）；CI 首次运行倒在 arm64 下载处，
+  上述修复已进 `main`，后续 tag 由 CI 自动发布
 - **32 位包改取原生 64 位 PowerShell（`electron/lib/nativePaths.ts` 新增）**：32 位进程在 64 位 Windows 上，`System32` 被 WOW64 重定向到 `SysWOW64`，裸名 `powershell.exe` 拉起的是 32 位 PowerShell。本机实测同一段探针在两种位宽下的差异：`Get-LocalUser` 在 32 位下**命令不存在**（缺 `Microsoft.PowerShell.LocalAccounts`）→ 用户权限页与账号安全体检直接不可用；IIS `Get-Website`（WebAdministration）**COM 类未注册 0x80040154** → FTP/WebDAV 面板与 IIS 能力探测失败；`ProgramFilesDir` 落在 WOW6432Node 视图。修复方式是按「存在即优先」探测 `Sysnative → System32`（`Sysnative` 只有 32 位进程可见，指向真正的原生 System32；本机实测 64 位进程 `Test-Path`=False、32 位进程=True），三种情形各自得到与操作系统同位宽的 PowerShell，且不依赖 `PROCESSOR_ARCHITEW6432` 一类环境推断。主进程启动时把「进程位宽 → 实际使用的 PowerShell」写进应用日志，用户可在「应用设置 → 日志」自行核对；`electron/lib/nativePaths.test.ts` 用注入的 `exists` 固化三条分支（9 例）
 - 应用设置页的审计日志表改用稳定 `key`（原 `rowKey={(_, i) => String(i)}` 触发 antd v6「rowKey 函数取下标已废弃」告警）；测试桩补齐 HealthBar 所需通道，消除 `AppSettings.test.tsx` 的未处理 Promise 拒绝（此前 701 例全绿但 vitest 报 `Errors 1 error`）
 

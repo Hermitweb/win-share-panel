@@ -942,6 +942,29 @@ nsis:
 > `latest.yml` 不再上传：本应用**没有集成 electron-updater**（应用内「检查更新」直接查
 > GitHub Releases API，只提示、不自动下载安装），`latest.yml` 只对 electron-updater 有意义。
 
+#### 两个踩过的坑（v1.3.0 首次发布实测，务必保留现有写法）
+
+1. **`EP_PUBLISH: never` 拦不住 electron-builder 的自动发布**。v1.2.0 的 Release 运行因此报
+   `⨯ GitHub Personal Access Token is not set` 失败 —— 这也解释了为什么 v1.1.0/v1.2.0 有 tag 却没有 Release。
+   现在 `scripts/build-win.mjs` 在 CLI 上显式传 `--publish never`（`EP_PUBLISH` 保留作双保险）。
+2. **镜像必须用 `npm_config_*` 形式设置**。仓库 `.npmrc` 的 `electron_mirror`
+   （`https://npmmirror.com/mirrors/electron/`）会被 pnpm 导出为 `npm_config_electron_mirror`，
+   而 `@electron/get` 的 `mirrorVar()` 取值优先级是：
+
+   ```
+   NPM_CONFIG_ELECTRON_MIRROR > npm_config_electron_mirror >
+   npm_package_config_electron_mirror > ELECTRON_MIRROR > options > 默认值
+   ```
+
+   → workflow 里**只设 `ELECTRON_MIRROR` 挡不住 `.npmrc`**。v1.3.0 首次 Release 运行便从 npmmirror
+   拉 arm64 Electron（境外慢），重试后解包目录里没有 `electron.exe`，arm64 打包失败
+   （x86/x64 已成功，说明问题只出在那份下载）。现在 workflow 同时设
+   `npm_config_electron_mirror` 与 `ELECTRON_MIRROR`（以及 `*_builder_binaries_*`）指向官方源。
+   runner 在境外，直连官方源更快更稳；本地开发仍走 `.npmrc` 的镜像。
+
+此外 `scripts/build-win.mjs` 对每个架构的打包调用带**一次重试**（针对下载类瞬时故障）；
+两次都失败仍照原样中止并抛出原始错误，不掩盖真实失败。
+
 ---
 
 **文档结束。**

@@ -94,6 +94,32 @@ function run(command, args, { env, cwd = ROOT } = {}) {
   execFileSync(command, args, { cwd, env: env ?? process.env, stdio: 'inherit' })
 }
 
+/** 同步睡眠（构建脚本全程同步，不引依赖） */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/**
+ * 带一次重试的打包调用 —— 针对下载类瞬时故障（Electron 二进制从镜像拉取超时/包不完整，
+ * v1.3.0 首次 CI 发布即在 arm64 上遇到：npmmirror 返回的包解不出 electron.exe）。
+ * 不掩盖真实失败：两次都失败即抛出原始错误并中止。
+ */
+function runPackagingWithRetry(label, command, args, opts, attempts = 2) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      run(command, args, opts)
+      return
+    } catch (e) {
+      if (attempt === attempts) throw e
+      const first = String(e?.message ?? e).split('\n')[0]
+      console.log(
+        `⚠ ${label} 第 ${attempt} 次失败，10 秒后重试一次（多为 Electron 二进制下载瞬时故障）：${first}`,
+      )
+      sleepSync(10_000)
+    }
+  }
+}
+
 function mb(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
@@ -212,7 +238,8 @@ function main() {
     console.log(
       `\n▶ 打包 ${arch.label}（Electron ${arch.electronArch}，targets: ${targets.join(', ')}）`,
     )
-    run(
+    runPackagingWithRetry(
+      `${arch.label} 打包`,
       process.execPath,
       [
         electronBuilderBin,
