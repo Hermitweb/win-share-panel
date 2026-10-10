@@ -4,6 +4,8 @@ dist/
 release/
 .vite/
 *.log
+# 本地起 dev/打包后台进程时写的 pid 文件（与 *.log 同类：都是本机运行痕迹）
+dev.*.pid
 .DS_Store
 .env
 .env.local
