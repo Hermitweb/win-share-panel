@@ -21,8 +21,6 @@ import type {
   OsInfo,
   PsRuntimeStatus,
   PsRuntimeDiagnosis,
-  PsCandidateSummary,
-  PsEngine,
   Protocol,
   ProtocolSession,
   ProtocolDetectionResult,

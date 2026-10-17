@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // 与 powershell.test.ts 同一手法：vi.mock('../lib/powershell') 把真实 PS 调用替掉，
 // 只断言"命令拼对了没"，不触发任何子进程。
