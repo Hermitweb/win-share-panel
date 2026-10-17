@@ -968,3 +968,122 @@ nsis:
 ---
 
 **文档结束。**
+
+### 11.8 安装器注册项与 PowerShell 运行时探测（v1.4.0）
+
+#### 背景：另一台机器安装后 PowerShell 失效导致应用不可用
+
+v1.4.0 处理一个真实用户报告：一台 Win10/11 x64 机器上安装后应用"直接不可用"。
+根因是 `nativePowerShellExe()` 解析出的 `powershell.exe` 路径**在这台机器上不存在或无法
+启动**（系统被精简工具删除 / 杀软或 AppLocker 拦截 spawn / 组策略禁用），而 `powershell.ts`
+与 `powershellPool.ts` 对此**零感知**——所有共享/会话/用户功能全瘫，且无任何日志/提示告诉
+用户"是 PowerShell 本身出了问题"，只会在 `formatPsError` 里看到一串 `0x80070003` 或
+`ENOENT`。
+
+#### 修复：PowerShell 运行时探测 + 失败诊断（`electron/services/psRuntime.ts`）
+
+- **启动即探测**（`main.ts` 的 `whenReady` 里调用 `probePowerShell()`）：一次 `stat`，
+  不 spawn PowerShell，廉价；把结果缓存并写进应用日志（`[psRuntime]` 前缀），让用户
+  "装完就能看到 powershell.exe 不存在" 这类问题可追溯
+- **缺失时跳过池预热**：worker 起来也会立刻 `ENOENT`，省一次无谓 spawn
+- **渲染层「系统环境」卡**（`src/components/OsCompatCard.tsx`）：读取 `system:psRuntime`
+  通道展示"PowerShell 可用/缺失"；缺失时点「诊断」调 `system:psDiagnose` 给出可执行
+  修复建议（`sfc /scannow` / 杀软白名单 / 以管理员运行 / 系统恢复）
+- **诊断建议由 `diagnosePsRuntime()` 生成**：与 `powershell.ts` 的 `formatPsError` 互补——
+  后者把 stderr 变可读，前者把"可读错误"翻译成"下一步做什么"；设计原则与 `nativePaths.ts`
+  一致：不改 PowerShell 解析策略（`nativePaths.ts` 是唯一真相源），只做**存在性 + 诊断建议**
+  两条增量，避免两处逻辑漂移
+
+#### 安装器注册项完善（`resources/installer-hooks.nsh` + `electron-builder.yml`）
+
+electron-builder 的 `nsis.include` 把 `resources/installer-hooks.nsh` 注入到 NSIS 脚本
+（非 portable 目标才生效）。安装时写入 4 条注册项：
+
+| # | 注册项 | 键 | 说明 |
+|---|---|---|---|
+| ① | **ARP 程序列表增强** | `HKLM\...\Uninstall\WinSharePanel` | electron-builder 自带基础条目（DisplayName/UninstallString/DisplayIcon）；本钩子补 `NoModify=1` / `NoRepair=1`——控制面板"程序和功能"里禁用"修改/修复"两个对单文件应用无意义的按钮 |
+| ② | **登录快速启动** | `HKCU\...\Run\WinSharePanel` = `<dir>\WinShare Panel.exe --silent` | 登录时静默拉起；主进程单实例锁让第二个实例激活第一个（`main.ts` 的 `second-instance` 处理器已就绪）；卸载时由 `un.onUnInst` 删除 |
+| ③ | **Windows 服务预留标记** | `HKLM\Software\WinSharePanel\ServicePending=1` | v1.4.0 **暂不创建服务本体**（与 GUI 应用形态冲突：服务跑在会话 0，无法显示窗口；真正做服务需 NSSM/计划任务包装器，留待后续版本）；只留个标记让主进程首启自检读取，为"一键注册为系统服务"预留 UI 入口（`system:servicePending` IPC 通道） |
+| ④ | **系统 PATH 不默认写** | （不写） | 跨权限 + 卸载残留风险；改由主进程 `electron/services/pathRegistration.ts` 的"一键注册/撤销"入口写入**用户级** `HKCU\Environment\Path`（不需要 UAC 提权，与单用户工具形态匹配） |
+
+**④ 的一键注册/撤销**（`pathRegistration.ts`）：
+
+- 读/写**用户级** PATH（`HKCU\Environment\Path`，不是系统级 `HKLM`）——用户级不需要
+  UAC 提权即可写；若未来需要全用户可调用，再开 `HKLM` 通道（需 UAC + 写后广播，预留开关）
+- **幂等**：写入前读现存 PATH，仅当不含本应用目录精确匹配时追加；撤销时仅当含本应用目录
+  精确匹配时删除（用 `(^|;)\s*"?<dir>"?\s*(?=;|$)` 边界守卫，避免误匹配 `WinShare Panel Sub`
+  这类子路径）
+- **广播**：写后广播 `WM_SETTINGCHANGE`（`HWND_BROADCAST` + `SendMessageTimeout`，经
+  PowerShell 的 Add-Type）让本会话终端立刻拿到新 PATH；PS 缺失时静默降级为"需重开终端
+  才生效"并在结果里注明（`broadcast: false`）
+- **卸载清理**：由 `installer-hooks.nsh` 的 `un.showPathHint` 弹消息框提示用户手动确认
+  清理（NSIS 卸载器无法精确判断 PATH 里哪一段是本应用加的，避免误删用户自己配置的
+  路径）
+
+配套 IPC 通道（`electron/ipc/index.ts` + `electron/preload.ts` + `src/types.ts`）：
+`system:psRuntime` / `system:psDiagnose` / `system:registerPath` / `system:unregisterPath` /
+`system:pathRegistered` / `system:setLoginShortcut` / `system:getLoginShortcut` /
+`system:servicePending`；单测 `electron/services/psRuntime.test.ts`（5 个探测分支 + 4 类
+诊断建议）与 `electron/services/pathRegistration.test.ts`（幂等写入/撤销/广播失败降级/
+服务标记读取 4 类路径）用 `vi.mock('../lib/powershell')` 固化。
+
+> **关于"系统级服务"的诚实边界**：本应用是 GUI 应用（窗口 + 托盘），Windows 服务跑在会话 0
+> 无法显示窗口，把 GUI 应用直接注册成服务是形态错配。v1.4.0 只**预留**服务注册位
+> （`ServicePending=1` 标记 + `system:servicePending` 通道），让后续版本（接 NSSM 或
+> `Task Scheduler` 任务包装器）能无缝启用"系统服务/计划任务自启"，而不需要再改安装器。
+> 当前"开机自启"走的是 Electron 的 `LoginItemSettings`（系统登录项，GUI 形态，见
+> `ipc/index.ts` 的 `system:setAutoStart`）与 NSIS 钩子 ② 的 HKCU Run 键（静默形态），
+> 两者并存时单实例锁会让第二个进程激活第一个。
+
+#### PowerShell 多版本兼容（v1.4.0，5.1 + 7.x 自动识别）
+
+v1.4.0 把 `nativePowerShellExe()` 从"只解析 5.1 一个路径"升级为**多版本兼容解析层**
+（`electron/lib/nativePaths.ts` 重写）：用户机器上 PowerShell 形态千差万别
+（默认只有 5.1 / 装了 7 双引擎并存 / 精简系统删了 5.1 只剩 7 / 杀软拦 spawn），
+旧实现在 5.1 缺失时返回一个不存在的路径 → `spawn ENOENT` 0x80070003，应用全瘫。
+
+**候选优先级（5.1 优先，缺失才兜底 7.x）**：
+
+| 优先级 | 可执行 | 引擎 | 位置 |
+|---|---|---|---|
+| 1 | 原生位宽 `powershell.exe` | 5.1 | `%SystemRoot%\{Sysnative\|System32}\WindowsPowerShell\v1.0\`（32 位进程经 Sysnative，arch 判定，与 v1.3.0 一致） |
+| 2 | `pwsh.exe`（系统注册位置） | 7.x | 同上目录（PS7 安装时默认注册） |
+| 3 | `pwsh.exe`（winget 位置） | 7.x | `%ProgramFiles%\PowerShell\7\`（32 位进程用 `%ProgramW6432%` 取原生 64 位 PF，规避 WOW64 重定向） |
+| 4 | 裸名 `powershell.exe` / `pwsh.exe` | 两者 | 交给 PATH（跨平台开发机 / 自定义安装位置；全缺时 spawn ENOENT 由诊断层翻译） |
+
+**优先 5.1 的原因**：本项目全部 cmdlet 按 5.1 调试验证过（IIS WebAdministration
+的 COM 组件仅在 5.1 注册、`Get-LocalUser` / SMB cmdlet 面完整、`Get-WmiObject` 已改
+`Get-CimInstance` 跨引擎兼容），7.x 下部分行为有差异（.NET 8 vs 4.x API 面、
+`ConvertTo-Json` 默认 Depth），5.1 可用时**不冒险切引擎**。
+
+**API 变化**（`nativePaths.ts`）：
+
+- `listPowerShellCandidates(deps)`：按优先级枚举全部候选（3 真实路径 + 2 裸名，
+  每个带 `exists` 标记），供日志/诊断/UI 展示"这台机器有哪些 PowerShell"
+- `nativePowerShellExe(deps)`：取第一个"存在"的真实绝对路径候选，全缺回退裸名 5.1
+  （契约不变：永非空，ENOENT 由调用方诊断）
+- `NativePathDeps` 新增 `arch`（测试模拟 32/64 位进程）与 `programFilesNative`
+  （测试注入原生 PF；生产 32 位进程读 `%ProgramW6432%`）
+
+**`PsRuntimeStatus` 的 `realPathFound` 语义**（`electron/types.ts` +
+`services/psRuntime.ts`）：精简系统 5.1 与 7.x 全缺时，`resolvedPath` 回退裸名、
+`exists` 乐观为 `true`（裸名交给 PATH，不 stat），但 `realPathFound=false`——
+**裸名 PATH 兜底不算"找到了 PowerShell"**（PATH 里未必真有）。诊断层
+（`diagnosePsRuntime`）用 `realPathFound` 判定"双引擎全缺"，给
+`sfc /scannow`（修 5.1）+ `winget install Microsoft.PowerShell`（装 7.x）两条
+修复路径；渲染层「系统环境」卡据此显示"缺失"标签而非误报"可用"。
+
+**版本探测**（`electron/lib/psRuntimeProbe.ts`）：启动后空闲时异步 spawn 一次
+PowerShell 读 `$PSVersionTable.PSVersion`（不阻塞首屏），把引擎大版本（5/7）与
+完整版本号写 `app.log`；7.x 时额外写一行「IIS COM 仅在 5.1 注册」提示。
+`probePsVersion()` 带 5 分钟 TTL 缓存，负结果不缓存（下次重试）。
+
+**文档**：`docs/COMPATIBILITY.md` §5 给出引擎 × 功能支持矩阵（5.1 / 7.x 各能力
+对照）与机器形态 × 行为表；`scripts/validate-ps-logic.mjs` 用纯 JS 复算核心策略
+（不依赖 tsc/vitest），`node scripts/validate-ps-logic.mjs` 应输出 PASS。
+
+> **工具链段错误的验证兜底**：本机（Node 24）跑 `tsc`/`vitest`/`esbuild` native
+> 二进制时偶发 `RC=139`（0xC0000005 段错误，与代码改动无关，在 `git stash` 后的
+> 干净树上同样复现）。此时用 `node scripts/validate-ps-logic.mjs`（纯 JS 逻辑复算）
+> + `node --experimental-strip-types` 的 `stripTypeScriptTypes`（语法级校验）做兜底，
+> 完整类型检查与测试仍需在一台工具链正常的机器上跑 `pnpm typecheck && pnpm test`。

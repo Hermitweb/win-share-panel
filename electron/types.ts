@@ -251,6 +251,47 @@ export interface OsInfo {
   features: OsFeatures
 }
 
+// ===== PowerShell 运行时探测（v1.4.0 多版本兼容版）=====
+export type PsEngine = 'windowsPowerShell' | 'powershellCore' | 'unknown'
+
+export interface PsCandidateSummary {
+  /** 可执行文件路径（裸名项 = 'powershell.exe' / 'pwsh.exe'） */
+  path: string
+  /** 引擎标识 */
+  engine: 'windowsPowerShell' | 'powershellCore'
+  /** 该路径是否存在（裸名项乐观 true） */
+  exists: boolean
+  /** 解析策略说明（日志用） */
+  note: string
+}
+
+export interface PsRuntimeStatus {
+  /** 当前选中的可执行文件路径（多版本兼容：5.1 优先，缺失兜底 7.x，再缺则裸名 PATH 兜底） */
+  resolvedPath: string
+  /** 该路径是否存在（裸名项乐观 true） */
+  exists: boolean
+  /** 是否至少存在一个**真实绝对路径**候选（5.1 或 7.x；裸名不算，PATH 兜底不可靠） */
+  realPathFound: boolean
+  /** stat 抛错时的可读原因（如权限不足） */
+  statError?: string
+  /** 探测时间戳（ms） */
+  probedAt: number
+  /** 当前选中的引擎（从候选列表按 resolvedPath 反查；裸名兜底时为 unknown） */
+  engine?: PsEngine
+  /** 所有候选的摘要（UI 展示"这台机器有哪些 PowerShell"） */
+  candidates?: PsCandidateSummary[]
+}
+
+export interface PsRuntimeDiagnosis {
+  ok: boolean
+  /** 给渲染层/日志的短文案（中文） */
+  reason: string
+  /** 可执行建议（多条） */
+  suggestions: string[]
+  /** 触发探测时捕获到的底层错误 */
+  rawError?: string
+}
+
 export interface DashboardStats {
   shareCount: number
   activeSessions: number

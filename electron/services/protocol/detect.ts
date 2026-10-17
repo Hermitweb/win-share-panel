@@ -44,9 +44,11 @@ const PROTOCOL_INFO: Record<
 }
 
 // 检测是否为 Windows Server
+// Get-CimInstance 跨引擎兼容（5.1 / 7.x 都有）；Get-WmiObject 在 7.x 只是
+// 兼容垫片，部分精简系统缺 WMI 兼容模块时会失败，CMI 更稳
 async function isWindowsServer(): Promise<boolean> {
   try {
-    const caption = await runPowerShell<string>('(Get-WmiObject Win32_OperatingSystem).Caption', {
+    const caption = await runPowerShell<string>('(Get-CimInstance Win32_OperatingSystem).Caption', {
       retries: 0,
     })
     return /Server/i.test(String(caption || ''))

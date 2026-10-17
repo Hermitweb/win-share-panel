@@ -2,6 +2,87 @@
 
 本文件记录 WinShare Panel 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]（v1.4.0 开发中）
+
+### 🔧 修复 / Fixed：另一台机器安装后 PowerShell 失效导致应用不可用
+
+- **PowerShell 运行时探测 + 失败诊断（`electron/services/psRuntime.ts` 新增）**：
+  背景——一台 Win10/11 x64 机器上安装后应用"直接不可用"，根因是 `nativePowerShellExe()` 解析出的
+  `powershell.exe` 路径**不存在或无法启动**（系统被精简工具删除 / 杀软或 AppLocker 拦截 spawn
+  / 组策略禁用），而 `powershell.ts` 与 `powershellPool.ts` 对此**零感知**——所有共享/会话/用户
+  功能全瘫，且无任何日志/提示告诉用户"是 PowerShell 本身出了问题"。
+  本模块在应用启动时**尽早**做一次存在性探测（一次 `stat`，不 spawn PowerShell，廉价），
+  把结果缓存并写进应用日志（`app.log` 里 `[psRuntime]` 前缀，便于事后追溯"这台机器装完就能
+  看到 powershell.exe 不存在"）；并暴露 `system:psRuntime` / `system:psDiagnose` 两个 IPC 通道，
+  渲染层「系统环境」卡（`OsCompatCard`）读取后展示"PowerShell 可用/缺失"，缺失时点「诊断」
+  给出可执行修复建议（`sfc /scannow` / 杀软白名单 / 以管理员运行 / 系统恢复）。
+  设计原则与 `nativePaths.ts` 一致：不改 PowerShell 解析策略（`nativePaths.ts` 是唯一真相源），
+  只做**存在性 + 诊断建议**两条增量，避免两处逻辑漂移。`electron/services/psRuntime.test.ts`
+  用注入的 `exists/stat` 固化"存在/缺失/stat 抛错/裸名/force 重探"5 个分支与 4 类诊断建议。
+
+### ✨ 新增 / Added：安装器注册项完善 + 系统级一键注册（v1.4.0）
+
+- **NSIS 安装器钩子（`resources/installer-hooks.nsh` 新增，`electron-builder.yml` 经
+  `nsis.include` 注入）**，安装时写入 4 条注册项：
+  1. **ARP 程序列表增强**（`HKLM\...\Uninstall\WinSharePanel`）：electron-builder 自带基础条目，
+     本钩子补 `NoModify=1` / `NoRepair=1`（控制面板"程序和功能"里禁用"修改/修复"两个对单文件
+     应用无意义的按钮）
+  2. **登录快速启动**（`HKCU\...\Run\WinSharePanel = <dir>\WinShare Panel.exe --silent`）：
+     登录时静默拉起（主进程单实例锁让第二个实例激活第一个，`main.ts` 的 `second-instance`
+     处理器已就绪）；卸载时由 `un.onUnInst` 删除
+  3. **Windows 服务预留标记**（`HKLM\Software\WinSharePanel\ServicePending=1`）：v1.4.0 暂不
+     创建服务本体（与 GUI 应用形态冲突：服务跑在会话 0，无法显示窗口；真正做服务需 NSSM/
+     计划任务包装器，留待后续版本），只留个标记让主进程首启自检读取，为"一键注册为系统服务"
+     预留 UI 入口（`system:servicePending` IPC 通道）
+  4. **系统 PATH 不默认写**（跨权限 + 卸载残留风险）：改由主进程
+     `electron/services/pathRegistration.ts` 的"一键注册/撤销"入口写入**用户级**
+     `HKCU\Environment\Path`（不需要 UAC 提权，与单用户工具形态匹配），写后广播
+     `WM_SETTINGCHANGE` 让本会话终端立刻拿到新 PATH（PS 缺失时静默降级为"需重开终端"并
+     在结果里注明）；卸载时由 `un.showPathHint` 弹消息框提示用户手动确认清理（NSIS 卸载器
+     无法精确判断 PATH 里哪一段是本应用加的，避免误删用户自己配置的路径）
+  配套 IPC 通道（`electron/ipc/index.ts` + `electron/preload.ts` + `src/types.ts`）：
+  `system:registerPath` / `system:unregisterPath` / `system:pathRegistered` /
+  `system:setLoginShortcut` / `system:getLoginShortcut` / `system:servicePending`；
+  单测 `electron/services/pathRegistration.test.ts` 用 `vi.mock('../lib/powershell')` 固化
+  幂等写入/撤销/广播失败降级/服务标记读取 4 类路径。
+
+### ✨ 新增 / Added：PowerShell 多版本兼容（5.1 + 7.x 自动识别）
+
+- **`electron/lib/nativePaths.ts` 重写为多版本兼容解析层**：
+  旧实现只解析 `System32\WindowsPowerShell\v1.0\powershell.exe`（5.1）一个路径，
+  该路径缺失时直接返回不存在的路径 → `spawn ENOENT` 0x80070003，应用全瘫。
+  新实现按「5.1 优先，缺失兜底 7.x」的优先级枚举候选：
+  ① 原生位宽 `powershell.exe`（5.1，32 位进程经 Sysnative 取原生 System32）
+  ② `System32\WindowsPowerShell\v1.0\pwsh.exe`（PS7 默认注册位置）
+  ③ `%ProgramFiles%\PowerShell\7\pwsh.exe`（winget / 手动安装常见位置；
+  32 位进程下用 `ProgramW6432` 取原生 64 位 Program Files，规避 WOW64 重定向）
+  ④ 裸名 `powershell.exe` / `pwsh.exe`（PATH 兜底，跨平台 / 自定义安装位置）。
+  只有 5.1 缺失（精简系统）时才落 7.x——5.1 可用时不冒险切引擎
+  （本项目全部 cmdlet 按 5.1 调试验证过，IIS COM 组件仅 5.1 注册）。
+  `listPowerShellCandidates()` 返回全部候选（带 exists 标记）供日志/诊断，
+  `nativePowerShellExe()` 契约不变（永非空，ENOENT 由 spawn 阶段暴露，
+  `psRuntime.diagnosePsRuntime()` 负责翻译）。
+  新增 `realPathFound` 语义（PsRuntimeStatus）：裸名 PATH 兜底不算"找到了
+  PowerShell"——精简系统 5.1 与 7.x 全缺时 `resolvedPath` 回退裸名、`exists`
+  乐观为 true，但 `realPathFound=false`，诊断据此判定"双引擎全缺"而非误报"已找到"。
+- **`electron/lib/psRuntimeProbe.ts` 新增**：启动时非阻塞探测 `$PSVersionTable.PSVersion`
+  （不阻塞首屏），把引擎大版本（5/7）与完整版本号写 `app.log`；7.x 时额外写一行
+  「IIS COM 仅在 5.1 注册，FTP/WebDAV 管理可能不可用」提示。
+- **`powershell.ts` / `powershellPool.ts` 自动继承多版本解析**：两者都经
+  `nativePowerShellExe()` 取可执行文件，无需改动调用方；`formatPsError` 新增
+  ENOENT/0x80070003 的可读归一化（指向诊断卡）。
+- **`diagnose.ts` 的 `Get-WmiObject` 改 `Get-CimInstance`**：跨引擎兼容
+  （7.x 的 WMI 兼容垫片在部分精简系统会失败，CMI 更稳）。
+- **`docs/COMPATIBILITY.md` 新增 §5「PowerShell 版本矩阵」**：引擎识别优先级表、
+  引擎 × 功能支持矩阵（5.1 / 7.x 各能力对照）、机器形态 × 行为、版本探测日志说明、
+  多版本手工回归矩阵。
+
+### 📄 文档 / Docs
+
+- `docs/DEVELOPMENT.md` 补「安装器注册项与一键注册」一节，说明 4 条注册项的键名/清理时机/
+  与 v1.4.0 服务预留的关系；`README.md` 的「快速开始」补一段"若 PowerShell 失效怎么排查"
+  （指向 OsCompatCard 的诊断入口 + `sfc /scannow`）
+
 ## [1.3.0] - 2026-10-10
 
 ### 🖥 三架构发布（x86 / x64 / arm64）与架构对齐

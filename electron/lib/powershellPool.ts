@@ -116,8 +116,8 @@ function buildServerScript(
   ].join('\n')
 }
 
-// 默认工厂：spawn 真实 powershell.exe，加载服务端脚本。
-// 可执行文件走 nativePowerShellExe()：32 位包在 64 位系统上必须取原生 64 位 PowerShell，
+// 默认工厂：spawn 真实 PowerShell（5.1 优先，缺失时兜底 7.x，见 lib/nativePaths.ts
+// 的 v1.4.0 多版本兼容解析）：32 位包在 64 位系统上必须取原生 64 位 PowerShell，
 // 否则 Get-LocalUser / IIS 站点查询等能力直接缺失（实测见 lib/nativePaths.ts）
 export function defaultWorkerFactory(serverEncoded: string): WorkerHandle {
   const child = spawn(

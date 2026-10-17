@@ -76,3 +76,68 @@
 - Server Core：SMB/NFS cmdlet 可用，IIS GUI 概念缺失 → FTP/WebDAV 管理未验证；用户/组管理与 SMB 功能应正常
 - 家庭中文版/单语言版按 Home 处理（SKU 101/102/103/104/105/109/110 表）
 - 多 NIC + 防火墙策略对 QUIC 的影响属网络环境范畴，不在应用职责内
+
+## 5. PowerShell 版本矩阵（v1.4.0 多版本兼容）
+
+WinShare Panel 依赖 PowerShell 执行全部 SMB/NFS/FTP/WebDAV cmdlet，
+v1.4.0 起应用按「5.1 优先，缺失兜底 7.x」策略自动识别本机可用的 PowerShell
+引擎（`electron/lib/nativePaths.ts` 的候选枚举 + `electron/services/psRuntime.ts`
+的启动探测），无需用户手动选择。
+
+### 5.1 引擎识别（按优先级）
+
+| 优先级 | 可执行文件 | 引擎 | 安装位置 |
+|---|---|---|---|
+| 1 | `powershell.exe`（原生位宽） | Windows PowerShell 5.1 | `%SystemRoot%\System32\WindowsPowerShell\v1.0\`（32 位进程经 Sysnative） |
+| 2 | `pwsh.exe`（System32 视图） | PowerShell 7.x | 同上目录（PS7 安装时默认注册） |
+| 3 | `pwsh.exe`（%ProgramFiles%） | PowerShell 7.x | `%ProgramFiles%\PowerShell\7\`（winget / 手动安装常见位置） |
+| 4 | 裸名 `powershell.exe` / `pwsh.exe` | 交给 PATH | 跨平台开发机 / 用户自定义安装位置 |
+
+**优先 5.1 的原因**：本项目全部 cmdlet 按 5.1 调试验证过（IIS
+WebAdministration 的 COM 组件只在 5.1 注册、`Get-LocalUser` / SMB cmdlet 面
+完整），7.x 下部分行为有差异，5.1 可用时不冒险切引擎。
+
+### 5.2 引擎 × 功能支持
+
+| 能力 | 5.1（powershell.exe） | 7.x（pwsh.exe） |
+|---|---|---|
+| SMB 共享 / 会话 / 配置（Get-Smb* / Set-Smb*） | ✅ 完整 | ✅ 完整 |
+| 本地用户/组（Get-LocalUser / LocalAccounts 模块） | ✅ 完整 | ✅ 完整 |
+| NFS（Get-NfsShare / 角色安装） | ✅ 完整 | ✅ 完整 |
+| FTP / WebDAV（IIS WebAdministration 的 COM 组件） | ✅ 完整 | 🟡 **COM 组件仅在 5.1 注册**，7.x 下 FTP/WebDAV 站点管理可能不可用——可装回 5.1 后重启应用 |
+| 中文 Windows 的代码页处理 | ✅ `-EncodedCommand` 始终 UTF-16LE，5.1 / 7.x 行为一致 | ✅ 一致 |
+| `ConvertTo-Json -Depth` | ✅ 显式传 `-Depth 5`，5.1 / 7.x 一致 | ✅ 一致 |
+| `.NET` API 面（`Add-Type` / `DllImport` / `SendMessageTimeout`） | ✅ .NET 4.x | 🟡 .NET 8，部分类型名/签名有差异（广播 WM_SETTINGCHANGE 用，7.x 下已验证） |
+| `$ProgressPreference='SilentlyContinue'` | ✅ PS3.0+ 内置变量 | ✅ 一致 |
+
+### 5.3 机器形态 × 行为
+
+| 机器形态 | 应用行为 |
+|---|---|
+| 默认 Win10/11（只有 5.1） | 走 5.1，全部功能完整 |
+| 装了 PowerShell 7（5.1 + 7.x 并存） | 仍走 5.1，全部功能完整 |
+| 精简系统，只剩 7.x | 自动切到 7.x；SMB/NFS/本地用户完整，**IIS（FTP/WebDAV）可能不可用**（诊断卡会提示装回 5.1） |
+| 精简系统，5.1 与 7.x 都缺 | 应用全瘫 → 诊断卡给「sfc /scannow 修复 5.1」或「winget install Microsoft.PowerShell 装 7.x」两条修复路径 |
+| 纯 32 位系统 | 只有 32 位 5.1（`Get-LocalUser` 缺失，已知限制）；v1.3.0 的 Sysnative 对齐让 32 位进程取原生 64 位 5.1 规避此缺口 |
+
+### 5.4 版本探测与日志
+
+应用启动时（`main.ts` 的 `whenReady`）：
+1. **同步 stat**（不 spawn）：解析出的可执行文件是否存在 → 写 `app.log`
+   `[psRuntime]` 前缀一行
+2. **异步版本探测**（`lib/psRuntimeProbe.ts`，不阻塞首屏）：spawn 一次
+   PowerShell 读 `$PSVersionTable.PSVersion`，把「引擎 + 完整版本号」写
+   `app.log`；7.x 时额外写一行提示「IIS COM 仅在 5.1 注册」
+
+渲染层「服务配置 → 系统环境」卡（`OsCompatCard`）展示：
+- PowerShell 可用/缺失（红色标签 + 诊断按钮）
+- 当前选中的引擎（5.1 / 7.x）
+- 本机全部 PowerShell 候选（按优先级列出，标注"使用中"）
+
+## 6. 手工回归矩阵（PowerShell 多版本）
+
+- [ ] 只有 5.1 的机器：全功能正常（基线）
+- [ ] 5.1 + 7.x 并存的机器：应用走 5.1，`app.log` 的 `[psRuntime]` 行引擎=5.1
+- [ ] 只有 7.x 的机器：SMB/NFS/本地用户正常；FTP/WebDAV 站点管理降级（诊断卡提示）
+- [ ] 精简系统（两引擎都缺）：诊断卡显示缺失 + 「sfc /scannow」/「winget install」两条修复建议
+- [ ] 32 位包在 64 位系统（Sysnative 命中）：候选全部走原生位宽，`[arch]` 日志行与 v1.3.0 一致

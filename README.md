@@ -239,6 +239,16 @@ CI 在 `windows-latest` 上执行：`pnpm install` → `pnpm typecheck` → `pnp
 3. **依赖镜像**：`.npmrc` 已配置 `npmmirror.com` 加速 Electron / electron-builder 二进制下载
 4. **PowerShell 执行策略**：通过 `-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand` 调用，不依赖系统 Profile；常驻进程池经 stdin/stdout 标记协议复用 worker
 5. **危险操作**：所有写操作（创建/删除/断开/重启服务/修改配置）均二次确认；系统特殊共享（ADMIN$/IPC$/C$）与内置用户/组受保护不可删
+6. **PowerShell 失效排查（v1.4.0）**：若装完应用后所有功能全瘫、日志里全是 `0x80070003` / `ENOENT`，
+   多半是这台机器的 `powershell.exe` 被精简工具删了或被杀软/AppLocker 拦截。应用启动时会
+   自动探测并把结果写进 `app.log`（`[psRuntime]` 前缀）；渲染层「服务配置 → 系统环境」卡也会
+   显示"PowerShell 缺失"红色标签，点「诊断」按钮即可拿到可执行修复建议（`sfc /scannow` /
+   杀软白名单 / 以管理员运行）。详见 [`docs/DEVELOPMENT.md` §11.8](./docs/DEVELOPMENT.md)
+7. **安装器注册项（v1.4.0）**：NSIS 安装包会写入 ① 控制面板"程序和功能"条目（ARP）
+   ② 登录快速启动（`HKCU\...\Run\WinSharePanel`，静默自启）③ Windows 服务预留标记
+   （`HKLM\Software\WinSharePanel\ServicePending`，本版本不创建服务本体）；系统 PATH 条目
+   **不**默认写，改由应用内"一键注册"入口写入用户级 `HKCU\Environment\Path`（卸载时由
+   卸载器提示手动清理）
 
 ### English
 
@@ -247,6 +257,18 @@ CI 在 `windows-latest` 上执行：`pnpm install` → `pnpm typecheck` → `pnp
 3. **Mirror**: `.npmrc` uses npmmirror.com for Electron binary acceleration
 4. **PowerShell**: Invoked with `-NoProfile -EncodedCommand`, independent of system profile; a persistent pool reuses workers via a stdin/stdout marker protocol
 5. **Destructive ops**: All writes require secondary confirmation; system shares (ADMIN$/IPC$/C$) and built-in users/groups are protected
+6. **PowerShell failure triage (v1.4.0)**: if after install every feature is broken and the log is full of `0x80070003` / `ENOENT`,
+   the machine's `powershell.exe` was most likely removed by a system "optimizer" or blocked by an AV/AppLocker.
+   The app probes on startup and records the result to `app.log` (`[psRuntime]` prefix); the
+   "System Environment" card on the service-configuration page shows a red "PowerShell missing" tag,
+   and clicking "Diagnose" yields actionable fix suggestions (`sfc /scannow` / AV allow-list /
+   run as admin). See [`docs/DEVELOPMENT.md` §11.8](./docs/DEVELOPMENT.md)
+7. **Installer registration items (v1.4.0)**: the NSIS installer writes ① a Control Panel "Programs
+   and Features" (ARP) entry ② a quick-launch login item (`HKCU\...\Run\WinSharePanel`, silent auto-start)
+   ③ a Windows-service reservation marker (`HKLM\Software\WinSharePanel\ServicePending`, no service body
+   created in this version); the system PATH entry is **not** written by default — instead a
+   "one-click register" entry inside the app writes to the user-level `HKCU\Environment\Path`
+   (the uninstaller prompts the user to clean it up manually)
 
 ---
 

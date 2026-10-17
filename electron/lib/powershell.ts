@@ -14,6 +14,9 @@ const DEFAULT_RETRIES = 2
 // 序列化为 CLIXML 污染 stderr 导致 formatPsError 误报
 // $ErrorActionPreference=Stop：B-1 修复——cmdlet 非终止性错误（权限不足等）不得被吞成退出码 0
 // （与进程池 server 脚本同语义；依赖吞错误的调用点均已显式 -EA SilentlyContinue 或 try/catch）
+// v1.4.0 多版本兼容：$ProgressPreference 是 PS3.0+ 的内置变量，5.1 / 7.x 都支持；
+// 若未来兜底到 PowerShell 2.0（Win7 默认，本项目不支持的旧系统），需按版本降级——
+// 见 docs/COMPATIBILITY.md 的"已知限制"（Win7/8 不支持）
 const UTF8_PREFIX =
   "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $OutputEncoding=[System.Text.Encoding]::UTF8; $ProgressPreference='SilentlyContinue'; $ErrorActionPreference='Stop'; "
 
@@ -134,6 +137,10 @@ function formatPsError(err: Error | null): Error {
   const combined = rawStderr || rawMsg
   if (/timed out|ETIMEDOUT/i.test(rawMsg))
     return new Error('命令执行超时，请检查系统响应或稍后重试')
+  // spawn 阶段 ENOENT（0x80070003）：可执行文件不存在 / 被杀软拦截
+  if (/ENOENT|0x80070003|文件找不到|系统找不到/i.test(rawMsg)) {
+    return new Error(`PowerShell 无法启动（文件找不到或被拦截）：详见「系统环境」卡的诊断建议`)
+  }
   const readable = stripClixml(combined)
   if (/access is denied|拒绝访问/i.test(readable)) return new Error('权限不足，请以管理员身份运行')
   return new Error(`命令执行失败：${readable.slice(0, 300)}`)

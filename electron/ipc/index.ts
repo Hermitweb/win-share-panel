@@ -10,6 +10,15 @@ import * as smb from '../services/smb'
 import * as preset from '../services/preset'
 import * as system from '../services/system'
 import { isProtocol } from '../services/system'
+import { getPowershellStatus, diagnosePsRuntime } from '../services/psRuntime'
+import {
+  registerAppInUserPath,
+  unregisterAppFromUserPath,
+  isAppInUserPath,
+  setLoginShortcut,
+  getLoginShortcut,
+  readServicePendingMarker,
+} from '../services/pathRegistration'
 import * as nfs from '../services/nfs'
 import * as ftp from '../services/ftp'
 import * as webdav from '../services/webdav'
@@ -420,6 +429,34 @@ export function registerIpc(): void {
       String(enabled),
     )
   })
+
+  // v1.4.0：PowerShell 运行时状态（渲染层「环境卡」读取；诊断走同一入口）
+  ipcMain.handle('system:psRuntime', () => getPowershellStatus())
+  ipcMain.handle('system:psDiagnose', (_e, rawError: unknown) =>
+    wrap(
+      async () =>
+        diagnosePsRuntime(
+          typeof rawError === 'string' && rawError ? rawError : '(未知错误)',
+        ),
+      'psDiagnose',
+      typeof rawError === 'string' ? rawError.slice(0, 80) : '(非字符串)',
+    ),
+  )
+
+  // v1.4.0：系统注册项一键管理（PATH / 登录快速启动 / 服务预留标记）
+  ipcMain.handle('system:registerPath', () =>
+    wrap(() => registerAppInUserPath(), 'registerPath', 'user PATH'),
+  )
+  ipcMain.handle('system:unregisterPath', () =>
+    wrap(() => unregisterAppFromUserPath(), 'unregisterPath', 'user PATH'),
+  )
+  ipcMain.handle('system:pathRegistered', () => isAppInUserPath())
+  ipcMain.handle('system:setLoginShortcut', (_e, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') throw Errors.invalidParam('enabled 必须为布尔值')
+    return wrap(() => setLoginShortcut(enabled), 'setLoginShortcut', String(enabled))
+  })
+  ipcMain.handle('system:getLoginShortcut', () => getLoginShortcut())
+  ipcMain.handle('system:servicePending', () => readServicePendingMarker())
 
   // === app: 日志系统（E6）===
   // 渲染层错误/事件转发主进程持久化；边界守卫：level 白名单、长度截断、简单限流

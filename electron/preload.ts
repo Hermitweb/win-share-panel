@@ -19,6 +19,10 @@ import type {
   DashboardStats,
   SmbSnapshotMeta,
   OsInfo,
+  PsRuntimeStatus,
+  PsRuntimeDiagnosis,
+  PsCandidateSummary,
+  PsEngine,
   Protocol,
   ProtocolSession,
   ProtocolDetectionResult,
@@ -169,6 +173,29 @@ const api = {
     auditLog: (): Promise<string> => ipcRenderer.invoke('system:auditLog'),
     health: (): Promise<{ ok: boolean; detail: string }> => ipcRenderer.invoke('system:health'),
     osInfo: (): Promise<OsInfo> => ipcRenderer.invoke('system:osInfo'),
+    // PowerShell 运行时探测（v1.4.0）：存在性 + 诊断建议
+    psRuntime: (): Promise<PsRuntimeStatus> => ipcRenderer.invoke('system:psRuntime'),
+    psDiagnose: (rawError: string): Promise<PsRuntimeDiagnosis> =>
+      ipcRenderer.invoke('system:psDiagnose', rawError),
+    // v1.4.0：系统注册项一键管理
+    registerPath: (): Promise<{
+      registered: boolean
+      pathLength: number
+      message: string
+      broadcast: boolean
+    }> => ipcRenderer.invoke('system:registerPath'),
+    unregisterPath: (): Promise<{
+      registered: boolean
+      pathLength: number
+      message: string
+      broadcast: boolean
+    }> => ipcRenderer.invoke('system:unregisterPath'),
+    pathRegistered: (): Promise<boolean> => ipcRenderer.invoke('system:pathRegistered'),
+    setLoginShortcut: (enabled: boolean): Promise<string> =>
+      ipcRenderer.invoke('system:setLoginShortcut', enabled),
+    getLoginShortcut: (): Promise<boolean> => ipcRenderer.invoke('system:getLoginShortcut'),
+    /** NSIS 安装器预留的服务标记（v1.4.0 暂不创建服务本体，仅提示） */
+    servicePending: (): Promise<boolean> => ipcRenderer.invoke('system:servicePending'),
     // 原生文件夹选择（主进程 dialog.showOpenDialog）
     selectFolder: (): Promise<string | null> => ipcRenderer.invoke('system:selectFolder'),
     // 打开日志文件夹：成功返回空串，失败返回错误信息

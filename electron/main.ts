@@ -16,6 +16,7 @@ import { nativePowerShellExe } from './lib/nativePaths'
 import { logDir, log } from './lib/logger'
 import { pushHistory, loadState } from './lib/stateStore'
 import { getDashboardStats } from './services/system'
+import { probePowerShell } from './services/psRuntime'
 
 // ===== 连接数 24h 趋势采样 =====
 // 主进程定时采样（渲染层关闭也继续采），5min × 288 点 = 24h，落 appstate.json。
@@ -215,8 +216,27 @@ if (!gotTheLock) {
       'main',
       `[arch] 进程位宽 ${process.arch}（${process.platform}）→ PowerShell: ${nativePowerShellExe()}`,
     )
+    // v1.4.0：启动即探测 PowerShell 可执行文件是否存在（一次 stat，不 spawn），
+    // 把结果写进日志，让 0x80070003 / 被杀软拦截等"机器差异"问题在应用日志可追溯。
+    // 后续调用方（powershell.ts / 渲染层「环境卡」）读取 getPowershellStatus() 缓存。
+    // v1.4.0 多版本兼容：nativePowerShellExe() 现按「5.1 优先，缺失兜底 7.x」解析，
+    // 32 位进程下 5.1 / 7.x 候选都走 Sysnative 原生位宽（见 lib/nativePaths.ts）
+    const probe = probePowerShell()
+    log.info(
+      'main',
+      `[psRuntime] 探测 ${probe.resolvedPath} → exists=${probe.exists}, realPathFound=${probe.realPathFound}${
+        probe.statError ? `（stat 异常：${probe.statError}）` : ''
+      }${probe.engine ? `，引擎：${probe.engine}` : ''}`,
+    )
     // 后台预热 PowerShell 进程池（不阻塞首屏）；worker 懒 spawn，预热仅提前起 1 个
-    prewarmPool()
+    // 探测失败时跳过预热：worker 起来也会立刻 ENOENT，省一次无谓 spawn
+    // v1.4.0 多版本兼容：只有裸名兜底（realPathFound=false）时跳过预热
+    if (probe.realPathFound || !probe.resolvedPath.includes(':')) prewarmPool()
+    // v1.4.0 多版本兼容：启动后空闲时探测 $PSVersionTable（异步，不阻塞首屏），
+    // 把引擎大版本（5/7）写进 app.log，供 cmdlet 差异排查（IIS COM 仅 5.1 注册等）
+    void import('./lib/psRuntimeProbe')
+      .then(({ probePsVersionAndLog }) => probePsVersionAndLog())
+      .catch((e) => log.warn('main', '[psRuntime] 版本探测失败:', (e as Error).message))
     // 连接数趋势采样（渲染层关闭也持续采，供仪表板 24h 折线）
     startHistorySampler()
   })

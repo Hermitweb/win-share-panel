@@ -30,6 +30,10 @@ import type {
   UpdateShareInput,
   OsInfo,
   OsFeatures,
+  PsRuntimeStatus,
+  PsRuntimeDiagnosis,
+  PsCandidateSummary,
+  PsEngine,
   AppState,
   AppStatePatch,
   AlertRules,
@@ -79,6 +83,10 @@ export type {
   UpdateShareInput,
   OsInfo,
   OsFeatures,
+  PsRuntimeStatus,
+  PsRuntimeDiagnosis,
+  PsCandidateSummary,
+  PsEngine,
   AppState,
   AppStatePatch,
   AlertRules,
@@ -210,6 +218,9 @@ export interface WinShareApi {
     auditLog: () => Promise<string>
     health: () => Promise<{ ok: boolean; detail: string }>
     osInfo: () => Promise<OsInfo>
+    /** PowerShell 运行时探测（v1.4.0）：存在性 + 诊断建议 */
+    psRuntime: () => Promise<PsRuntimeStatus>
+    psDiagnose: (rawError: string) => Promise<PsRuntimeDiagnosis>
     selectFolder: () => Promise<string | null>
     openLogFolder: () => Promise<string>
     autoStart: () => Promise<boolean | null>

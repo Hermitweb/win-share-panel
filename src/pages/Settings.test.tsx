@@ -120,6 +120,15 @@ const apiStub = vi.hoisted(() => {
       auditLog: r(''),
       health: r({ ok: true, detail: 'ok' }),
       osInfo: r(null),
+      // v1.4.0：PowerShell 运行时探测（OsCompatCard 新调用；多版本兼容版含 engine/realPathFound）
+      psRuntime: r({
+        resolvedPath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+        exists: true,
+        realPathFound: true,
+        probedAt: 0,
+        engine: 'windowsPowerShell',
+      }),
+      psDiagnose: r({ ok: true, reason: 'ok', suggestions: [] }),
       selectFolder: r(null),
       openLogFolder: r(''),
       autoStart: r(null),
@@ -238,6 +247,20 @@ beforeEach(() => {
   useUiStore.setState({ refreshTick: 0 })
 
   apiStub.system.osInfo.mockImplementation(async () => OS_INFO)
+  // OsCompatCard 的新 PowerShell 探测：返回一个"存在"的状态（realPathFound=true），
+  // 让渲染层不进入诊断分支
+  apiStub.system.psRuntime.mockImplementation(async () => ({
+    resolvedPath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+    exists: true,
+    realPathFound: true,
+    probedAt: Date.now(),
+    engine: 'windowsPowerShell',
+  }))
+  apiStub.system.psDiagnose.mockImplementation(async () => ({
+    ok: true,
+    reason: 'PowerShell 可执行文件存在',
+    suggestions: [],
+  }))
   apiStub.smb.getConfig.mockImplementation(async () => ({ ...SMB_CONFIG }))
   apiStub.state.get.mockImplementation(async () => clone(persisted))
   apiStub.state.patch.mockImplementation(async (p: AppStatePatch) => {

@@ -48,6 +48,24 @@ nsis:
   # 架构标识：x86 / x64 / arm64（WINSHARE_ARCH_LABEL 由 scripts/build-win.mjs 注入；
   # 直接裸跑 electron-builder 会因该变量未定义而明确报错，而不是产出错命名）
   artifactName: WinShare.Panel-${version}-Setup-${env.WINSHARE_ARCH_LABEL}.${ext}
+  # v1.4.0：安装器"注册项"完善（仅 NSIS 安装包启用；portable/msi 不写这些注册项）：
+  #   ① AddNoShortcuts/NoChange 默认值：createDesktopShortcut/StartMenuShortcut 仍生效
+  #   ② 安装器侧写入 HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\WinSharePanel
+  #      （AppId/DisplayName/DisplayIcon/UninstallString/QuietUninstallString/
+  #       DisplayVersion/Publisher/InstallLocation/NoModify/NoRepair）—— 控制面板
+  #      "程序和功能"列表可识别、可卸载
+  #   ③ 安装器侧写入 HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\WinSharePanel
+  #      = "<安装目录>\WinShare Panel.exe --silent"—— 登录快速启动（NSIS 卸载时自动清理）
+  #   ④ 安装器侧写入 HKLM\SYSTEM\CurrentControlSet\Services\WinSharePanelSvc（预留）
+  #      —— v1.4.0 暂不创建 Windows 服务（与 GUI 形态冲突），仅打日志说明预留点
+  #   ⑤ 安装器侧把 <安装目录> 加到系统 PATH（HKLM\SYSTEM\...\Environment\Path）
+  #      —— 用户可在 cmd / PowerShell 里直接调用 `WinSharePanel.exe`，可选，默认不勾选
+  # ②③④⑤ 都在 resources/installer-hooks.nsh（NSIS 脚本）实现；electron-builder
+  # 通过 nsis.include（单个 .nsh 文件）注入。v1.4.0 先用最小可运行集（②③），④⑤ 走
+  # 主进程内"首次启动自检 + 一键注册"入口（避免 NSIS 跨权限写系统 PATH 失败风险）
+  include: resources/installer-hooks.nsh
+  # 让 ② 的 ARP 条目在"程序和功能"里正确显示版本
+  differentialPackage: false
 portable:
   artifactName: WinShare.Panel-${version}-portable-${env.WINSHARE_ARCH_LABEL}.${ext}
 msi:
