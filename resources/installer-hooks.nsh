@@ -75,8 +75,11 @@
 ; 卸载器侧的 PATH 清理函数（un. 前缀 = 卸载器段）
 ; 弹框让用户确认；「是」→ 提示去「系统 → 高级系统设置 → 环境变量」手动清理，
 ; 并在消息里给出当前用户 PATH 的可复制提示（NSIS 不做自动改 PATH——误删风险）
+; NSIS MessageBox 的换行是字面量 \n（双引号字符串内的转义），
+; ${NL} 不是 NSIS 内置常量（v3 无此宏），用了会被 makensis 报 6000 警告 →
+; electron-builder 把警告当错误处理，构建直接失败（v1.4.1 CI 实测踩坑）
 Function un.winshareShowPathHint
   MessageBox MB_OK \
-    "WinShare Panel 可能已通过应用内「一键注册」向当前用户 PATH 追加了安装目录。${NL}卸载不会自动清理 PATH 条目（避免误删你配置的其他路径）。${NL}${NL}如需清理，请打开「设置 → 系统 → 关于 → 高级系统设置 → 环境变量 → 用户环境变量 Path」，删除其中的 ${WS_PRODUCT_KEY} 安装目录项。" \
+    "WinShare Panel 可能已通过应用内「一键注册」向当前用户 PATH 追加了安装目录。\n卸载不会自动清理 PATH 条目（避免误删你配置的其他路径）。\n\n如需清理，请打开「设置 → 系统 → 关于 → 高级系统设置 → 环境变量 → 用户环境变量 Path」，删除其中的 ${WS_PRODUCT_KEY} 安装目录项。" \
     IDOK
 FunctionEnd
