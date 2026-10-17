@@ -39,11 +39,11 @@
 ;
 ; 依赖的宏（全部由 electron-builder 自带模板/内置 NSIS 提供，本文件不重定义）：
 ;   ${If} ${IfNot} ${EndIf} ${Silent} —— NSIS v3 内置（makensis 自带逻辑系统）
-;   ${StrContains} —— app-builder-lib/templates/nsis/include/StrContains.nsh
-;   （脚本生成器 `scriptGenerator.addIncludeDir(nsisTemplatesDir/include)` 已
-;     加入 include 搜索路径，`!include "StrContains.nsh"` 即可解析）
-
-!include "StrContains.nsh"
+; 注：曾经 !include "StrContains.nsh" 并声明 ${StrContains} 可用，但本 hook 实际
+; 未调用 ${StrContains}，而 makensis 会把 include 进来却零引用的 install function
+; 报 6010 警告（"install function not referenced - zeroing code out"），
+; electron-builder 将警告当错误处理导致构建失败（v1.4.1 CI 实测）。
+; 若未来 hook 需要字符串包含判断，再按需 include 并真正使用。
 
 !define WS_PRODUCT_KEY "WinSharePanel"
 !define WS_RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
