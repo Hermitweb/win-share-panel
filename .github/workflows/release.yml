@@ -55,10 +55,19 @@ jobs:
           # **优先级高于** ELECTRON_MIRROR —— 只设后者挡不住镜像。v1.3.0 首次发布即因此
           # 从 npmmirror 拉 arm64 Electron（境外慢 + 本次包不完整），arm64 打包失败。
           # runner 在境外，直连官方源更快更可靠。
+          #
+          # v1.4.1 修正：两类镜像必须分开指，不能一刀切全官方源——
+          # ① Electron 本体（electron_mirror）→ 官方 GitHub：v1.3.0 踩过的坑
+          #    （npmmirror 的 arm64 包不完整），保持官方源不变；
+          # ② electron-builder-binaries（winCodeSign 等构建工具）→ npmmirror：
+          #    官方源的 winCodeSign-2.6.0.7z 返回 404（上游 release 资产缺失，
+          #    2026-10-17 实测），而 npmmirror 的 electron-builder-binaries 镜像
+          #    完整收录该文件（registry.npmmirror.com/-/binary 200 验证通过）。
+          #    构建工具类资产走国内镜像反而更稳，不受上游 GitHub release 清理影响。
           npm_config_electron_mirror: https://github.com/electron/electron/releases/download/
           ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
-          npm_config_electron_builder_binaries_mirror: https://github.com/electron/electron-builder-binaries/releases/download/
-          ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron/electron-builder-binaries/releases/download/
+          npm_config_electron_builder_binaries_mirror: https://npmmirror.com/mirrors/electron-builder-binaries/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
 
       - name: Verify artifacts（三架构产物齐备）
         shell: pwsh
