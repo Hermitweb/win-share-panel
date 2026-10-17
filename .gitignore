@@ -16,3 +16,10 @@ coverage/
 # build environment artifacts
 .pnpm-store/
 *.deb
+
+# DSH 会话 / 构建残留（本机产物，勿入库）
+dsh-cli.cmd
+dshver.tmp
+pluginlist.tmp
+web-package.json.bak
+web-pnpm-workspace.yaml.bak
