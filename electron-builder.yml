@@ -41,6 +41,14 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  # v1.4.1 修复：electron-builder 默认给 makensis 加 -WX（把警告当错误），
+  # 但 NSIS 自带模板 + 我们的 installer-hooks.nsh 会产生结构性 60xx 警告
+  # （6020：uninstaller 脚本里定义了 un.xxx 函数但 electron-builder 的
+  #  WriteUninstaller 生成逻辑在某些 target 下未调用；6010/6000 同理）。
+  # 这些警告**不影响产物正确性**（图标/卸载器实际都由 electron-builder
+  # 模板正常生成），硬开 -WX 只会让每次给 .nsh 加函数都炸构建。
+  # 关闭 warningsAsErrors 让 makensis 正常把警告输出到日志、不中止构建。
+  warningsAsErrors: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   installerIcon: resources/icon.ico
