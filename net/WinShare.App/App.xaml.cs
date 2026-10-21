@@ -47,8 +47,9 @@ public partial class App : Application
             return;
         }
 
-        // 组合根装配（仪表板数据馈送：契约服务槽位为空时走契约空馈送 → 界面全空态）
-        AppServices.Compose(this, feed: BuildDashboardFeed());
+        // 组合根装配：先构造 Core 契约服务并注入各模块静态槽，再把真实数据源喂给仪表板
+        Composition.ComposedServices services = Composition.ServicesComposition.Build();
+        AppServices.Compose(this, feed: new ContractServicesDataFeed(services.System, services.Disk, services.Smb, services.Security));
 
         // 导航注册：仪表板（本任务模块）+ 5 占位（TODO T3b/c/d）
         RegisterPages();
@@ -67,13 +68,6 @@ public partial class App : Application
         StartTrendSampler();
 
         LogSink.Info("main", $"[startup] 进程位宽 {(Environment.Is64BitProcess ? "64" : "32")}（Windows）→ WPF net10");
-    }
-
-    static IDashboardDataFeed BuildDashboardFeed()
-    {
-        // T3b/c/d 服务实现注册后：换成 new ContractServicesDataFeed(sys, disk, smb, sec)。
-        // 当前契约服务无实现 → 契约空馈送（界面如实空态，不崩）。
-        return new ContractServicesDataFeed(null, null, null, null);
     }
 
     void RegisterPages()

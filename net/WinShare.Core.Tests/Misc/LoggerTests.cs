@@ -3,9 +3,13 @@
 // 对象渲染断言按 C# 紧凑 JSON 语义对齐（TS 'name: a { n: 1 }' → C# 断言含 "name: a" 与 "\"n\":1"）。
 using System.Text.RegularExpressions;
 using WinShare.Core.Lib;
+using WinShare.Core.Tests.Services.Protocols.Adapters;
 
 namespace WinShare.Core.Tests.Misc;
 
+// Logger 是进程级全局：本类的 2MB 轮转断言依赖「marker 在主文件尾部」的时序，
+// 与协议适配器测试（每个方法都 Logger.Info）并行时会互相破坏 → 纳入同一独占集合串行运行。
+[Collection(ProtocolAdaptersCollection.Name)]
 public class LoggerTests
 {
     private static readonly string TempDir = TestTmp.New("wslog-test");
