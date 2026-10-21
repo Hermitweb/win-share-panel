@@ -41,7 +41,7 @@ public static class SessionsModule
         {
             route = "/sessions",
             titleKey = "Nav.Sessions",
-            glyph = "≋",
+            glyph = "\uE9D9",
             factory = new PageFactory(() => new SessionsPageView()),
         });
     }

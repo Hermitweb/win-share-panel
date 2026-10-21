@@ -2,39 +2,92 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <!--
-      主题 token（浅色）：色板对齐 antd 默认 palette 与 TS 版 index.css 变量（chart-bg 取 #F4FAFD）。
-      间距 8/16/24、字号 12/14/16/20、圆角 6，antd 视觉密度。
-      T3b/c/d 页面直接使用这些 DynamicResource，勿自造色值。
+      主题 token（浅色）——严格对齐 docs/UI_DESIGN.md：
+      浅蓝调 · 轻渐变扁平化 · 新拟态柔光磨砂玻璃（圆角 16/12/8、柔光弥散阴影、通透薄纸质感）。
+      页面一律用 {DynamicResource <Key>}，勿自造色值。
     -->
-    <Color x:Key="ColorBg">#F4FAFD</Color>
+    <!-- ===== 主色板（规范 2.1） ===== -->
+    <Color x:Key="ColorPrimary">#7EC8F0</Color>
+    <Color x:Key="ColorPrimaryLight">#A8DCF5</Color>
+    <Color x:Key="ColorSecondary">#C8B6E2</Color>
+    <Color x:Key="ColorSecondaryLight">#D9CCEC</Color>
+    <Color x:Key="ColorAccent">#F5C6C6</Color>
+    <Color x:Key="ColorAccentLight">#FAD9D9</Color>
+
+    <!-- ===== 背景 / 文字（规范 2.1） ===== -->
+    <Color x:Key="ColorBg">#FFFFFF</Color>
+    <Color x:Key="ColorBgMist">#F4FAFD</Color>
     <Color x:Key="ColorCard">#FFFFFF</Color>
-    <Color x:Key="ColorText">#1F2733</Color>
-    <Color x:Key="ColorFog">#731F2733</Color>
-    <Color x:Key="ColorPrimary">#1677FF</Color>
-    <Color x:Key="ColorSuccess">#52C41A</Color>
-    <Color x:Key="ColorWarning">#FAAD14</Color>
-    <Color x:Key="ColorDanger">#FF4D4F</Color>
-    <Color x:Key="ColorBorder">#E4E9F0</Color>
+    <Color x:Key="ColorText">#3A4A5C</Color>
+    <Color x:Key="ColorFog">#8AA0B0</Color>
+    <Color x:Key="ColorBorder">#E3EEF6</Color>
     <Color x:Key="ColorChartBg">#F4FAFD</Color>
 
+    <!-- ===== 语义色（沿用可读性，降饱和以贴合浅蓝调）===== -->
+    <Color x:Key="ColorSuccess">#7BC8A4</Color>
+    <Color x:Key="ColorWarning">#F0C27B</Color>
+    <Color x:Key="ColorDanger">#F0A8A8</Color>
+
     <SolidColorBrush x:Key="BrushBg" Color="{StaticResource ColorBg}" />
+    <SolidColorBrush x:Key="BrushBgMist" Color="{StaticResource ColorBgMist}" />
     <SolidColorBrush x:Key="BrushCard" Color="{StaticResource ColorCard}" />
     <SolidColorBrush x:Key="BrushText" Color="{StaticResource ColorText}" />
     <SolidColorBrush x:Key="BrushFog" Color="{StaticResource ColorFog}" />
     <SolidColorBrush x:Key="BrushPrimary" Color="{StaticResource ColorPrimary}" />
+    <SolidColorBrush x:Key="BrushPrimaryLight" Color="{StaticResource ColorPrimaryLight}" />
+    <SolidColorBrush x:Key="BrushSecondary" Color="{StaticResource ColorSecondary}" />
+    <SolidColorBrush x:Key="BrushAccent" Color="{StaticResource ColorAccent}" />
     <SolidColorBrush x:Key="BrushSuccess" Color="{StaticResource ColorSuccess}" />
     <SolidColorBrush x:Key="BrushWarning" Color="{StaticResource ColorWarning}" />
     <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
     <SolidColorBrush x:Key="BrushBorder" Color="{StaticResource ColorBorder}" />
     <SolidColorBrush x:Key="BrushChartBg" Color="{StaticResource ColorChartBg}" />
 
-    <sys:Double x:Key="SpacingSm">8</sys:Double>
+    <!-- ===== 磨砂玻璃 / 渐变（规范 2.2 / 4.2） ===== -->
+    <SolidColorBrush x:Key="BrushGlass" Color="#FFFFFF" Opacity="0.65" />
+    <SolidColorBrush x:Key="BrushGlassStrong" Color="#FFFFFF" Opacity="0.82" />
+    <SolidColorBrush x:Key="BrushGlassStroke" Color="#FFFFFF" Opacity="0.6" />
+    <LinearGradientBrush x:Key="BrushBrandGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#A8DCF5" Offset="0" />
+        <GradientStop Color="#C8B6E2" Offset="0.55" />
+        <GradientStop Color="#F5C6C6" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="BrushSoftGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#E8F4FB" Offset="0" />
+        <GradientStop Color="#F0EAF8" Offset="1" />
+    </LinearGradientBrush>
+    <!-- 页面氛围背景：极柔渐变（规范 7.2） -->
+    <LinearGradientBrush x:Key="BrushAppBackdrop" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FFFFFF" Offset="0" />
+        <GradientStop Color="#F4FAFD" Offset="0.45" />
+        <GradientStop Color="#F5F1FB" Offset="1" />
+    </LinearGradientBrush>
+    <!-- 危险按钮渐变（规范 5.2） -->
+    <LinearGradientBrush x:Key="BrushDangerGradient" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#F5C6C6" Offset="0" />
+        <GradientStop Color="#F0A8A8" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- ===== 柔光弥散阴影（规范 4.1；WPF 用 DropShadowEffect 近似） ===== -->
+    <DropShadowEffect x:Key="ShadowCard" Color="#7EC8F0" Opacity="0.12" BlurRadius="16" ShadowDepth="4" Direction="270" />
+    <DropShadowEffect x:Key="ShadowHover" Color="#7EC8F0" Opacity="0.20" BlurRadius="28" ShadowDepth="8" Direction="270" />
+    <DropShadowEffect x:Key="ShadowSoft" Color="#3A4A5C" Opacity="0.04" BlurRadius="3" ShadowDepth="1" Direction="270" />
+
+    <!-- ===== 间距 / 字号（规范 3.3 / 5.x） ===== -->
+    <sys:Double x:Key="SpacingSm">12</sys:Double>
     <sys:Double x:Key="SpacingMd">16</sys:Double>
     <sys:Double x:Key="SpacingLg">24</sys:Double>
+    <sys:Double x:Key="SpacingXl">32</sys:Double>
     <sys:Double x:Key="FontSizeCaption">12</sys:Double>
     <sys:Double x:Key="FontSizeBody">14</sys:Double>
     <sys:Double x:Key="FontSizeTitle">16</sys:Double>
-    <sys:Double x:Key="FontSizeStat">28</sys:Double>
-    <CornerRadius x:Key="RadiusCard">6</CornerRadius>
-    <CornerRadius x:Key="RadiusBtn">6</CornerRadius>
+    <sys:Double x:Key="FontSizePageTitle">22</sys:Double>
+    <sys:Double x:Key="FontSizeStat">30</sys:Double>
+
+    <!-- ===== 圆角（规范 3.1：卡片 16 / 按钮 12 / 输入 10 / 标签 8） ===== -->
+    <CornerRadius x:Key="RadiusCard">16</CornerRadius>
+    <CornerRadius x:Key="RadiusBtn">12</CornerRadius>
+    <CornerRadius x:Key="RadiusInput">10</CornerRadius>
+    <CornerRadius x:Key="RadiusTag">8</CornerRadius>
+    <CornerRadius x:Key="RadiusWindow">16</CornerRadius>
 </ResourceDictionary>

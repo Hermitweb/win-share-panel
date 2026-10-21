@@ -18,7 +18,9 @@ public interface INavigationService
 
 public sealed class NavigationService(NavigationRegistry registry) : INavigationService
 {
-    string _route = "/";
+    // 初值必须是空串（=「尚未导航」）：若初值写成 "/"，首次 Navigate("/") 会命中
+    // 「同路由不重建视图」分支直接返回，_currentView 永远为 null → 启动后主内容区空白。
+    string _route = "";
     string? _attention;
     UserControl? _currentView;
 

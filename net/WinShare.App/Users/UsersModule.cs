@@ -45,7 +45,7 @@ public static class UsersModule
         {
             route = "/users",
             titleKey = "Nav.Users",
-            glyph = "◉",
+            glyph = "\uE716",
             factory = new PageFactory(() => new UsersPageView()),
         });
     }

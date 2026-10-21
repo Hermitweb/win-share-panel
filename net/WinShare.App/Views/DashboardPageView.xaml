@@ -24,20 +24,25 @@
             </DockPanel>
         </DataTemplate>
     </UserControl.Resources>
-    <Grid Margin="20" Background="{DynamicResource BrushBg}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid Margin="24,22,24,28" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <!-- 注意：本页外层是 ScrollViewer，纵向无限测量下 Height="*" 会塌成 0 → 内容不可见，必须用 Auto -->
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- 页头：标题 + 状态提示 + 导出/刷新（对齐 Dashboard.tsx header Space + message） -->
         <DockPanel Grid.Row="0" Margin="0,0,0,16" LastChildFill="False">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="{DynamicResource Dash.Title}"
-                           FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <!-- 规范 §5.3：渐变指示条作为页面标题的品牌锚点 -->
+                <Border Width="4" Height="22" CornerRadius="2" Margin="0,0,10,0"
+                        Background="{DynamicResource BrushBrandGradient}" VerticalAlignment="Center" />
+                <TextBlock Text="{DynamicResource Dash.Title}" Style="{DynamicResource PageTitle}"
+                           VerticalAlignment="Center" />
                 <TextBlock x:Name="StatusTip" FontSize="12" Foreground="{DynamicResource BrushFog}"
                            Margin="16,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" />
             </StackPanel>
@@ -53,8 +58,10 @@
 
         <!-- 统计卡 ×4（对齐 antd Row gutter 16 + Statistic） -->
         <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,16">
-            <Border Style="{DynamicResource CardStyle}" Margin="0,0,8,0">
+            <Border Style="{DynamicResource CardStyle}" Margin="0,0,10,0">
                 <StackPanel>
+                    <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
+                            Background="{DynamicResource BrushBrandGradient}" />
                     <TextBlock Text="{DynamicResource Dash.ShareCount}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
                     <TextBlock x:Name="TxtShareCount" Text="0" FontSize="28" FontWeight="SemiBold" Margin="0,4,0,0" />
                 </StackPanel>
@@ -67,6 +74,7 @@
             </Border>
             <Border Style="{DynamicResource CardStyle}" Margin="8,0">
                 <StackPanel>
+                    <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10" Background="{DynamicResource BrushBrandGradient}" />
                     <TextBlock Text="{DynamicResource Dash.OpenFiles}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
                     <TextBlock x:Name="TxtOpenFiles" Text="0" FontSize="28" FontWeight="SemiBold" Margin="0,4,0,0" />
                 </StackPanel>
@@ -127,7 +135,7 @@
                         </StackPanel>
                     </StackPanel>
                     <Grid>
-                        <charts:TrendChartControl x:Name="TrendChart" />
+                        <charts:TrendChartControl x:Name="TrendChart" Height="240" />
                         <TextBlock x:Name="TrendEmptyAll" Text="{DynamicResource Dash.TrendAllEmpty}"
                                    FontSize="12" Foreground="{DynamicResource BrushFog}"
                                    TextWrapping="Wrap" TextAlignment="Center"
@@ -147,6 +155,9 @@
                     <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.Protocols}"
                                FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
                     <UniformGrid x:Name="ProtocolGrid" Columns="4" />
+                    <TextBlock x:Name="ProtocolEmpty" Visibility="Collapsed"
+                               Text="协议统计暂未取到（本机四类协议均未检出或服务查询未完成）· 点右上「刷新」重试"
+                               FontSize="12" Margin="2,4,0,4" Foreground="#8AA0B0" TextWrapping="Wrap" />
                 </DockPanel>
             </Border>
 
@@ -189,9 +200,10 @@
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.TopShares}"
                                FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
-                    <charts:TopSharesChartControl x:Name="TopChart" />
+                    <charts:TopSharesChartControl x:Name="TopChart" Height="200" />
                 </DockPanel>
             </Border>
         </Grid>
     </Grid>
+    </ScrollViewer>
 </UserControl>

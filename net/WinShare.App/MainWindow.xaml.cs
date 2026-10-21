@@ -105,6 +105,84 @@ public partial class MainWindow : Window
         }
     }
 
+
+    // ===== 窗口控制（无边框自定义标题栏，规范 §9.1） =====
+    void OnTitleBarDrag(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            OnMaximizeRestore(sender, e);
+            return;
+        }
+        try { DragMove(); } catch { /* 最大化/拖拽竞态忽略 */ }
+    }
+
+    void OnMinimize(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    void OnMaximizeRestore(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    }
+
+    void OnCloseClick(object sender, RoutedEventArgs e)
+    {
+        // 与 Closing 一致：非退出态收进托盘
+        if (!AppShell.IsQuitting) Hide(); else AppShell.Quit();
+    }
+
+    void OnTitleMoreClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.ContextMenu is { } menu)
+        {
+            menu.PlacementTarget = btn;
+            menu.IsOpen = true;
+        }
+    }
+
+    // ===== 全屏加载遮罩（承接首屏 2-3s 的 PowerShell 读取） =====
+    /// <summary>显示加载遮罩并启动旋转动画（标题文案可定制）。</summary>
+    public void ShowLoading(string? text = null)
+    {
+        if (LoadingOverlay is null) return;
+        if (!string.IsNullOrWhiteSpace(text)) LoadingText.Text = text;
+        LoadingOverlay.Visibility = Visibility.Visible;
+        StartSpinner();
+    }
+
+    /// <summary>隐藏加载遮罩并停动画。</summary>
+    public void HideLoading()
+    {
+        if (LoadingOverlay is null) return;
+        StopSpinner();
+        LoadingOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private System.Windows.Media.Animation.Storyboard? _spinner;
+
+    private void StartSpinner()
+    {
+        if (_spinner is not null) return;
+        var rotate = new System.Windows.Media.Animation.DoubleAnimation(0, 360, TimeSpan.FromMilliseconds(900))
+        {
+            RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+        };
+        SpinnerRotate.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty, rotate);
+        _spinner = new System.Windows.Media.Animation.Storyboard();
+    }
+
+    private void StopSpinner()
+    {
+        SpinnerRotate?.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty, null);
+        _spinner = null;
+    }
+
+    /// <summary>标题栏右侧状态文案（如「已连接本机 SMB」/「只读」），空串则隐藏。</summary>
+    public void SetStatusHint(string? text)
+    {
+        if (TitleStatus is null) return;
+        TitleStatus.Text = text ?? "";
+    }
+
     // ===== 菜单（对齐 main.ts 主菜单 + 托盘菜单面） =====
     void OnMenuShowWindow(object sender, RoutedEventArgs e) => AppShell.ShowMainWindow();
 

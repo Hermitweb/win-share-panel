@@ -24,14 +24,14 @@ public static class SettingsModule
         {
             route = SettingsRoute,
             titleKey = "Nav.Settings",
-            glyph = "⚙",
+            glyph = "\uE713",
             factory = new PageFactory(() => new SettingsPageView()),
         });
         reg.Register(new AppPage
         {
             route = AppSettingsRoute,
             titleKey = "Nav.AppSettings",
-            glyph = "◎",
+            glyph = "\uE115",
             factory = new PageFactory(() => new AppSettingsPageView()),
         });
     }

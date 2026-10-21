@@ -2,38 +2,82 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <!--
-      主题 token（深色）：对齐 antd darkAlgorithm 色板 + TS 版 [data-theme='dark'] 变量
-      （背景 #141B23 与 Dashboard.tsx exportPng 的 dark 背景色同值；卡片为白 6% 叠层近似实色）。
+      主题 token（深色）——与 Light 同键名同结构（规范 2.1 的深色同族变体）。
+      保持浅蓝调气质：不是纯黑，而是雾蓝夜色（#141B23 与原版导出图背景同值）。
     -->
+    <Color x:Key="ColorPrimary">#8FD3F4</Color>
+    <Color x:Key="ColorPrimaryLight">#A8DCF5</Color>
+    <Color x:Key="ColorSecondary">#C8B6E2</Color>
+    <Color x:Key="ColorSecondaryLight">#D9CCEC</Color>
+    <Color x:Key="ColorAccent">#F5C6C6</Color>
+    <Color x:Key="ColorAccentLight">#FAD9D9</Color>
+
     <Color x:Key="ColorBg">#141B23</Color>
+    <Color x:Key="ColorBgMist">#1B2530</Color>
     <Color x:Key="ColorCard">#1B2530</Color>
     <Color x:Key="ColorText">#E8EDF4</Color>
-    <Color x:Key="ColorFog">#73E8EDF4</Color>
-    <Color x:Key="ColorPrimary">#4096FF</Color>
-    <Color x:Key="ColorSuccess">#49AA19</Color>
-    <Color x:Key="ColorWarning">#D89614</Color>
-    <Color x:Key="ColorDanger">#A62635</Color>
-    <Color x:Key="ColorBorder">#A6525252</Color>
+    <Color x:Key="ColorFog">#93A8BA</Color>
+    <Color x:Key="ColorBorder">#2C3A48</Color>
     <Color x:Key="ColorChartBg">#141B23</Color>
 
+    <Color x:Key="ColorSuccess">#7BC8A4</Color>
+    <Color x:Key="ColorWarning">#F0C27B</Color>
+    <Color x:Key="ColorDanger">#F0A8A8</Color>
+
     <SolidColorBrush x:Key="BrushBg" Color="{StaticResource ColorBg}" />
+    <SolidColorBrush x:Key="BrushBgMist" Color="{StaticResource ColorBgMist}" />
     <SolidColorBrush x:Key="BrushCard" Color="{StaticResource ColorCard}" />
     <SolidColorBrush x:Key="BrushText" Color="{StaticResource ColorText}" />
     <SolidColorBrush x:Key="BrushFog" Color="{StaticResource ColorFog}" />
     <SolidColorBrush x:Key="BrushPrimary" Color="{StaticResource ColorPrimary}" />
+    <SolidColorBrush x:Key="BrushPrimaryLight" Color="{StaticResource ColorPrimaryLight}" />
+    <SolidColorBrush x:Key="BrushSecondary" Color="{StaticResource ColorSecondary}" />
+    <SolidColorBrush x:Key="BrushAccent" Color="{StaticResource ColorAccent}" />
     <SolidColorBrush x:Key="BrushSuccess" Color="{StaticResource ColorSuccess}" />
     <SolidColorBrush x:Key="BrushWarning" Color="{StaticResource ColorWarning}" />
     <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
     <SolidColorBrush x:Key="BrushBorder" Color="{StaticResource ColorBorder}" />
     <SolidColorBrush x:Key="BrushChartBg" Color="{StaticResource ColorChartBg}" />
 
-    <sys:Double x:Key="SpacingSm">8</sys:Double>
+    <SolidColorBrush x:Key="BrushGlass" Color="#FFFFFF" Opacity="0.07" />
+    <SolidColorBrush x:Key="BrushGlassStrong" Color="#FFFFFF" Opacity="0.11" />
+    <SolidColorBrush x:Key="BrushGlassStroke" Color="#FFFFFF" Opacity="0.12" />
+    <LinearGradientBrush x:Key="BrushBrandGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#6AAFD4" Offset="0" />
+        <GradientStop Color="#9B87C4" Offset="0.55" />
+        <GradientStop Color="#D89A9A" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="BrushSoftGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#1B2530" Offset="0" />
+        <GradientStop Color="#221C2B" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="BrushAppBackdrop" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#141B23" Offset="0" />
+        <GradientStop Color="#18222C" Offset="0.5" />
+        <GradientStop Color="#1E1A28" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="BrushDangerGradient" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#8E4A4A" Offset="0" />
+        <GradientStop Color="#A85B5B" Offset="1" />
+    </LinearGradientBrush>
+
+    <DropShadowEffect x:Key="ShadowCard" Color="#000000" Opacity="0.35" BlurRadius="18" ShadowDepth="4" Direction="270" />
+    <DropShadowEffect x:Key="ShadowHover" Color="#000000" Opacity="0.45" BlurRadius="30" ShadowDepth="8" Direction="270" />
+    <DropShadowEffect x:Key="ShadowSoft" Color="#000000" Opacity="0.25" BlurRadius="4" ShadowDepth="1" Direction="270" />
+
+    <sys:Double x:Key="SpacingSm">12</sys:Double>
     <sys:Double x:Key="SpacingMd">16</sys:Double>
     <sys:Double x:Key="SpacingLg">24</sys:Double>
+    <sys:Double x:Key="SpacingXl">32</sys:Double>
     <sys:Double x:Key="FontSizeCaption">12</sys:Double>
     <sys:Double x:Key="FontSizeBody">14</sys:Double>
     <sys:Double x:Key="FontSizeTitle">16</sys:Double>
-    <sys:Double x:Key="FontSizeStat">28</sys:Double>
-    <CornerRadius x:Key="RadiusCard">6</CornerRadius>
-    <CornerRadius x:Key="RadiusBtn">6</CornerRadius>
+    <sys:Double x:Key="FontSizePageTitle">22</sys:Double>
+    <sys:Double x:Key="FontSizeStat">30</sys:Double>
+
+    <CornerRadius x:Key="RadiusCard">16</CornerRadius>
+    <CornerRadius x:Key="RadiusBtn">12</CornerRadius>
+    <CornerRadius x:Key="RadiusInput">10</CornerRadius>
+    <CornerRadius x:Key="RadiusTag">8</CornerRadius>
+    <CornerRadius x:Key="RadiusWindow">16</CornerRadius>
 </ResourceDictionary>

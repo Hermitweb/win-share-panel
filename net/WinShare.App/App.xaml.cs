@@ -67,8 +67,22 @@ public partial class App : Application
         // 24h 趋势采样器（对齐 startHistorySampler；需要 ISystemService 实现）
         StartTrendSampler();
 
-        // 首启三问向导（新手且从未建过共享时才弹；判定内部自行吞异常）
-        _ = Dispatcher.InvokeAsync(async () => await MaybeShowFirstRunGuideAsync());
+        // 首屏加载：先铺满遮罩 + 旋转动效，等仪表板首取完成再揭开（PS 5.1 进程冷启 2-3s 不可避免）
+        _window?.ShowLoading("正在读取本机共享信息…");
+        // 兜底：即使数据源卡死，最多 12s 后也必须揭幕（绝不让遮罩永久停留）
+        var revealTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(12) };
+        revealTimer.Tick += (_, _) => { revealTimer.Stop(); _window?.HideLoading(); };
+        revealTimer.Start();
+
+        _ = Dispatcher.InvokeAsync(async () =>
+        {
+            try { await AppServices.DashboardViewModel.RefreshAsync(); }
+            catch (Exception e) { LogSink.Warn("main", "首屏数据加载失败：" + e.Message); }
+            finally { revealTimer.Stop(); }
+
+            // 首启三问向导（新手且从未建过共享时才弹；判定内部自行吞异常）
+            await MaybeShowFirstRunGuideAsync();
+        });
 
         LogSink.Info("main", $"[startup] 进程位宽 {(Environment.Is64BitProcess ? "64" : "32")}（Windows）→ WPF net10");
     }
@@ -109,7 +123,7 @@ public partial class App : Application
     void RegisterPages()
     {
         var reg = AppServices.Registry;
-        reg.Register(new AppPage { route = "/", titleKey = "Dash.Title", glyph = "◧", factory = new PageFactory(() => new DashboardPageView()) });
+        reg.Register(new AppPage { route = "/", titleKey = "Dash.Title", glyph = "\uE80F", factory = new PageFactory(() => new DashboardPageView()) });
         // 四 UI 模块接入（同路由覆盖占位页；未接契约服务时各模块走空馈送降级）
         Shares.SharesModule.Register(reg);
         Users.UsersModule.Register(reg);

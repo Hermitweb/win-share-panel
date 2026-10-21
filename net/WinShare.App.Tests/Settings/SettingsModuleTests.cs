@@ -36,9 +36,10 @@ public class SettingsModuleTests
         Assert.NotNull(p1);
         Assert.NotNull(p2);
         Assert.Equal("Nav.Settings", p1!.titleKey);
-        Assert.Equal("⚙", p1.glyph);
+        // 图标已换成 Segoe MDL2 码位（原 Unicode 符号在默认字体下缺字形显示成方块）
+        Assert.Equal("\uE713", p1.glyph);
         Assert.Equal("Nav.AppSettings", p2!.titleKey);
-        Assert.Equal("◎", p2.glyph);
+        Assert.Equal("\uE115", p2.glyph);
         // 替换生效：工厂不再是占位实例（同路由二次注册语义）
         Assert.DoesNotContain(placeholderFactories, pp => pp == p1.factory);
         Assert.DoesNotContain(placeholderFactories, pp => pp == p2.factory);

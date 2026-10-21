@@ -36,6 +36,8 @@ public partial class DashboardPageView : UserControl
             };
             await _vm.RefreshAsync();
             ApplyVm();
+            // 首帧就绪 → 揭掉主窗口的全屏加载遮罩（比定时器更准：真正画完才揭）
+            if (Window.GetWindow(this) is MainWindow mw) mw.HideLoading();
             _vm.StartAutoRefresh();
         };
     }
@@ -43,6 +45,12 @@ public partial class DashboardPageView : UserControl
     void ApplyVm()
     {
         if (_vm is null) return;
+        try { ApplyVmCore(); }
+        catch (Exception e) { Shell.LogSink.Warn("dashboard", "ApplyVm 渲染失败：" + e); }
+    }
+
+    void ApplyVmCore()
+    {
 
         TxtShareCount.Text = _vm.ShareCount.ToString();
         TxtSessions.Text = _vm.ActiveSessions.ToString();
@@ -57,7 +65,10 @@ public partial class DashboardPageView : UserControl
 
         // 需要关注（AlertEvaluator 命中项；动作按钮 → 导航透传 attention）
         AttentionList.ItemsSource = _vm.AttentionItems;
-        AttentionEmpty.Visibility = _vm.AttentionItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        AttentionEmpty.Text = _vm.AttentionItems.Count == 0
+            ? "暂无需要关注项（已按当前告警规则检查 SMB1 / 访客策略 / 账户口令 / 磁盘水位）"
+            : $"共 {_vm.AttentionItems.Count} 项需要关注";
+        AttentionEmpty.Visibility = Visibility.Visible; // 始终可见：宁可多一行说明，也不留空白卡
         var skipped = _vm.SkippedSourcesText;
         SkippedNote.Text = skipped.Length > 0
             ? $"因数据不可用而跳过的检查：{skipped}（未命中不代表该项安全，请修复后刷新）"
@@ -108,6 +119,10 @@ public partial class DashboardPageView : UserControl
     {
         if (_vm is null) return;
         ProtocolGrid.Children.Clear();
+        bool hasRows = _vm.ProtocolRows.Count > 0;
+        // 空态用 XAML 静态控件（运行期集合渲染在某些容器下不可见，静态节点必定绘制）
+        if (ProtocolEmpty is not null) ProtocolEmpty.Visibility = hasRows ? Visibility.Collapsed : Visibility.Visible;
+        if (!hasRows) return;
         foreach (var row in _vm.ProtocolRows)
         {
             var p = new StackPanel { Margin = new Thickness(0, 0, 8, 8) };

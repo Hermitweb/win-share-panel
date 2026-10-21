@@ -5,35 +5,294 @@
     <!--
       无 StartupUri：窗口由 App.OnStartup 手动创建（单实例锁/托盘/Win11 检测先行）。
       ShutdownMode=OnExplicitShutdown：关闭主窗口 = 托盘常驻（对齐 main.ts window-all-closed 拦截）。
-      通用样式 = antd 视觉密度（圆角 6 / 内边距 16 / 间距 8）；色值全部走主题 token（DynamicResource 热切换）。
+      通用组件样式对齐 docs/UI_DESIGN.md §5：卡片 16px 圆角 + 磨砂玻璃 + 柔光弥散阴影，
+      按钮 12px 圆角（主按钮=马卡龙渐变、次按钮=磨砂白底浅蓝描边、危险=蜜桃粉渐变），
+      标签 8px 圆角胶囊。色值全部走主题 token（DynamicResource 热切换）。
     -->
     <Application.Resources>
+        <!-- ===== 卡片（规范 5.1） ===== -->
         <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource BrushCard}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="Background" Value="{DynamicResource BrushGlassStrong}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushGlassStroke}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="16" />
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusCard}" />
+            <Setter Property="Padding" Value="18,16" />
+            <Setter Property="Effect" Value="{DynamicResource ShadowCard}" />
         </Style>
 
+        <!-- 次级卡片：更轻的底，用于分组/嵌套 -->
+        <Style x:Key="CardSubtle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource BrushSoftGradient}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusCard}" />
+            <Setter Property="Padding" Value="14,12" />
+        </Style>
+
+        <!-- ===== 次按钮（DashButton：磨砂白底 + 浅蓝描边 + 悬浮微上浮，规范 5.2） ===== -->
         <Style x:Key="DashButton" TargetType="Button">
-            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Padding" Value="14,7" />
             <Setter Property="Margin" Value="0" />
-            <Setter Property="Background" Value="{DynamicResource BrushCard}" />
+            <Setter Property="Background" Value="{DynamicResource BrushGlassStrong}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
             <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                CornerRadius="{DynamicResource RadiusBtn}"
+                                Padding="{TemplateBinding Padding}"
+                                RenderTransformOrigin="0.5,0.5">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BrushSoftGradient}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrushPrimaryLight}" />
+                                <Setter TargetName="Bd" Property="Margin" Value="0,-1,0,0" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===== 主按钮（马卡龙渐变填充 + 白字，规范 5.2） ===== -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="{DynamicResource BrushBrandGradient}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="{DynamicResource RadiusBtn}"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#7EC8F0" Opacity="0.30" BlurRadius="14" ShadowDepth="3" Direction="270" />
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.92" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.82" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===== 危险按钮（蜜桃粉渐变 + 深红字，规范 5.2） ===== -->
+        <Style x:Key="DangerButton" TargetType="Button">
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="Foreground" Value="#8E4A4A" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="{DynamicResource BrushDangerGradient}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="{DynamicResource RadiusBtn}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.9" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===== 标题栏窗口按钮（规范 §9.1） ===== -->
+        <Style x:Key="CaptionButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource BrushFog}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Margin" Value="2,0,0,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BrushSoftGradient}" />
+                                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 关闭按钮：悬浮转蜜桃粉 -->
+        <Style x:Key="CaptionButtonDanger" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BrushDangerGradient}" />
+                                <Setter Property="Foreground" Value="#8E4A4A" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===== 标签 / 徽标（规范 5.8：8px 圆角胶囊） ===== -->
+        <Style x:Key="TagBase" TargetType="Border">
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusTag}" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="Background" Value="{DynamicResource BrushSoftGradient}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <!-- ===== 输入框（规范 5.7：磨砂白底 + 浅蓝聚焦） ===== -->
+        <Style x:Key="InputBox" TargetType="TextBox">
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource BrushPrimary}" />
+            <Setter Property="Background" Value="{DynamicResource BrushGlassStrong}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource RadiusInput}">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="InputBoxPassword" TargetType="PasswordBox">
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Background" Value="{DynamicResource BrushGlassStrong}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource RadiusInput}">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===== 页面标题（各页统一视觉层级） ===== -->
+        <Style x:Key="PageTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizePageTitle}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+        </Style>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+        </Style>
+
+        <!-- ===== 统计数字（规范 5.1：大数字 + 小标签） ===== -->
+        <Style x:Key="StatNumber" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSizeStat}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+        </Style>
+
+        <!-- ===== 表格（规范 5.4：宽松行距 + 极淡分割线 + 悬浮高亮） ===== -->
+        <Style x:Key="SoftDataGrid" TargetType="DataGrid">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="RowHeight" Value="38" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="SelectionMode" Value="Extended" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="RowBackground" Value="Transparent" />
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource BrushSoftGradient}" />
+            <Setter Property="ColumnHeaderStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="{DynamicResource BrushBgMist}" />
+                        <Setter Property="Foreground" Value="{DynamicResource BrushFog}" />
+                        <Setter Property="FontSize" Value="12" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                        <Setter Property="Padding" Value="10,8" />
+                        <Setter Property="BorderThickness" Value="0,0,0,1" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="RowStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource BrushSoftGradient}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
                 </Setter.Value>
             </Setter>
         </Style>

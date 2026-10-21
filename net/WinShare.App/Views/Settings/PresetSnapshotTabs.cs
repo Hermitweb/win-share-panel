@@ -31,7 +31,7 @@ public sealed class PresetTabView : UserControl
         Loaded += (_, _) => Reload();
     }
 
-    private void Reload()
+    private async void Reload()
     {
         _list.Children.Clear();
         IPresetService? svc = SettingsServiceSlots.PresetService;
@@ -43,7 +43,8 @@ public sealed class PresetTabView : UserControl
         IReadOnlyList<PermissionPreset> presets;
         try
         {
-            presets = svc.ListPresetsAsync().GetAwaiter().GetResult();
+            // 异步加载：绝不在 UI 线程 GetResult（那正是「进入页面卡一下」的根因）
+            presets = await svc.ListPresetsAsync();
         }
         catch (Exception e)
         {
@@ -198,7 +199,7 @@ public sealed class SnapshotTabView : UserControl
         Loaded += (_, _) => Reload();
     }
 
-    private void Reload()
+    private async void Reload()
     {
         _list.Children.Clear();
         ISmbService? svc = SettingsServiceSlots.SmbService;
@@ -210,7 +211,7 @@ public sealed class SnapshotTabView : UserControl
         IReadOnlyList<SmbSnapshotMeta> snaps;
         try
         {
-            snaps = svc.ListSnapshotsAsync().GetAwaiter().GetResult();
+            snaps = await svc.ListSnapshotsAsync();
         }
         catch (Exception e)
         {

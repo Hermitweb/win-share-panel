@@ -21,7 +21,7 @@ public static class SharesModule
         {
             route = "/shares",
             titleKey = "Nav.Share",
-            glyph = "▤",
+            glyph = "\uE8B7",
             factory = new PageFactory(() => new SharesPageView()),
         });
     }
