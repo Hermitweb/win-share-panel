@@ -42,7 +42,14 @@ public sealed class RunspaceWorkerHandle : IWorkerHandle
         _errEndMarker = launch.ErrEndMarker;
         _quitMarker = launch.QuitMarker;
         _input = new BlockingCollection<string>();
-        _runspace = RunspaceFactory.CreateRunspace();
+        // 关键：进程内 Runspace 的 ExecutionPolicy 默认 Undefined → 回落机器策略（本机常为 Restricted），
+        // 导致 SmbShare / WebAdministration 等**脚本模块**（.psm1）加载失败：
+        //   "cannot be loaded because running scripts is disabled on this system"
+        // 表现为 Get-SmbServerConfiguration 等命令报「模块无法加载」。
+        // TS 版靠 spawn 参数 `-ExecutionPolicy Bypass` 规避；进程内等效做法 = InitialSessionState.ExecutionPolicy。
+        InitialSessionState iss = InitialSessionState.CreateDefault();
+        iss.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
+        _runspace = RunspaceFactory.CreateRunspace(iss);
         // .NET 9/10 ref 面把 ThreadOptions/Initialize 实例 API 裁掉（runtime 面仍具备）：
         // 反射设置 ReuseApplicationThread —— 本地 Runspace 默认 SingleThread：跨线程 Invoke 会
         // 把引擎 marshaled 到初始化线程，池线程不 pump → 永久死锁（压测挂起根因）。

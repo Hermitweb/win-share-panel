@@ -183,12 +183,15 @@ public class PowerShellPoolStressTests
             {
                 Match m = Regex.Match(cmd, @"^c(\d+)$");
                 int idx = m.Success ? int.Parse(m.Groups[1].Value) : -1;
-                return idx % 10 == 9 ? double.PositiveInfinity : 6;
+                // 正常命令 0 延迟：本用例断言「恰好 10 条超时」，若正常命令也耗时，则 slnx 级并行
+                // （App.Tests 同时跑、CPU 争用）下正常命令会被 25ms 误判超时 → 断言必然闪红。
+                // 分离两种路径：卡死=Infinity（必超时），正常=0（永远来得及）。
+                return idx % 10 == 9 ? double.PositiveInfinity : 0;
             };
 
             string[] commands = Enumerable.Range(0, n).Select(i => "c" + i).ToArray();
             long t0 = Environment.TickCount64;
-            Task<string>[] tasks = commands.Select(cmd => pool.ExecuteAsync(cmd, PsPoolMode.Json, 25)).ToArray();
+            Task<string>[] tasks = commands.Select(cmd => pool.ExecuteAsync(cmd, PsPoolMode.Json, 200)).ToArray();
             try
             {
                 await Task.WhenAll(tasks);

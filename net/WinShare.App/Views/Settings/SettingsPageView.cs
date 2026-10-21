@@ -91,6 +91,8 @@ public sealed class SettingsPageView : UserControl
         _osDetails = new StackPanel();
         p.Children.Add(_osDetails);
         RebuildOsCompat();
+        // 异步 LoadAsync 完成后必须重绘：否则界面永远停在「OS 信息读取中…」（契约服务已接但仍显示占位）
+        _vm.OsCompat.PropertyChanged += (_, _) => RebuildOsCompat();
         return SettingsUi.Card(p);
     }
 

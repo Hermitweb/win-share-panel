@@ -1,5 +1,7 @@
-// 移植自 electron/lib/powershell.ts 的 runPowerShell / runPowerShellVoid 语义
-// （底层执行已归一到 T1 的 PoolSingleton + PsArgs；本类补齐超时/重试/JSON 解析/错误归一化/注入面）。
+// 移植自 electron/lib/powershell.ts 的 runPowerShell / runPowerShellVoid 语义。
+// 执行通道 = ProcessPowerShell（out-of-process Windows PowerShell 5.1，逐字对齐 TS execOnce）：
+// 本机实测进程内 SMA 7.5 无法加载 SmbShare/WebAdministration 等 5.1 脚本模块，故恢复 TS 的 spawn 路径。
+// T1 的进程内池（PoolSingleton）保留但不再是默认通道。
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using WinShare.Core.Contracts;
@@ -77,7 +79,7 @@ public sealed class PsRunner : IPsInvoker
         {
             try
             {
-                string stdout = await PoolSingleton.GetPool().ExecuteAsync(command, PsPoolMode.Json, timeoutMs);
+                string stdout = await ProcessPowerShell.ExecuteAsync(command, withJson: true, timeoutMs);
                 return ParseJson(stdout);
             }
             catch (Exception err)
@@ -98,7 +100,7 @@ public sealed class PsRunner : IPsInvoker
         {
             try
             {
-                await PoolSingleton.GetPool().ExecuteAsync(command, PsPoolMode.Void, timeoutMs);
+                await ProcessPowerShell.ExecuteAsync(command, withJson: false, timeoutMs);
                 return;
             }
             catch (Exception err)
