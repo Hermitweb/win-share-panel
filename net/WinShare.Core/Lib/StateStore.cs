@@ -380,7 +380,7 @@ public sealed class StateStore : IStateStore
             string file = StateFile;
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
             string tmp = file + ".tmp";
-            File.WriteAllText(tmp, System.Text.Json.JsonSerializer.Serialize(StateToJson(state)));
+            File.WriteAllText(tmp, JsonSerializer.Serialize(StateToJson(state), JsonCompat.Indented));
             File.Move(tmp, file, overwrite: true); // 原子替换（同卷 rename 语义）
         }
         catch

@@ -45,11 +45,7 @@ public sealed class TransferService : ITransferService
         return JsonSerializer.Serialize(bundle, BundleOptions);
     }
 
-    private static readonly JsonSerializerOptions BundleOptions = new()
-    {
-        WriteIndented = true, // 对齐 TS 的 2 空格缩进
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }, // theme → 'light'/'dark'
-    };
+    private static readonly JsonSerializerOptions BundleOptions = JsonCompat.IndentedWithEnums;
 
     /// <summary>
     /// TS: importSettings(json)——护栏（先拒超大再 parse、格式/版本/结构逐层校验），

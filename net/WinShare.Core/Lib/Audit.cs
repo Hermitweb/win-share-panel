@@ -1,4 +1,5 @@
 // 移植自 electron/lib/audit.ts（审计日志：JSON 行，5MB ×10 轮转；失败静默不影响主流程）。
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace WinShare.Core.Lib;
@@ -66,7 +67,7 @@ public static class Audit
             {
                 record["detail"] = detail;
             }
-            File.AppendAllText(file, System.Text.Json.JsonSerializer.Serialize(record) + "\n");
+            File.AppendAllText(file, JsonSerializer.Serialize(record, JsonCompat.Compact) + "\n");
         }
         catch
         {
