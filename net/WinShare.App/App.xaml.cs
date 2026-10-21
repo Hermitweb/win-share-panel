@@ -67,7 +67,43 @@ public partial class App : Application
         // 24h 趋势采样器（对齐 startHistorySampler；需要 ISystemService 实现）
         StartTrendSampler();
 
+        // 首启三问向导（新手且从未建过共享时才弹；判定内部自行吞异常）
+        _ = Dispatcher.InvokeAsync(async () => await MaybeShowFirstRunGuideAsync());
+
         LogSink.Info("main", $"[startup] 进程位宽 {(Environment.Is64BitProcess ? "64" : "32")}（Windows）→ WPF net10");
+    }
+
+    /// <summary>
+    /// 首启三问向导（TS: FirstRunGuide 挂载判定）：
+    /// 只有「共享列表为空 + 未标记完成 + 新手模式」才弹——老用户绝不打扰。
+    /// 共享列表尚未加载（服务未就绪/异常）时同样不弹，避免数据稍后才到时闪窗骚扰。
+    /// </summary>
+    async Task MaybeShowFirstRunGuideAsync()
+    {
+        try
+        {
+            WinShare.Core.Contracts.IShareService? share = Shares.SharesServices.Share;
+            IReadOnlyList<WinShare.Core.Contracts.Share>? shares = null;
+            if (share is not null)
+            {
+                try { shares = await share.ListSharesAsync(); }
+                catch { shares = null; }
+            }
+            bool? advancedMode = AppServices.SettingsStore?.Load()?.advancedMode;
+            var flagStore = new FirstRun.FirstRunFlagStore();
+            if (!FirstRun.FirstRunLogic.ShouldShowGuide(shares, advancedMode, flagStore.Read())) return;
+
+            var guide = new FirstRun.FirstRunGuideWindow(share, Shares.SharesServices.Disk, flagStore)
+            {
+                Owner = _window,
+            };
+            guide.ShowDialog();
+            AppServices.Bus?.Publish(new Events.RefreshRequested());
+        }
+        catch (Exception e)
+        {
+            LogSink.Warn("firstrun", "首启向导判定/显示失败：" + e.Message);
+        }
     }
 
     void RegisterPages()
