@@ -264,3 +264,29 @@ exited=False  logDelta=0  newErrors=0
 - 崩溃隐患：模式 A 一处（已修 + 已实证有效 + 已加回归测试）；B/C/D 无危险项。
 - 冒烟：§4 六路由全过、0 新 error。
 - 新增测试：`net/WinShare.App.Tests/Shares/ShareDrawerWiringTests.cs`（5 例，覆盖抽屉宿主接线、SetShare 逻辑父唯一回归、快捷键文案与事件挂接）+ 同目录 `SourceAttribute.cs`（对齐 Users/Sessions 目录惯例）。
+
+---
+
+## 6. 服务层落地后的状态更新（wpf-1.1.0）
+
+> 本文档 §1 的 [SVC] 标注为「服务未接线时」的快照。Core 服务层已全量落地并接入组合根，
+> 下表为落地后的实测状态。
+
+| 原标注项 | 落地后状态 | 证据 |
+|---|---|---|
+| D5 协议分布「未装」标注 | ✅ 已点亮 | IProtocolService.GetCapabilitiesMap 接入；探测结果含 IIS 未装/RoleHints |
+| U12 用户/组/权限数据源 | ✅ 已点亮 | 实测渲染本机真实账号（Admin / Ts Hermit / Administrator + 真实上次登录时间） |
+| E12 会话/打开文件数据源 | ✅ 已点亮 | ISessionService 接入（本机无会话时为空态） |
+| C2 OS 功能探测 | ✅ 已点亮 | 实测「Microsoft Windows 11 专业工作站版（build 26200）」+ SMB 支持/NFS 不支持/IIS 支持/QUIC 不支持 |
+| C3 一键诊断共享名下拉 | ✅ 可运行 | IDiagnoseService 接入，逐项容错 |
+| C7 协议「停止」按钮 | ⚠️ 仍禁用 | 契约 IProtocolAdapter 无 stop（TS 侧亦无）；启动经 RestartService 达成 |
+| C10/C13 权限模板 Tab | ⚠️ 未做 UI | IPresetService 已实现（10 方法），缺设置页 Tab |
+| C11 快照历史 Tab | ⚠️ 未做 UI | ISmbService.ListSnapshots/Rollback 已实现，缺 Tab |
+| F12 操作回收站 | ⚠️ 未做 | IJournalService 仍未实现（唯一未落地契约），台账数据在 StateStore |
+| F9 首启向导 | ❌ 未做 | 依赖 firstRun 标记字段（契约 AppState 冻结） |
+
+**服务层落地规模**：15 个服务 + 4 个协议适配器 + 检测器，Core 代码约 9,500 行；测试 317 例。
+
+**关键架构修正（本版最重要）**：PowerShell 执行通道由「进程内 Runspace（SMA 7.5 = PS7）」改为
+**out-of-process Windows PowerShell 5.1**。原因：SmbShare / WebAdministration / NFS 均为 5.1 脚本模块，
+PS7 无法加载，导致 SMB 配置/OS 探测全部失败；实测 5.1 正常。修复后共享列表、OS 信息、协议能力全部真实可用。
