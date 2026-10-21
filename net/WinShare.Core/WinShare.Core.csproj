@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- 契约 DTO 对齐 electron/types.ts（无构造期必填语义），init-only 属性不经 ctor 赋值属预期；抑制 CS8618 -->
+    <NoWarn>CS8618</NoWarn>
+    <NuGetPackageRoot Condition="'$(NuGetPackageRoot)' == ''">$(UserProfile)\.nuget\packages\</NuGetPackageRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 编译面统一走包内 runtime 程序集（完整公开 API 面）。
+         背景：7.5.0 的 ref 面（ref/net9.0, 1.9MB）把 RunspaceBase 标为 internal，
+         csc 下 Runspace 实例成员（Initialize/Stop/SetSessionStateVariable 等）全部不可见，
+         且 SDK 包自带一份夹带的 SMA ref，同名程序集冲突面无法用 ExcludeAssets 精去除。
+         故：各包 ExcludeAssets=compile（runtime 流不变），显式 Reference 指向 runtime dll。 -->
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.0" ExcludeAssets="compile" />
+    <PackageReference Include="System.Management.Automation" Version="7.5.0" ExcludeAssets="compile" />
+    <PackageReference Include="Microsoft.PowerShell.Commands.Utility" Version="7.5.0" ExcludeAssets="compile" />
+    <Reference Include="System.Management.Automation">
+      <HintPath>$(NuGetPackageRoot)system.management.automation\7.5.0\runtimes\win\lib\net9.0\System.Management.Automation.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.PowerShell.Commands.Utility">
+      <HintPath>$(NuGetPackageRoot)microsoft.powershell.commands.utility\7.5.0\runtimes\win\lib\net9.0\Microsoft.PowerShell.Commands.Utility.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,221 @@
+<UserControl x:Class="WinShare.App.Views.Shares.ShareDetailDrawer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource BrushCard}" BorderBrush="{DynamicResource BrushBorder}"
+             BorderThickness="1,0,0,0">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="DrawerTitle" Grid.Row="0" Text="共享详情" FontSize="16"
+                   FontWeight="SemiBold" Margin="0,0,0,12" />
+
+        <!-- Tabs（TS：info / props+SMB / conns+SMB / files+SMB / proto-cfg+非SMB） -->
+        <StackPanel x:Name="Tabs" Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+            <RadioButton x:Name="RbInfo" GroupName="DrawerTab" Content="基本信息" IsChecked="True"
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+            <RadioButton x:Name="RbProps" GroupName="DrawerTab" Content="高级属性"
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+            <RadioButton x:Name="RbConns" GroupName="DrawerTab" Content="连接"
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+            <RadioButton x:Name="RbFiles" GroupName="DrawerTab" Content="打开文件"
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+            <RadioButton x:Name="RbSite" GroupName="DrawerTab" Content="站点配置"
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+        </StackPanel>
+
+        <TabControl x:Name="TabContent" Grid.Row="2" Padding="0,8,0,0">
+            <!-- 基本信息（TS Descriptions column=1） -->
+            <TabItem>
+                <StackPanel>
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="共享名" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VName" FontSize="13" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="本地路径" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VPath" FontSize="13" TextWrapping="Wrap" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="描述" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VDesc" FontSize="13" TextWrapping="Wrap" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="协议" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VProto" FontSize="13" Foreground="#1677FF" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="类型" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VType" FontSize="13" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="网络路径" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VNetPath" FontSize="12" TextWrapping="Wrap"
+                                   ToolTip="点击可复制" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="状态" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VStatus" FontSize="13" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Text="当前连接" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VConns" FontSize="13" Text="0" />
+                    </Grid>
+                    <Grid x:Name="RowEncrypted" Margin="0,0,0,6" Visibility="Collapsed">
+                        <TextBlock Text="加密" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VEncrypted" FontSize="13" Foreground="#1677FF" />
+                    </Grid>
+                    <Grid x:Name="RowCached" Margin="0,0,0,6" Visibility="Collapsed">
+                        <TextBlock Text="缓存" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
+                        <TextBlock x:Name="VCached" FontSize="13" />
+                    </Grid>
+                </StackPanel>
+            </TabItem>
+
+            <!-- 高级属性（SMB；TS form 预填 + 保存属性） -->
+            <TabItem>
+                <StackPanel>
+                    <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4" />
+                    <TextBox x:Name="EDescription" FontSize="13" Margin="0,0,0,10" />
+                    <TextBlock Text="并发用户上限（0=无限制）" FontSize="12" Margin="0,0,0,4" />
+                    <TextBox x:Name="ELimit" FontSize="13" Width="160" HorizontalAlignment="Left" Margin="0,0,0,10" />
+                    <TextBlock Text="文件夹枚举模式" FontSize="12" Margin="0,0,0,4" />
+                    <ComboBox x:Name="CFem" FontSize="13" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10">
+                        <ComboBoxItem Content="基于访问（仅可见有权限的子项）" Tag="AccessBased" />
+                        <ComboBoxItem Content="无限制（可见全部子项）" Tag="Unrestricted" />
+                    </ComboBox>
+                    <TextBlock Text="脱机缓存模式" FontSize="12" Margin="0,0,0,4" />
+                    <ComboBox x:Name="CCaching" FontSize="13" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10">
+                        <ComboBoxItem Content="无" Tag="None" />
+                        <ComboBoxItem Content="手动" Tag="Manual" />
+                        <ComboBoxItem Content="文档" Tag="Documents" />
+                        <ComboBoxItem Content="程序" Tag="Programs" />
+                        <ComboBoxItem Content="BranchCache" Tag="BranchCache" />
+                    </ComboBox>
+                    <CheckBox x:Name="ChkEncryptData" Content="启用数据加密" Margin="0,0,0,6" />
+                    <CheckBox x:Name="ChkHidden" Content="隐藏共享（不在网络浏览列表显示）" Margin="0,0,0,10" />
+                    <Button Content="保存属性" Click="OnSaveSmbProps" Padding="14,5" FontSize="13"
+                            HorizontalAlignment="Left" />
+                    <TextBlock x:Name="LSaveSmbMsg" FontSize="12" Margin="0,8,0,0"
+                               Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
+                </StackPanel>
+            </TabItem>
+
+            <!-- 连接（SMB；TS conns Tab：刷新独立 nonce + 空态文案） -->
+            <TabItem>
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock x:Name="ConnCountText" Text="当前 0 个连接" FontSize="12"
+                                   Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
+                        <Button Content="刷新" Click="OnRefreshConns" Padding="8,2" FontSize="12"
+                                HorizontalAlignment="Right" />
+                    </StackPanel>
+                    <Grid>
+                        <DataGrid x:Name="ConnsGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  FontSize="12" RowHeaderWidth="0" Height="320" VerticalAlignment="Top">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="用户" Binding="{Binding clientUserName}" Width="180" />
+                                <DataGridTextColumn Header="客户端" Binding="{Binding clientComputerName}" Width="180" />
+                                <DataGridTextColumn Header="打开文件数" Binding="{Binding openFiles}" Width="100" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock x:Name="ConnsEmpty" Text="暂无活动连接" FontSize="13"
+                                   Foreground="{DynamicResource BrushFog}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Visibility="Collapsed" />
+                    </Grid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- 打开文件（SMB；TS files Tab：失败静默置空 + 全部关闭确认） -->
+            <TabItem>
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock x:Name="FilesCountText" Text="0 个打开文件" FontSize="12"
+                                   Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
+                        <Button x:Name="BtnCloseAll" Content="全部关闭" Click="OnCloseAll"
+                                Padding="8,2" FontSize="12" Foreground="#A8071A"
+                                Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                        <Button Content="刷新" Click="OnRefreshFiles" Padding="8,2" FontSize="12"
+                                HorizontalAlignment="Right" />
+                    </StackPanel>
+                    <Grid>
+                        <DataGrid x:Name="FilesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  FontSize="12" RowHeaderWidth="0" Height="320" VerticalAlignment="Top">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="路径" Binding="{Binding path}" Width="*" />
+                                <DataGridTextColumn Header="用户" Binding="{Binding clientUserName}" Width="140" />
+                                <DataGridTextColumn Header="客户端" Binding="{Binding clientComputerName}" Width="140" />
+                                <DataGridTextColumn Header="锁" Binding="{Binding lockCount}" Width="60" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock x:Name="FilesEmpty" Text="暂无打开文件" FontSize="13"
+                                   Foreground="{DynamicResource BrushFog}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Visibility="Collapsed" />
+                    </Grid>
+                </DockPanel>
+            </TabItem>
+
+            <!-- 站点配置（非 SMB；TS proto-cfg Tab：按协议渲染字段组） -->
+            <TabItem>
+                <StackPanel>
+                    <!-- NFS 站点配置 -->
+                    <StackPanel x:Name="SiteNfs" Visibility="Collapsed">
+                        <TextBlock Text="共享权限" FontSize="12" Margin="0,0,0,4" />
+                        <ComboBox x:Name="CNfsPerm" FontSize="13" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10">
+                            <ComboBoxItem Content="只读 (ro)" Tag="ro" />
+                            <ComboBoxItem Content="读写 (rw)" Tag="rw" />
+                        </ComboBox>
+                        <CheckBox x:Name="ChkSiteRoot" Content="允许 root 完全访问" Margin="0,0,0,6" />
+                        <CheckBox x:Name="ChkSiteUnmapped" Content="允许未映射访问（无身份映射）" Margin="0,0,0,10" />
+                    </StackPanel>
+                    <!-- FTP 站点配置 -->
+                    <StackPanel x:Name="SiteFtp" Visibility="Collapsed">
+                        <TextBlock Text="SSL 策略" FontSize="12" Margin="0,0,0,4" />
+                        <ComboBox x:Name="CFtpSsl" FontSize="13" Width="220" HorizontalAlignment="Left" Margin="0,0,0,10">
+                            <ComboBoxItem Content="允许 TLS（不强制）" Tag="SslAllow" />
+                            <ComboBoxItem Content="要求 TLS" Tag="SslRequire" />
+                            <ComboBoxItem Content="要求 TLS + 客户端证书" Tag="SslRequireCredentials" />
+                        </ComboBox>
+                        <TextBlock Text="认证模式" FontSize="12" Margin="0,0,0,4" />
+                        <ComboBox x:Name="CFtpAuth" FontSize="13" Width="220" HorizontalAlignment="Left" Margin="0,0,0,10">
+                            <ComboBoxItem Content="匿名" Tag="anonymous" />
+                            <ComboBoxItem Content="基本（本地用户）" Tag="basic" />
+                            <ComboBoxItem Content="Windows" Tag="windows" />
+                        </ComboBox>
+                        <TextBlock Text="本地物理路径（修改后需与新路径的 NTFS 权限及授权规则匹配）" FontSize="12"
+                                   Margin="0,0,0,4" TextWrapping="Wrap" />
+                        <DockPanel Margin="0,0,0,10">
+                            <Button x:Name="BtnSiteBrowse" Content="浏览" Width="64" DockPanel.Dock="Right"
+                                    Click="OnSiteBrowse" Padding="4" />
+                            <TextBox x:Name="TSitePath" FontSize="13" />
+                        </DockPanel>
+                    </StackPanel>
+                    <!-- WebDAV 站点配置 -->
+                    <StackPanel x:Name="SiteWebdav" Visibility="Collapsed">
+                        <CheckBox x:Name="ChkWdavAnonSite" Content="匿名访问（站点级）" Margin="0,0,0,4" />
+                        <TextBlock Text="需服务器级匿名认证同时开启才生效（服务配置页）" FontSize="11"
+                                   Foreground="{DynamicResource BrushFog}" Margin="0,0,0,8" />
+                        <CheckBox x:Name="ChkWdavAuthoring" Content="允许写入（WebDAV authoring）" Margin="0,0,0,10" />
+                    </StackPanel>
+                    <Button Content="保存配置" Click="OnSaveSite" Padding="14,5" FontSize="13"
+                            HorizontalAlignment="Left" />
+                    <TextBlock x:Name="LSaveSiteMsg" FontSize="12" Margin="0,8,0,0"
+                               Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <!-- 非 SMB 提示（TS Drawer 底部说明） -->
+        <TextBlock x:Name="FooterNote" Visibility="Collapsed" Margin="0,8,0,0" FontSize="11"
+                   Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap">
+            <Run x:Name="FooterProto" /> 授权规则经共享列表的"权限"按钮编辑；站点级配置见本页"站点配置"Tab；服务器级（端口段/SSL 策略/认证开关）在"服务配置"页。
+        </TextBlock>
+    </Grid>
+</UserControl>

@@ -1,0 +1,60 @@
+<Window x:Class="WinShare.App.Views.Shares.ShareEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="480" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BrushCard}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="共享名（不可改）" FontSize="12" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtName" IsReadOnly="True" FontSize="13" Margin="0,0,0,12"
+                     Foreground="{DynamicResource BrushFog}" />
+            <TextBlock Text="路径（不可改）" FontSize="12" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtPath" IsReadOnly="True" FontSize="13" Margin="0,0,0,12"
+                     Foreground="{DynamicResource BrushFog}" />
+            <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtDescription" FontSize="13" Margin="0,0,0,12" />
+
+            <!-- NFS 专有（TS editShare.protocol==='nfs'） -->
+            <StackPanel x:Name="BlockNfs" Visibility="Collapsed">
+                <TextBlock Text="NFS 权限" FontSize="12" Margin="0,0,0,4" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <RadioButton x:Name="RadEditRw" GroupName="EditNfs" Content="读写" IsChecked="True" Margin="0,0,16,0" />
+                    <RadioButton x:Name="RadEditRo" GroupName="EditNfs" Content="只读" />
+                </StackPanel>
+                <CheckBox x:Name="ChkEditRoot" Content="允许 root 访问（新手模式不渲染不提交）" Margin="0,0,0,8" />
+            </StackPanel>
+
+            <!-- FTP 专有 -->
+            <StackPanel x:Name="BlockFtp" Visibility="Collapsed">
+                <TextBlock Text="SSL 策略" FontSize="12" Margin="0,0,0,4" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <RadioButton x:Name="RadEditSslAllow" GroupName="EditSsl" Content="允许" IsChecked="True" Margin="0,0,12,0" />
+                    <RadioButton x:Name="RadEditSslRequire" GroupName="EditSsl" Content="要求" Margin="0,0,12,0" />
+                    <RadioButton x:Name="RadEditSslCred" GroupName="EditSsl" Content="要求凭据" />
+                </StackPanel>
+                <TextBlock Text="认证模式" FontSize="12" Margin="0,0,0,4" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <RadioButton x:Name="RadEditAnon" GroupName="EditAuth" Content="匿名" Margin="0,0,12,0" />
+                    <RadioButton x:Name="RadEditBasic" GroupName="EditAuth" Content="基本" IsChecked="True" Margin="0,0,12,0" />
+                    <RadioButton x:Name="RadEditWin" GroupName="EditAuth" Content="Windows" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- WebDAV 专有 -->
+            <StackPanel x:Name="BlockWebdav" Visibility="Collapsed">
+                <CheckBox x:Name="ChkEditWdavAnon" Content="启用匿名访问" Margin="0,0,0,8" />
+            </StackPanel>
+
+            <TextBlock x:Name="LblError" FontSize="12" Foreground="#FF4D4F"
+                       TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="取消" Click="OnCancel" Padding="14,5" FontSize="13" Margin="0,0,8,0" />
+            <Button Content="保存" Click="OnSave" Padding="14,5" FontSize="13" FontWeight="SemiBold" />
+        </StackPanel>
+    </Grid>
+</Window>

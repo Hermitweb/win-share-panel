@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="WinShare.App.Tests/WinShare.App.Tests.csproj" />
+  <Project Path="WinShare.App/WinShare.App.csproj" />
+  <Project Path="WinShare.Core.Tests/WinShare.Core.Tests.csproj" />
+  <Project Path="WinShare.Core/WinShare.Core.csproj" />
+</Solution>

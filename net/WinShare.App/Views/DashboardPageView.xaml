@@ -1,0 +1,160 @@
+<UserControl x:Class="WinShare.App.Views.DashboardPageView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:charts="clr-namespace:WinShare.App.Views.Charts"
+             xmlns:state="clr-namespace:WinShare.App.State"
+             xmlns:v="clr-namespace:WinShare.App.Views">
+    <UserControl.Resources>
+        <v:StateLevelConverter x:Key="LevelText" />
+        <v:LevelBrushConverter x:Key="LevelBrush" />
+        <DataTemplate DataType="{x:Type state:AlertEvaluator+AttentionItem}">
+            <DockPanel Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Border CornerRadius="3" Padding="8,1" Margin="0,0,8,0"
+                            Background="{Binding Level, Converter={StaticResource LevelBrush}}" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Level, Converter={StaticResource LevelText}}" FontSize="12" />
+                    </Border>
+                    <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap"
+                               VerticalAlignment="Center" MaxWidth="480" Margin="0,0,12,0" />
+                </StackPanel>
+                <Button Content="{Binding ActionLabel}" FontSize="12" DockPanel.Dock="Right"
+                        Click="OnAttentionAction" Tag="{Binding}" Padding="8,2" />
+            </DockPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+    <Grid Margin="20" Background="{DynamicResource BrushBg}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 页头：标题 + 状态提示 + 导出/刷新（对齐 Dashboard.tsx header Space + message） -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,16" LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource Dash.Title}"
+                           FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock x:Name="StatusTip" FontSize="12" Foreground="{DynamicResource BrushFog}"
+                           Margin="16,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" />
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="BtnExportPng" Content="{DynamicResource Dash.ExportPng}"
+                        Style="{DynamicResource DashButton}" Click="OnExportPng" />
+                <Button x:Name="BtnExportCsv" Content="{DynamicResource Dash.ExportCsv}"
+                        Style="{DynamicResource DashButton}" Click="OnExportCsv" Margin="8,0,0,0" />
+                <Button x:Name="BtnRefresh" Content="{DynamicResource Dash.Refresh}"
+                        Style="{DynamicResource DashButton}" Click="OnRefresh" Margin="8,0,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <!-- 统计卡 ×4（对齐 antd Row gutter 16 + Statistic） -->
+        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,16">
+            <Border Style="{DynamicResource CardStyle}" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Dash.ShareCount}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                    <TextBlock x:Name="TxtShareCount" Text="0" FontSize="28" FontWeight="SemiBold" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+            <Border Style="{DynamicResource CardStyle}" Margin="8,0">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Dash.ActiveSessions}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                    <TextBlock x:Name="TxtSessions" Text="0" FontSize="28" FontWeight="SemiBold" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+            <Border Style="{DynamicResource CardStyle}" Margin="8,0">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Dash.OpenFiles}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                    <TextBlock x:Name="TxtOpenFiles" Text="0" FontSize="28" FontWeight="SemiBold" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+            <Border Style="{DynamicResource CardStyle}" Margin="8,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Dash.ServiceStatus}" FontSize="12" Foreground="{DynamicResource BrushFog}" Margin="0,0,0,4" />
+                    <Border x:Name="SvcTag" CornerRadius="4" Padding="10,2" Height="24"
+                            Background="#E6F4FF" HorizontalAlignment="Left">
+                        <TextBlock x:Name="TxtService" Text="未知" FontSize="13" VerticalAlignment="Center"
+                                   Foreground="#1677FF" />
+                    </Border>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- 需要关注（告警规则评估；命中项经事件总线 AlertRaised） -->
+        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <TextBlock Text="{DynamicResource Dash.Attention}" FontSize="14" FontWeight="SemiBold" />
+                </StackPanel>
+                <Grid>
+                    <ItemsControl x:Name="AttentionList" />
+                    <TextBlock x:Name="AttentionEmpty" Text="{DynamicResource Dash.AttentionEmpty}"
+                               FontSize="12" Foreground="{DynamicResource BrushFog}"
+                               Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock x:Name="SkippedNote" FontSize="11" Foreground="{DynamicResource BrushFog}"
+                               TextWrapping="Wrap" Visibility="Collapsed" VerticalAlignment="Bottom"
+                               Margin="0,8,0,0" />
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <!-- 24h 趋势 + 协议分布 + 磁盘 + 热门共享（Grid 两列，对齐 TS 卡片纵向流） -->
+        <Grid Grid.Row="3" Grid.RowSpan="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 趋势卡（Segmented 三态 + LiveCharts2 接口位，当前 WPF 自绘） -->
+            <Border Grid.Row="0" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                <DockPanel>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="{DynamicResource Dash.Trend}" FontSize="14" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource Dash.TrendHint}" FontSize="11"
+                                   Foreground="{DynamicResource BrushFog}" VerticalAlignment="Bottom" Margin="8,0,0,2" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                            <RadioButton x:Name="ModeBoth" GroupName="TrendMode" Content="{DynamicResource Dash.Both}"
+                                         IsChecked="True" Checked="OnTrendMode" FontSize="12" Margin="0,0,12,0" />
+                            <RadioButton x:Name="ModeSessions" GroupName="TrendMode" Content="{DynamicResource Dash.SessionsOnly}"
+                                         Checked="OnTrendMode" FontSize="12" Margin="0,0,12,0" />
+                            <RadioButton x:Name="ModeOpenFiles" GroupName="TrendMode" Content="{DynamicResource Dash.OpenFilesOnly}"
+                                         Checked="OnTrendMode" FontSize="12" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Grid>
+                        <charts:TrendChartControl x:Name="TrendChart" />
+                        <TextBlock x:Name="TrendEmptyAll" Text="{DynamicResource Dash.TrendAllEmpty}"
+                                   FontSize="12" Foreground="{DynamicResource BrushFog}"
+                                   TextWrapping="Wrap" TextAlignment="Center"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   MaxWidth="420" Visibility="Collapsed" />
+                        <TextBlock x:Name="TrendEmptyWindow" FontSize="12" Foreground="{DynamicResource BrushFog}"
+                                   TextWrapping="Wrap" TextAlignment="Center"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   MaxWidth="420" Visibility="Collapsed" />
+                    </Grid>
+                </DockPanel>
+            </Border>
+
+            <!-- 协议分布（对齐 4 列：Tag + 共享数 + 会话；未装提示留 T3b 接 protocolCaps） -->
+            <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.Protocols}"
+                               FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
+                    <UniformGrid x:Name="ProtocolGrid" Columns="4" />
+                </DockPanel>
+            </Border>
+
+            <!-- 热门共享连接数（PNG 导出目标区；图表未渲染时提示对齐 TS） -->
+            <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.TopShares}"
+                               FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <charts:TopSharesChartControl x:Name="TopChart" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -23,3 +23,7 @@ dshver.tmp
 pluginlist.tmp
 web-package.json.bak
 web-pnpm-workspace.yaml.bak
+net/**/bin/
+net/**/obj/
+net/WinShare.Core.Tests/scratch/
+net/WinShare.App.Tests/scratch/

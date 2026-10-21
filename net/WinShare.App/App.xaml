@@ -1,0 +1,41 @@
+<Application x:Class="WinShare.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <!--
+      无 StartupUri：窗口由 App.OnStartup 手动创建（单实例锁/托盘/Win11 检测先行）。
+      ShutdownMode=OnExplicitShutdown：关闭主窗口 = 托盘常驻（对齐 main.ts window-all-closed 拦截）。
+      通用样式 = antd 视觉密度（圆角 6 / 内边距 16 / 间距 8）；色值全部走主题 token（DynamicResource 热切换）。
+    -->
+    <Application.Resources>
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource BrushCard}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+
+        <Style x:Key="DashButton" TargetType="Button">
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource BrushCard}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,51 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- English strings: keys mirror Strings.zh.xaml one-to-one -->
+
+    <sys:String x:Key="Nav.Dashboard">Dashboard</sys:String>
+    <sys:String x:Key="Nav.Share">Shares</sys:String>
+    <sys:String x:Key="Nav.Users">Users &amp; Permissions</sys:String>
+    <sys:String x:Key="Nav.Sessions">Sessions</sys:String>
+    <sys:String x:Key="Nav.Settings">Service Settings</sys:String>
+    <sys:String x:Key="Nav.AppSettings">App Settings</sys:String>
+    <sys:String x:Key="Nav.CommandPalette">Command palette</sys:String>
+
+    <sys:String x:Key="Menu.File">File</sys:String>
+    <sys:String x:Key="Menu.View">View</sys:String>
+    <sys:String x:Key="Menu.Help">Help</sys:String>
+    <sys:String x:Key="Menu.ShowWindow">Show main window</sys:String>
+    <sys:String x:Key="Menu.OpenLogDir">Open log folder</sys:String>
+    <sys:String x:Key="Menu.Quit">Quit</sys:String>
+    <sys:String x:Key="Menu.ThemeLight">Light theme</sys:String>
+    <sys:String x:Key="Menu.ThemeDark">Dark theme</sys:String>
+    <sys:String x:Key="Menu.Refresh">Refresh</sys:String>
+    <sys:String x:Key="Menu.About">About</sys:String>
+
+    <sys:String x:Key="Dash.Title">Dashboard</sys:String>
+    <sys:String x:Key="Dash.ExportPng">Export PNG</sys:String>
+    <sys:String x:Key="Dash.ExportCsv">Export CSV</sys:String>
+    <sys:String x:Key="Dash.Refresh">Refresh</sys:String>
+    <sys:String x:Key="Dash.Attention">Needs attention</sys:String>
+    <sys:String x:Key="Dash.Trend">24h connection trend</sys:String>
+    <sys:String x:Key="Dash.TrendHint">Sampled every 5 min · max 288 points</sys:String>
+    <sys:String x:Key="Dash.Disk">Disk usage</sys:String>
+    <sys:String x:Key="Dash.Protocols">Protocol distribution</sys:String>
+    <sys:String x:Key="Dash.TopShares">Top shared folders by connections</sys:String>
+    <sys:String x:Key="Dash.ShareCount">Total shares</sys:String>
+    <sys:String x:Key="Dash.ActiveSessions">Active sessions</sys:String>
+    <sys:String x:Key="Dash.OpenFiles">Open files</sys:String>
+    <sys:String x:Key="Dash.ServiceStatus">Service status</sys:String>
+    <sys:String x:Key="Dash.NoData">No shared-connection data yet</sys:String>
+    <sys:String x:Key="Dash.TrendAllEmpty">Each sample is recorded every 5 minutes; the trend needs the service running for a while. No samples yet (app just started) — no fake 0 line here</sys:String>
+    <sys:String x:Key="Dash.AttentionEmpty">Nothing to worry about (checked SMB1 / guest policy / account passwords / disk space against current alert rules)</sys:String>
+    <sys:String x:Key="Dash.Danger">High risk</sys:String>
+    <sys:String x:Key="Dash.Warn">Notice</sys:String>
+    <sys:String x:Key="Dash.Both">Both</sys:String>
+    <sys:String x:Key="Dash.SessionsOnly">Sessions only</sys:String>
+    <sys:String x:Key="Dash.OpenFilesOnly">Open files only</sys:String>
+    <sys:String x:Key="Dash.RefreshInterval">Refresh interval</sys:String>
+
+    <sys:String x:Key="Placeholder.Title">Page under construction</sys:String>
+    <sys:String x:Key="Placeholder.Todo">TODO (T3b/c/d): this module will be replaced by follow-up tasks via the navigation registration API in DOCS.md. Route reserved; sidebar navigation works.</sys:String>
+</ResourceDictionary>

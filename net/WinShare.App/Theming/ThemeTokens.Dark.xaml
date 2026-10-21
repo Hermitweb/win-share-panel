@@ -1,0 +1,39 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!--
+      主题 token（深色）：对齐 antd darkAlgorithm 色板 + TS 版 [data-theme='dark'] 变量
+      （背景 #141B23 与 Dashboard.tsx exportPng 的 dark 背景色同值；卡片为白 6% 叠层近似实色）。
+    -->
+    <Color x:Key="ColorBg">#141B23</Color>
+    <Color x:Key="ColorCard">#1B2530</Color>
+    <Color x:Key="ColorText">#E8EDF4</Color>
+    <Color x:Key="ColorFog">#73E8EDF4</Color>
+    <Color x:Key="ColorPrimary">#4096FF</Color>
+    <Color x:Key="ColorSuccess">#49AA19</Color>
+    <Color x:Key="ColorWarning">#D89614</Color>
+    <Color x:Key="ColorDanger">#A62635</Color>
+    <Color x:Key="ColorBorder">#A6525252</Color>
+    <Color x:Key="ColorChartBg">#141B23</Color>
+
+    <SolidColorBrush x:Key="BrushBg" Color="{StaticResource ColorBg}" />
+    <SolidColorBrush x:Key="BrushCard" Color="{StaticResource ColorCard}" />
+    <SolidColorBrush x:Key="BrushText" Color="{StaticResource ColorText}" />
+    <SolidColorBrush x:Key="BrushFog" Color="{StaticResource ColorFog}" />
+    <SolidColorBrush x:Key="BrushPrimary" Color="{StaticResource ColorPrimary}" />
+    <SolidColorBrush x:Key="BrushSuccess" Color="{StaticResource ColorSuccess}" />
+    <SolidColorBrush x:Key="BrushWarning" Color="{StaticResource ColorWarning}" />
+    <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
+    <SolidColorBrush x:Key="BrushBorder" Color="{StaticResource ColorBorder}" />
+    <SolidColorBrush x:Key="BrushChartBg" Color="{StaticResource ColorChartBg}" />
+
+    <sys:Double x:Key="SpacingSm">8</sys:Double>
+    <sys:Double x:Key="SpacingMd">16</sys:Double>
+    <sys:Double x:Key="SpacingLg">24</sys:Double>
+    <sys:Double x:Key="FontSizeCaption">12</sys:Double>
+    <sys:Double x:Key="FontSizeBody">14</sys:Double>
+    <sys:Double x:Key="FontSizeTitle">16</sys:Double>
+    <sys:Double x:Key="FontSizeStat">28</sys:Double>
+    <CornerRadius x:Key="RadiusCard">6</CornerRadius>
+    <CornerRadius x:Key="RadiusBtn">6</CornerRadius>
+</ResourceDictionary>
