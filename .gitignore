@@ -27,3 +27,6 @@ net/**/bin/
 net/**/obj/
 net/WinShare.Core.Tests/scratch/
 net/WinShare.App.Tests/scratch/
+WinSharePanel-wpf-*.zip
+net/publish-win-x64/
+release-notes-wpf-*.md
