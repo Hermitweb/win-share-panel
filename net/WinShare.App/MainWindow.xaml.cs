@@ -58,12 +58,18 @@ public partial class MainWindow : Window
             }
         };
 
-        // F5 全局刷新
+        // F5 全局刷新 / Ctrl+K 命令面板（对齐 TS hotkey 面）
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key == Key.F5)
             {
                 AppServices.Bus.Publish(new RefreshRequested());
+            }
+            else if (e.Key == Key.K &&
+                     (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                OnCommandPalette(this, new RoutedEventArgs());
+                e.Handled = true;
             }
         };
     }
@@ -132,8 +138,8 @@ public partial class MainWindow : Window
 
     void OnCommandPalette(object sender, RoutedEventArgs e)
     {
-        // TODO(T3c)：命令面板（对齐 TS Ctrl+K CommandPalette）——框架占位
-        MessageBox.Show(this, "命令面板将由后续任务接入（TODO T3c）。", "命令面板",
-            MessageBoxButton.OK, MessageBoxImage.Information);
+        // 命令面板（对齐 TS Ctrl+K CommandPalette：静态导航 + 操作面）
+        var palette = new Shell.CommandPaletteWindow { Owner = this };
+        palette.ShowDialog();
     }
 }

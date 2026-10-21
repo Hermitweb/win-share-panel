@@ -7,6 +7,8 @@
     <UserControl.Resources>
         <v:StateLevelConverter x:Key="LevelText" />
         <v:LevelBrushConverter x:Key="LevelBrush" />
+        <v:DiskLevelTextConverter x:Key="DiskLevelText" />
+        <v:DiskLevelBrushConverter x:Key="DiskLevelBrush" />
         <DataTemplate DataType="{x:Type state:AlertEvaluator+AttentionItem}">
             <DockPanel Margin="0,0,0,8">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
@@ -99,9 +101,10 @@
             </DockPanel>
         </Border>
 
-        <!-- 24h 趋势 + 协议分布 + 磁盘 + 热门共享（Grid 两列，对齐 TS 卡片纵向流） -->
+        <!-- 24h 趋势 + 协议分布 + 磁盘水位 + 热门共享（四张卡纵向流，对齐 TS 卡片顺序） -->
         <Grid Grid.Row="3" Grid.RowSpan="2">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -147,8 +150,42 @@
                 </DockPanel>
             </Border>
 
-            <!-- 热门共享连接数（PNG 导出目标区；图表未渲染时提示对齐 TS） -->
+            <!-- 磁盘水位（对齐 TS Dashboard.tsx#546：等级排序 + 进度条 + 剩余/共/百分比 + 三态空态） -->
             <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.Disk}"
+                               FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
+                    <ItemsControl x:Name="DiskList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,12">
+                                    <DockPanel Margin="0,0,0,2">
+                                        <TextBlock DockPanel.Dock="Left" Text="{Binding Drive}"
+                                                   FontSize="13" FontWeight="SemiBold" />
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Level, Converter={StaticResource DiskLevelText}}"
+                                                   FontSize="11" VerticalAlignment="Center" />
+                                    </DockPanel>
+                                    <ProgressBar Height="6" Minimum="0" Maximum="100"
+                                                 Value="{Binding UsedPct}"
+                                                 Foreground="{Binding Level, Converter={StaticResource DiskLevelBrush}}" />
+                                    <TextBlock FontSize="11" Foreground="{DynamicResource BrushFog}" Margin="0,3,0,0">
+                                        <Run Text="剩余 " /><Run Text="{Binding FreeGB}" /><Run Text=" GB / 共 " />
+                                        <Run Text="{Binding TotalGB}" /><Run Text=" GB（剩余 " /><Run Text="{Binding FreePct}" /><Run Text="%）" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock x:Name="DiskEmpty" Text="{DynamicResource Dash.DiskEmpty}"
+                               FontSize="12" Foreground="{DynamicResource BrushFog}"
+                               TextWrapping="Wrap" MaxWidth="420"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="Collapsed" />
+                </DockPanel>
+            </Border>
+
+            <!-- 热门共享连接数（PNG 导出目标区；图表未渲染时提示对齐 TS） -->
+            <Border Grid.Row="3" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.TopShares}"
                                FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />

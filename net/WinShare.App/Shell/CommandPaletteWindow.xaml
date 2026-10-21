@@ -1,0 +1,59 @@
+<Window x:Class="WinShare.App.Shell.CommandPaletteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="命令面板" Width="560" SizeToContent="Height" WindowStyle="None"
+        AllowsTransparency="True" Background="Transparent" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <!-- 命令面板（对齐 src/components/CommandPalette.tsx：↑↓ 选择 / Enter 执行 / Esc 关闭，
+         分组=页面导航 + 操作；动态跨域搜索（共享/用户/会话）需对应数据源，服务层未接，
+         故只实现静态面，不臆造动态结果）。 -->
+    <Border Background="{DynamicResource BrushCard}" BorderBrush="{DynamicResource BrushBorder}"
+            BorderThickness="1" CornerRadius="6">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.25" />
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBox x:Name="TxtQuery" Grid.Row="0" FontSize="14" Padding="12,10"
+                     BorderThickness="0,0,0,1" Background="Transparent"
+                     TextChanged="OnQueryChanged" PreviewKeyDown="OnInputKeyDown" />
+
+            <ScrollViewer Grid.Row="1" MaxHeight="384" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="List">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,1">
+                                <Border x:Name="Row" Background="Transparent" Padding="12,7"
+                                        Cursor="Hand" MouseLeftButtonUp="OnRowClick"
+                                        Tag="{Binding}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Label}" FontSize="13"
+                                                   Foreground="{DynamicResource BrushText}" />
+                                        <TextBlock Text="{Binding Hint}" FontSize="11"
+                                                   Foreground="{DynamicResource BrushFog}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <Border Grid.Row="2" Background="{DynamicResource BrushBg}" Padding="12,7"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="↑↓ 选择" FontSize="11" Foreground="{DynamicResource BrushFog}" Margin="0,0,12,0" />
+                    <TextBlock Text="Enter 执行" FontSize="11" Foreground="{DynamicResource BrushFog}" Margin="0,0,12,0" />
+                    <TextBlock Text="Esc 关闭" FontSize="11" Foreground="{DynamicResource BrushFog}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

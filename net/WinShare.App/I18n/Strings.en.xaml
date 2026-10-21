@@ -30,6 +30,7 @@
     <sys:String x:Key="Dash.Trend">24h connection trend</sys:String>
     <sys:String x:Key="Dash.TrendHint">Sampled every 5 min · max 288 points</sys:String>
     <sys:String x:Key="Dash.Disk">Disk usage</sys:String>
+    <sys:String x:Key="Dash.DiskEmpty">Disk probe failed (Get-PSDrive unavailable) or no local volumes found</sys:String>
     <sys:String x:Key="Dash.Protocols">Protocol distribution</sys:String>
     <sys:String x:Key="Dash.TopShares">Top shared folders by connections</sys:String>
     <sys:String x:Key="Dash.ShareCount">Total shares</sys:String>

@@ -228,36 +228,50 @@ public static class SettingsUi
     }
 
     /// <summary>
-    /// 服务状态面（对齐 ProtocolSettingsShell Descriptions：状态 tag + 启动类型 + 服务名；
-    /// 状态 null 时显示「未读取」）。
+    /// 服务状态面的子元素序列（刷新用：调用方 Clear 自身面板后 Add 这些**新构造**的子元素。
+    /// 切勿把「另一个已挂载面板」的 Children 逐个搬过来——WPF 逻辑父唯一，会抛
+    /// InvalidOperationException「指定的元素已经是另一元素的逻辑子元素」）。
     /// </summary>
-    public static StackPanel SvcStatusStrip(WinShare.Core.Contracts.ServiceStatus? status, string protocolLabel)
+    public static List<System.Windows.UIElement> SvcStatusStripChildren(WinShare.Core.Contracts.ServiceStatus? status, string protocolLabel)
     {
         _ = protocolLabel;
-        var panel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
-        panel.Children.Add(new TextBlock
+        var list = new List<System.Windows.UIElement>
         {
-            Text = "服务状态",
-            Foreground = Token("BrushFog", "#731F2733"),
-            Margin = new Thickness(0, 0, 8, 0),
-        });
+            new TextBlock
+            {
+                Text = "服务状态",
+                Foreground = Token("BrushFog", "#731F2733"),
+                Margin = new Thickness(0, 0, 8, 0),
+            }
+        };
         if (status is null)
         {
-            panel.Children.Add(new TextBlock { Text = "未读取", Foreground = Token("BrushFog", "#731F2733") });
+            list.Add(new TextBlock { Text = "未读取", Foreground = Token("BrushFog", "#731F2733") });
         }
         else
         {
             var running = status.status == WinShare.Core.Contracts.ServiceState.Running;
-            panel.Children.Add(new TextBlock
+            list.Add(new TextBlock
             {
                 Text = status.status.ToString(),
                 Foreground = Token(running ? "BrushSuccess" : "BrushDanger", running ? "#52C41A" : "#FF4D4F"),
                 FontWeight = FontWeights.SemiBold,
                 Margin = new Thickness(0, 0, 16, 0),
             });
-            panel.Children.Add(new TextBlock { Text = $"启动类型：{status.startType}", Foreground = Token("BrushFog", "#731F2733"), Margin = new Thickness(0, 0, 16, 0) });
-            panel.Children.Add(new TextBlock { Text = $"服务名：{status.name}", Foreground = Token("BrushFog", "#731F2733") });
+            list.Add(new TextBlock { Text = $"启动类型：{status.startType}", Foreground = Token("BrushFog", "#731F2733"), Margin = new Thickness(0, 0, 16, 0) });
+            list.Add(new TextBlock { Text = $"服务名：{status.name}", Foreground = Token("BrushFog", "#731F2733") });
         }
+        return list;
+    }
+
+    /// <summary>
+    /// 服务状态面（对齐 ProtocolSettingsShell Descriptions：状态 tag + 启动类型 + 服务名；
+    /// 状态 null 时显示「未读取」）。
+    /// </summary>
+    public static StackPanel SvcStatusStrip(WinShare.Core.Contracts.ServiceStatus? status, string protocolLabel)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        foreach (var c in SvcStatusStripChildren(status, protocolLabel)) panel.Children.Add(c);
         return panel;
     }
 

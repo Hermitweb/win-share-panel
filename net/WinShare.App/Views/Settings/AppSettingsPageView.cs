@@ -265,6 +265,25 @@ public sealed class AppSettingsPageView : UserControl
         return SettingsUi.Card(p);
     }
 
+    /// <summary>日志/审计导出为 .log 文件（对齐 TS 导出按钮的 download 语义：UTF-8 无 BOM 文本落盘）。</summary>
+    void SaveTextFile(string defaultName, string text)
+    {
+        try
+        {
+            var dlg = new SaveFileDialog
+            {
+                FileName = defaultName,
+                Filter = "日志文件|*.log",
+            };
+            if (dlg.ShowDialog() == true)
+                System.IO.File.WriteAllText(dlg.FileName, text);
+        }
+        catch (Exception e)
+        {
+            MessageBox.Show($"导出失败：{e.Message}");
+        }
+    }
+
     void DoExportSettings()
     {
         try
@@ -622,6 +641,14 @@ public sealed class AppSettingsPageView : UserControl
                 var text = string.Join(Environment.NewLine, vm.Rows.Select(r =>
                     $"{(r.Time ?? "")} {r.Action} {r.Target} {r.Result} {(r.Detail ?? "")}"));
                 try { Clipboard.SetText(text); } catch { }
+            }),
+            // TS LogPanels.tsx#125「导出」：audit-{ts}.log 落盘
+            SettingsUi.Button("导出", (_, _) =>
+            {
+                var vm = _vm.Audit;
+                var text = string.Join(Environment.NewLine, vm.Rows.Select(r =>
+                    $"{(r.Time ?? "")} {r.Action} {r.Target} {r.Result} {(r.Detail ?? "")}"));
+                SaveTextFile($"audit-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.log", text);
             })));
         p.Children.Add(SettingsUi.FogText("最近 200 条操作审计（谁做了什么、结果与说明）。运行日志见下方「应用日志」。"));
         _auditPanel = new StackPanel();
@@ -711,6 +738,11 @@ public sealed class AppSettingsPageView : UserControl
             SettingsUi.Button("复制", (_, _) =>
             {
                 try { Clipboard.SetText(_vm.AppLog.RawText); } catch { }
+            }),
+            // TS LogPanels.tsx#211「导出」：app-{ts}.log 落盘
+            SettingsUi.Button("导出", (_, _) =>
+            {
+                SaveTextFile($"app-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.log", _vm.AppLog.RawText);
             })));
         p.Children.Add(SettingsUi.FogText("显示 app.log 最近 300 行（%APPDATA%\\WinSharePanel\\logs\\）；含主进程运行日志，报错后可在此复制完整堆栈。"));
         _logFilter = new ComboBox { Width = 120, Margin = new Thickness(0, 0, 0, 4) };

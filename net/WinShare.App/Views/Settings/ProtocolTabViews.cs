@@ -39,12 +39,15 @@ public abstract class ProtocolTabView<TConfig> : UserControl
         _svcStrip = SettingsUi.SvcStatusStrip(null, Card.Protocol.Display());
         body.Children.Add(_svcStrip);
         body.Children.Add(SettingsUi.FogText(FooterText, 8, 0));
+        // 服务状态刷新：只更新自身内容（Clear + Add 到同一个面板是安全的；
+        // 禁止把「新面板的子元素」逐个 Add 到本面板——那会抛
+        // InvalidOperationException「指定的元素已经是另一元素的逻辑子元素」）
         Card.PropertyChanged += (_, _) =>
         {
             var status = Card.Service;
             _svcStrip.Children.Clear();
-            var s2 = SettingsUi.SvcStatusStrip(status, Card.Protocol.Display());
-            foreach (System.Windows.UIElement c in s2.Children) _svcStrip.Children.Add(c);
+            foreach (System.Windows.UIElement c in SettingsUi.SvcStatusStripChildren(status, Card.Protocol.Display()))
+                _svcStrip.Children.Add(c);
         };
         // 服务器值回填后重置表单绑定（绑定源=镜像属性，DataContext 换绑触发全量重拉）
         Card.OnConfigReloaded += () =>

@@ -385,16 +385,46 @@ public partial class SharesPageView : UserControl
 
     void OpenDetailDrawer()
     {
-        // TODO(T3b): 抽屉控件未定义（临时 no-op 解锁构建；T3d 越界最小改动，已回报披露）
-        if (_vm is null || _vm.DetailTarget is not { }) return;
-        DetailHost.Visibility = Visibility.Collapsed;
+        // 抽屉常驻宿主 Grid（XAML 静态声明），这里只换数据 + 打开遮罩：
+        // 不 new 控件、不跨容器搬 Children（WPF 逻辑父唯一，见 R 模式 A/B）。
+        if (_vm is null || _vm.DetailTarget is not { } row) return;
+        DetailDrawer.SetShare(row.Share, _vm.MakeDetailVm(row.Share));
+        DetailHost.Visibility = Visibility.Visible;
     }
 
     void OpenPermDrawer()
     {
-        // TODO(T3b): 抽屉控件未定义（临时 no-op 解锁构建；T3d 越界最小改动，已回报披露）
-        if (_vm is null || _vm.PermShare is not { }) return;
-        PermHost.Visibility = Visibility.Collapsed;
+        if (_vm is null || _vm.PermShare is not { } share) return;
+        PermDrawer.SetShare(share, _vm.MakePermissionVm(share));
+        PermHost.Visibility = Visibility.Visible;
+    }
+
+    // ===== 快捷键（对齐 Shares.tsx hotkey：Ctrl+N 新建 / Del 批量删除 / Space 批量启停） =====
+    // 页面自身挂 PreviewKeyDown：焦点落在搜索框/表格上时隧道事件同样到达，
+    // 因此输入中不吞字符（TextBox 自身会标记 Handled；这里只在非输入控件命中时动作）。
+    void OnPageKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (_vm is null) return;
+        var shift = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control)
+            == System.Windows.Input.ModifierKeys.Control;
+        if (e.Key == Key.N && shift)
+        {
+            OnCreate(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+        // 只处理页面级快捷键；输入控件里的按键（含空格选字）不拦
+        if (TxtSearch.IsKeyboardFocusWithin || TxtSearch.IsFocused) return;
+        if (e.Key == Key.Delete && _vm.HasSelection)
+        {
+            OnBatchDelete(this, new RoutedEventArgs());
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Space && _vm.HasSelection)
+        {
+            OnBatchToggle(this, new RoutedEventArgs());
+            e.Handled = true;
+        }
     }
 
     void OnDetailBackdrop(object sender, MouseButtonEventArgs e) => DetailHost.Visibility = Visibility.Collapsed;

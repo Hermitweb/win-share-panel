@@ -80,6 +80,7 @@ public partial class DashboardPageView : UserControl
 
         TopChart.Items = _vm.TopShares;
         BuildProtocolGrid();
+        BuildDiskList();
 
         var tip = _vm.ErrorText;
         StatusTip.Text = tip.Length == 0 ? "" : tip;
@@ -87,6 +88,20 @@ public partial class DashboardPageView : UserControl
 
         TrendChart.InvalidateVisual();
         TopChart.InvalidateVisual();
+    }
+
+    /// <summary>
+    /// 磁盘水位卡（对齐 TS Dashboard.tsx#546-583：VM 已按等级排序，这里只绑 ItemsSource +
+    /// 空态切换；进度条/文案/等级标签全在 XAML DataTemplate，避免代码后置搬控件）。
+    /// </summary>
+    void BuildDiskList()
+    {
+        if (_vm is null) return;
+        var rows = _vm.DiskRows;
+        DiskList.ItemsSource = rows;
+        var empty = rows.Count == 0;
+        DiskList.Visibility = empty ? Visibility.Collapsed : Visibility.Visible;
+        DiskEmpty.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
     }
 
     void BuildProtocolGrid()

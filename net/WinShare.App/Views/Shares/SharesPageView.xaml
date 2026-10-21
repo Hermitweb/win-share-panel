@@ -8,7 +8,8 @@
         <local:PinStarConverter x:Key="StarConv" />
     </UserControl.Resources>
     <Border Background="{DynamicResource BrushBg}" Margin="0" Padding="20"
-            AllowDrop="True" Drop="OnDrop" DragOver="OnDragOver">
+            AllowDrop="True" Drop="OnDrop" DragOver="OnDragOver"
+            Focusable="True" PreviewKeyDown="OnPageKeyDown">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />  <!-- 页头 -->
@@ -24,7 +25,7 @@
                 <StackPanel DockPanel.Dock="Left" VerticalAlignment="Top">
                     <TextBlock Text="共享管理" FontSize="20" FontWeight="SemiBold" />
                     <TextBlock FontSize="12" Foreground="{DynamicResource BrushFog}" Margin="0,4,0,0"
-                               Text="提示：拖拽文件夹到本页可快速创建共享 · 批量选中后可删除/启停 · 刷新/导出/导入见右上" />
+                               Text="提示：拖拽文件夹到本页可快速创建共享 · Ctrl+N 新建 · Del 批量删除 · Space 批量启停 · F5 刷新" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="刷新" Style="{DynamicResource DashButton}" Click="OnRefresh" />
@@ -217,15 +218,16 @@
                        Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap"
                        Visibility="Collapsed" />
 
-            <!-- 抽屉（详情/权限；右侧滑出面板 + 半透明遮罩，可见性由代码后置控制） -->
+            <!-- 抽屉（详情/权限；右侧滑出面板 + 半透明遮罩，可见性由代码后置控制）。
+                 遮罩声明在前、抽屉声明在后 = 抽屉绘制在遮罩之上（Grid 子元素后声明者在上）；
+                 抽屉常驻宿主 Grid、只经 SetShare 换数据，不做跨容器搬移（WPF 逻辑父唯一）。 -->
             <Grid Grid.Row="0" Grid.RowSpan="6" Visibility="Collapsed" x:Name="DetailHost">
                 <Border Background="#40000000" MouseDown="OnDetailBackdrop" />
-                <!-- TODO(T3b): local:ShareDetailDrawer 控件类未定义（T3b 仅交付 ShareDetailViewModel），临时注释解锁构建；T3b 补齐控件后恢复。注：T3d 越界最小改动，已在任务回报接线清单披露 -->
+                <local:ShareDetailDrawer x:Name="DetailDrawer" Width="520" HorizontalAlignment="Right" />
             </Grid>
             <Grid Grid.Row="0" Grid.RowSpan="6" Visibility="Collapsed" x:Name="PermHost">
                 <Border Background="#40000000" MouseDown="OnPermBackdrop" />
-                <!-- TODO(T3b): views:SharePermissionDrawer 控件未定义（T3b 未交付），临时注释解锁构建；T3b 落地该控件后恢复本行并声明 xmlns:views。注：T3d 越界最小改动，已在任务回报接线清单披露 -->
-                <!-- TODO(T3b): 原 <views:SharePermissionDrawer> 未定义，且暂以 ShareDetailDrawer 顶替（亦未定义）；两抽屉控件落地后恢复。T3d 越界最小改动已披露 -->
+                <local:SharePermissionDrawer x:Name="PermDrawer" Width="640" HorizontalAlignment="Right" />
             </Grid>
         </Grid>
     </Border>
