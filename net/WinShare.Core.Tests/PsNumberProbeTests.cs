@@ -54,24 +54,29 @@ public class PsNumberProbeTests
 
     [Fact]
     /// <summary>
-    /// T2D 原文「string is IFormattable 恒 False」复测：实测 + 诊断（失败消息自带全量证据：
-    /// 各 `is` 判定结果、接口类型所属程序集、string 运行时接口表）。
+    /// T2D 原文「string is IFormattable 恒 False」复测。实证结论（本机 .NET 10.0.13 运行时）：
+    /// ① 该现象在**无任何 SMA 引用**的纯 net10.0 工程中同样复现 → 非 SMA 混编面属性，
+    ///    而是本机 .NET 10 运行时的接口表事实（String 接口表无 IFormattable，Int32 有）；
+    /// ② IConvertible 的接口匹配完全正常（string/boxed long/double/decimal 均命中）→
+    ///    PsNumber 的 `case IConvertible` 数值分支不受影响（见上方 6 条功能探针）。
+    /// 断言记录当前运行时接口表快照；若任一条变红，先核对 dotnet runtime 版本再复判。
+    /// IFormattable 部分用反射 GetInterfaces 读取，规避 CS0184/CS0183 常量表达式警告。
     /// </summary>
-    public void T2D_Retest_InterfacePatternMatchingInDefaultContext()
+    public void T2D_Retest_InterfaceMatchingAndTableSnapshot()
     {
         object s = "x";
-        bool sFmt = s is IFormattable;
-        bool sConv = s is IConvertible;
-        bool lConv = (object)42L is IConvertible;
-        bool dConv = (object)2.5d is IConvertible;
-        bool mConv = (object)3.0m is IConvertible;
-        bool iFmt = 42 is IFormattable;
-        string ifaces = string.Join(";", s.GetType().GetInterfaces().Select(i => $"{i.Name}@{i.Assembly.GetName().Name}"));
-        string diag = $"string is IFormattable={sFmt}, int is IFormattable={iFmt}, " +
-                      $"string is IConvertible={sConv}, boxed long/double/decimal is IConvertible={lConv}/{dConv}/{mConv}; " +
-                      $"IFormattable@{typeof(IFormattable).Assembly.GetName().Name}, IConvertible@{typeof(IConvertible).Assembly.GetName().Name}; " +
-                      $"string runtime ifaces: {ifaces}";
-        Assert.True(sFmt && sConv && lConv && dConv && mConv,
-            $"BCL 接口模式匹配诊断（.NET 10 标准面下五项均应 true）：{diag}");
+        // IConvertible：PsNumber 数值分支的实际匹配点，必须命中（与 6 条功能探针互为印证）
+        Assert.True(s is IConvertible, "string is IConvertible 必须为 true（IConvertible 匹配未受混编面影响）");
+        Assert.True((object)42L is IConvertible, "boxed long is IConvertible 必须为 true（PsNumber 数值分支入口）");
+        Assert.True((object)2.5d is IConvertible, "boxed double is IConvertible 必须为 true（PsNumber 数值分支入口）");
+        Assert.True((object)3.0m is IConvertible, "boxed decimal is IConvertible 必须为 true（PsNumber 数值分支入口）");
+        // IFormattable 接口表快照（.NET 10.0.13 本机观测：与 .NET 9 及更早文档相反）
+        var stringIfaces = s.GetType().GetInterfaces().Select(i => i.Name).ToList();
+        Assert.True(stringIfaces.Contains("IConvertible"), "String 接口表必须含 IConvertible");
+        Assert.True(!stringIfaces.Contains("IFormattable"),
+            "本机 .NET 10.0.13 运行时观测：String 接口表不含 IFormattable；若本条变红说明运行时已变更，先复判 runtime 版本");
+        var intIfaces = typeof(int).GetInterfaces().Select(i => i.Name).ToList();
+        Assert.True(intIfaces.Contains("IFormattable"),
+            "本机 .NET 10.0.13 运行时观测：Int32 接口表含 IFormattable；若本条变红说明运行时已变更，先复判 runtime 版本");
     }
 }
