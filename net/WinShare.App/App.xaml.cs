@@ -80,11 +80,11 @@ public partial class App : Application
     {
         var reg = AppServices.Registry;
         reg.Register(new AppPage { route = "/", titleKey = "Dash.Title", glyph = "◧", factory = new PageFactory(() => new DashboardPageView()) });
-        reg.Register(new AppPage { route = "/shares", titleKey = "Nav.Share", glyph = "▤", factory = new PageFactory(() => new PlaceholderPage("/shares", AppServices.I18n.T("Nav.Share"))) });
-        reg.Register(new AppPage { route = "/users", titleKey = "Nav.Users", glyph = "◉", factory = new PageFactory(() => new PlaceholderPage("/users", AppServices.I18n.T("Nav.Users"))) });
-        reg.Register(new AppPage { route = "/sessions", titleKey = "Nav.Sessions", glyph = "≋", factory = new PageFactory(() => new PlaceholderPage("/sessions", AppServices.I18n.T("Nav.Sessions"))) });
-        reg.Register(new AppPage { route = "/settings", titleKey = "Nav.Settings", glyph = "⚙", factory = new PageFactory(() => new PlaceholderPage("/settings", AppServices.I18n.T("Nav.Settings"))) });
-        reg.Register(new AppPage { route = "/app-settings", titleKey = "Nav.AppSettings", glyph = "◎", factory = new PageFactory(() => new PlaceholderPage("/app-settings", AppServices.I18n.T("Nav.AppSettings"))) });
+        // 四 UI 模块接入（同路由覆盖占位页；未接契约服务时各模块走空馈送降级）
+        Shares.SharesModule.Register(reg);
+        Users.UsersModule.Register(reg);
+        Sessions.SessionsModule.Register(reg);
+        Settings.SettingsModule.Register(reg);
     }
 
     void ShowMainWindow()
