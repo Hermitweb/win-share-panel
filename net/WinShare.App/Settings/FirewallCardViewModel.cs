@@ -111,8 +111,10 @@ public sealed class FirewallCardViewModel : SettingsCardBase
             }
             catch (Exception e)
             {
-                Error = $"添加防火墙规则失败：{e.Message}";
+                // 失败后重载（可能部分写入，以读回为准）；重载成功会清 Error → 失败文案须重设（对齐 TS message.error + 重载）
+                var msg = $"添加防火墙规则失败：{e.Message}";
                 await ReloadAsync();
+                Error = msg;
                 return e.Message;
             }
             finally

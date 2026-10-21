@@ -15,7 +15,8 @@ public class SharesViewModelTests
 
     public SharesViewModelTests()
     {
-        _stateDir = Path.Combine(Path.GetTempPath(), "winshare-tests-" + Guid.NewGuid("n"));
+        // 共享盘 Temp 可能被 ACL 拒绝；用测试程序集 bin 目录（工作区内，MSBuild 自清理）
+        _stateDir = Path.Combine(AppContext.BaseDirectory, "state-" + Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(_stateDir);
     }
 
@@ -46,7 +47,7 @@ public class SharesViewModelTests
             _feed,
             new AppSettingsStore(_stateDir),
             new AppEventBus(),
-            _share, _preset, protocol: null, system: null, _user, _disk,
+            _share, _preset, protocolService: null, systemService: null, _user, _disk,
             async (name, bytes) => _exports.Add((name, bytes)),
             () => Task.FromResult(_importPickerReturnsNull ? (string?)null : _importText));
     }
@@ -117,7 +118,8 @@ public class SharesViewModelTests
         Assert.Equal("已删除 2 个共享", msg);
         Assert.Equal(new[] { "Docs", "Music" }, _share.Deleted.OrderBy(x => x));
         Assert.False(_vm.HasSelection); // 删除后清空选择
-        Assert.Equal("", _vm.StatusMsg); // 全成功不告警
+        Assert.Equal("已删除 2 个共享", _vm.StatusMsg); // 成功提示（TS message.success 等价面）
+        Assert.False(_vm.StatusIsWarning);
         Assert.False(_vm.StatusIsWarning);
     }
 
@@ -306,7 +308,7 @@ public class SharesViewModelTests
         MakeVm();
         _vm = new SharesViewModel(
             _feed, new AppSettingsStore(_stateDir), new AppEventBus(),
-            share: null, _preset, protocol: null, system: null, _user, _disk,
+            shareService: null, presetService: _preset, protocolService: null, systemService: null, userService: _user, diskService: _disk,
             async (_, _) => { }, () => Task.FromResult<string?>(null));
         var form = _vm.CreateForm;
         form.Protocol = "nfs"; // 无协议路由 + 非 SMB → 降级路径
@@ -414,9 +416,9 @@ public class SharesViewModelTests
         MakeVm();
         await _vm.LoadAsync();
         _vm.TogglePin("smb:Docs");
-        Assert.Contains("smb:Docs", store.Load().pinned);
+        Assert.Contains("smb:Docs", new WinShare.App.State.AppSettingsStore(_stateDir).Load().pinned);
         _vm.TogglePin("smb:Docs");
-        Assert.DoesNotContain("smb:Docs", store.Load().pinned);
+        Assert.DoesNotContain("smb:Docs", new WinShare.App.State.AppSettingsStore(_stateDir).Load().pinned); // 每次新实例读盘（AppSettingsStore 有进程内缓存）
     }
 
     // ===== 详情/权限子 VM 工厂 =====

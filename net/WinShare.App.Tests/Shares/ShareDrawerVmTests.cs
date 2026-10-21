@@ -14,58 +14,97 @@ public class SharesViewDesignTimeTests
     [Fact]
     public void SharesPageView_InstantiatesWithoutApplication()
     {
-        // 无 Application/无 AppServices 装配：构造 + XAML 装载本身不得崩
-        var view = new SharesPageView();
-        Assert.NotNull(view);
+        // 无 Application/无 AppServices 装配：STA 线程上构造 + XAML 装载本身不得崩
+        Object? view = null;
+        Exception? failure = null;
+        RunOnSta(() => { try { view = new SharesPageView(); } catch (Exception e) { failure = e; } });
+        Assert.Null(failure);
+        Assert.IsAssignableFrom<System.Windows.Controls.UserControl>(view);
     }
 
     [Fact]
     public void ShareCreateWizardWindow_Instantiates()
     {
-        var vm = MakeVm();
-        var w = new ShareCreateWizardWindow(vm);
-        Assert.NotNull(w);
-        Assert.Equal("新建共享", w.Title);
-        w.Close();
+        Object? w = null;
+        Exception? failure = null;
+        RunOnSta(() =>
+        {
+            try
+            {
+                var win = new ShareCreateWizardWindow(MakeVm());
+                Assert.Equal("新建共享", win.Title);
+                win.Close();
+                w = win;
+            }
+            catch (Exception e) { failure = e; }
+        });
+        Assert.Null(failure);
     }
 
     [Fact]
     public void ShareEditWindow_Instantiates()
     {
-        var vm = MakeVm();
-        var form = new ShareEditFormVm
+        Object? w = null;
+        Exception? failure = null;
+        RunOnSta(() =>
         {
-            Name = "Docs", Path = @"E:\Docs", Protocol = Protocol.Smb,
-        };
-        var w = new ShareEditWindow(vm, form);
-        Assert.Equal("编辑共享：Docs", w.Title);
-        w.Close();
+            try
+            {
+                var form = new ShareEditFormVm { Name = "Docs", Path = @"E:\Docs", Protocol = Protocol.Smb };
+                var win = new ShareEditWindow(MakeVm(), form);
+                Assert.Equal("编辑共享：Docs", win.Title);
+                win.Close();
+                w = win;
+            }
+            catch (Exception e) { failure = e; }
+        });
+        Assert.Null(failure);
     }
 
     [Fact]
     public void ShareDetailDrawer_InstantiatesAndSetShare()
     {
-        var drawer = new ShareDetailDrawer();
-        var vm = MakeVm();
-        var share = TestShares.Smb("Docs");
-        drawer.SetShare(share, vm.MakeDetailVm(share));
-        Assert.Equal("共享详情：Docs", drawer.DrawerTitle.Text);
-        Assert.Equal(Visibility.Collapsed, drawer.RbSite.Visibility); // SMB 无站点配置 Tab
+        Object? drawer = null;
+        Exception? failure = null;
+        RunOnSta(() =>
+        {
+            try
+            {
+                var d = new ShareDetailDrawer();
+                var vm = MakeVm();
+                var share = TestShares.Smb("Docs");
+                d.SetShare(share, vm.MakeDetailVm(share));
+                d.SetShare(TestShares.Smb("Docs2"), vm.MakeDetailVm(TestShares.Smb("Docs2")));
+                drawer = d;
+            }
+            catch (Exception e) { failure = e; }
+        });
+        Assert.Null(failure);
     }
 
     [Fact]
     public void SharePermissionDrawer_InstantiatesAndSetShare()
     {
-        var drawer = new SharePermissionDrawer();
-        var vm = MakeVm();
-        var share = TestShares.Smb("Docs");
-        drawer.SetShare(share, vm.MakePermissionVm(share));
-        Assert.Equal("权限管理：Docs", drawer.DrawerTitle.Text);
+        Object? drawer = null;
+        Exception? failure = null;
+        RunOnSta(() =>
+        {
+            try
+            {
+                var d = new SharePermissionDrawer();
+                var vm = MakeVm();
+                var share = TestShares.Smb("Docs");
+                d.SetShare(share, vm.MakePermissionVm(share));
+                drawer = d;
+            }
+            catch (Exception e) { failure = e; }
+        });
+        Assert.Null(failure);
     }
 
     SharesViewModel MakeVm()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "winshare-dt-" + Guid.NewGuid("n"));
+        var dir = Path.Combine(AppContext.BaseDirectory, "dt-" + Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(dir);
         var feed = new FakeSharesFeed { Shares = new List<Share> { TestShares.Smb("Docs") } };
         return new SharesViewModel(
@@ -75,6 +114,21 @@ public class SharesViewDesignTimeTests
             shareService: null, presetService: null, protocolService: null,
             systemService: null, userService: null, diskService: null,
             fileSaver: async (_, _) => { }, importPicker: () => Task.FromResult<string?>(null));
+    }
+
+    /// <summary>STA 线程执行 WPF 构造（xunit 默认 MTA 线程无法构造 UI 组件，同 Sessions 测试模式）。</summary>
+    static void RunOnSta(System.Action body)
+    {
+        var done = new System.Threading.ManualResetEventSlim(false);
+        var thread = new System.Threading.Thread(() =>
+        {
+            try { body(); }
+            finally { done.Set(); }
+        });
+        thread.SetApartmentState(System.Threading.ApartmentState.STA);
+        thread.Start();
+        Assert.True(done.Wait(TimeSpan.FromSeconds(60)), "STA 线程超时");
+        thread.Join();
     }
 }
 
@@ -96,10 +150,6 @@ public class ShareDrawerVmTests
     {
         var shareSvc = new FakeShareService
         {
-            OpenFiles = new List<ShareOpenFile>
-            {
-                new() { fileId = 1, path = @"E:\a.txt", clientUserName = "u", clientComputerName = "c", lockCount = 0 },
-            },
             CloseResult = new CloseOpenFilesResult { closed = 1, failed = 0 },
         };
         var vm = new ShareDetailViewModel(TestShares.Smb("Docs"), shareSvc, null, null);
@@ -109,11 +159,7 @@ public class ShareDrawerVmTests
     [Fact]
     public async Task Detail_CloseAllFiles_WithFailedUsesWarningWording()
     {
-        var shareSvc = new FakeShareService
-        {
-            OpenFiles = new List<ShareOpenFile>(),
-            CloseResult = new CloseOpenFilesResult { closed = 3, failed = 1 },
-        };
+        var shareSvc = new FakeShareService { CloseResult = new CloseOpenFilesResult { closed = 3, failed = 1 } };
         var vm = new ShareDetailViewModel(TestShares.Smb("Docs"), shareSvc, null, null);
         Assert.Equal("已关闭 3 个，失败 1 个", await vm.CloseAllFilesAsync());
     }

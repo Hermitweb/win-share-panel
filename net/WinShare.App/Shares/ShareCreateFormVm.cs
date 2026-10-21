@@ -236,17 +236,19 @@ public sealed class ShareCreateFormVm : INotifyPropertyChanged
     {
         var proto = ProtocolExtForm.Parse(Protocol);
         var read = SplitAccounts(ReadAccess);
+        IReadOnlyList<string>? Arr(string raw) { var v = SplitAccounts(raw); return v.Count > 0 ? v : null; }
+        var auths = SplitAccounts(Authentication).Select(NfsAuthMethodExt.Parse).ToList();
         var input = new CreateShareInput
         {
             protocol = proto,
             name = Name,
             path = Path,
             description = string.IsNullOrWhiteSpace(Description) ? null : Description,
-            fullAccess = SplitAccounts(FullAccess),
-            changeAccess = SplitAccounts(ChangeAccess),
-            readAccess = read.Count > 0 ? read : null, // 空=未填，走服务层默认（TS 传 undefined 等价）
-            noAccess = SplitAccounts(NoAccess),
-            authentication = SplitAccounts(Authentication).Select(NfsAuthMethodExt.Parse).ToList(),
+            fullAccess = Arr(FullAccess),
+            changeAccess = Arr(ChangeAccess),
+            readAccess = read.Count > 0 ? read : null,
+            noAccess = Arr(NoAccess),
+            authentication = auths.Count > 0 ? auths : null,
             nfsPermission = proto == CoreProtocol.Nfs ? NfsPermissionExt.Parse(NfsPermission) : null,
             port = proto is CoreProtocol.Ftp or CoreProtocol.Webdav ? Port : null,
             sslPolicy = proto == CoreProtocol.Ftp ? SslPolicyExt.Parse(SslPolicy) : null,

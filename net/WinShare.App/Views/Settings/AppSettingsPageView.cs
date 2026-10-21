@@ -45,6 +45,8 @@ public sealed class AppSettingsPageView : UserControl
         DataContext = _vm;
         Content = BuildRoot();
         Loaded += async (_, _) => await _vm.RefreshAsync();
+        // 全局刷新透传（F5 / 菜单 / 托盘 → 事件总线；对齐 TS refreshTick）
+        AppServices.Bus?.Subscribe<WinShare.App.Events.RefreshRequested>(evt => { _ = _vm.RefreshAsync(); });
     }
 
     static void OpenExternal(string url)
@@ -404,13 +406,17 @@ public sealed class AppSettingsPageView : UserControl
 
         var diskRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         var tb = new TextBox { Width = 100 };
-        tb.DataContext = vm;
+        // DiskDraft 为只读展示属性（经 SetDiskDraft 写）：TextBox 显示走 OneWay，输入经 TextChanged 走 SetDiskDraft，失焦保存
         tb.SetBinding(TextBox.TextProperty, new System.Windows.Data.Binding("DiskDraft")
         {
-            Mode = System.Windows.Data.BindingMode.TwoWay,
-            UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.LostFocus,
+            Mode = System.Windows.Data.BindingMode.OneWay,
+            // null 安全由 StringIntConverter.Convert（value?.ToString() ?? ""）内建兜底，WPF Binding 无 ConverterFallback
             Converter = new StringIntConverter(),
         });
+        tb.TextChanged += (_, _) =>
+        {
+            if (int.TryParse(tb.Text?.Trim(), out var n)) vm.SetDiskDraft(n);
+        };
         tb.LostFocus += (_, _) => { _ = vm.SaveDiskAsync(); };
         diskRow.Children.Add(SettingsUi.FogText("磁盘低水位阈值（GB）", 0, 4));
         diskRow.Children.Add(tb);

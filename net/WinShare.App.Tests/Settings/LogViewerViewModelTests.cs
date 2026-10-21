@@ -12,7 +12,7 @@ public class LogViewerViewModelTests
 {
     static string TempLogDir()
     {
-        var d = Path.Combine(Path.GetTempPath(), "wsp-log-" + Guid.NewGuid().ToString("n"));
+        var d = Path.Combine(AppContext.BaseDirectory, "wsp-log-" + Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(d);
         return d;
     }
@@ -26,7 +26,7 @@ public class LogViewerViewModelTests
         var text = AppLogReader.ReadTail(300, dir);
         var got = text.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(300, got.Length);
-        Assert.Contains("line31", got[0]); // 第 31 行起（丢最早 20 行）
+        Assert.Contains("line21", got[0]); // 320-300=20：第 21 行起
         Assert.Contains("line320", got[^1]);
     }
 

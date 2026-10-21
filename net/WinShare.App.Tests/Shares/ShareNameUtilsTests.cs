@@ -35,13 +35,17 @@ public class ShareNameUtilsTests
     [Fact]
     public void ShareNameFromPath_StripsLeadingDotAndDollar()
     {
-        Assert.Equal("_Hidden", ShareNameUtils.ShareNameFromPath(@"E:$.Hidden"));
+        // [Source: shareDefaults.test.ts L39] 前导 $ 剥掉：$hared → hared
+        Assert.Equal("hared", ShareNameUtils.ShareNameFromPath(@"C:\Users\x\$hared"));
+        // 前导点同样剥掉
+        Assert.Equal("Hidden", ShareNameUtils.ShareNameFromPath(@"E:\.Hidden"));
     }
 
     [Fact]
     public void ShareNameFromPath_ReplacesIllegalChars()
     {
-        Assert.Equal("a________b", ShareNameUtils.ShareNameFromPath(@"E:\a<>:""|?*\/"b"));
+        // [Source: shareDefaults.test.ts L38] b<c>d: → b_c_d_（< 与 : 转下划线）
+        Assert.Equal("b_c_d_", ShareNameUtils.ShareNameFromPath(@"D:\a\b<c>d:"));
     }
 
     [Fact]
@@ -141,7 +145,7 @@ public class ShareNameUtilsTests
 /// </summary>
 public class ShareDeleteImpactTests
 {
-    static Share S(string name, int conns, Protocol proto = Protocol.Smb) => new()
+    static Share S(string name = "a", int conns = 0, Protocol proto = Protocol.Smb) => new()
     {
         name = name, path = @"E:\" + name, description = "", protocol = proto,
         type = ShareType.Disk, hidden = false, encrypted = false,

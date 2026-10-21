@@ -76,23 +76,20 @@ public class ProtocolDetectionViewModelTests
     [Fact]
     public async Task 探测后_已装未装判定与未装清单()
     {
-        var svc = new StubProtocolService
-        {
-            DetectedCaps =
-            {
-                [Protocol.Smb] = Cap(Protocol.Smb, true, ProtocolInstallType.Builtin, ServiceState.Running, ""),
-                [Protocol.Nfs] = Cap(Protocol.Nfs, false, ProtocolInstallType.ServerFeature, ServiceState.Unknown, "需安装 NFS 服务器角色"),
-                [Protocol.Ftp] = Cap(Protocol.Ftp, false, ProtocolInstallType.IisRole, ServiceState.Unknown, "IIS 均未安装"),
-                [Protocol.Webdav] = Cap(Protocol.Webdav, false, ProtocolInstallType.IisRole, ServiceState.Unknown, "IIS 均未安装"),
-            },
-        };
+        var caps = new Dictionary<WinShare.Core.Contracts.Protocol, WinShare.Core.Contracts.ProtocolFeatureState>();
+        caps[WinShare.Core.Contracts.Protocol.Smb] = Cap(Protocol.Smb, true, ProtocolInstallType.Builtin, ServiceState.Running, "");
+        caps[WinShare.Core.Contracts.Protocol.Nfs] = Cap(Protocol.Nfs, false, ProtocolInstallType.ServerFeature, ServiceState.Unknown, "需安装 NFS 服务器角色");
+        caps[WinShare.Core.Contracts.Protocol.Ftp] = Cap(Protocol.Ftp, false, ProtocolInstallType.IisRole, ServiceState.Unknown, "IIS 均未安装");
+        caps[WinShare.Core.Contracts.Protocol.Webdav] = Cap(Protocol.Webdav, false, ProtocolInstallType.IisRole, ServiceState.Unknown, "IIS 均未安装");
+        var svc = new StubProtocolService { DetectedCaps = caps };
         var vm = new ProtocolDetectionViewModel(svc);
         await vm.DetectAsync();
         Assert.True(vm.InstalledOf(Protocol.Smb));
         Assert.False(vm.InstalledOf(Protocol.Nfs));
         Assert.Equal(3, vm.UninstalledProtocols().Count);
         Assert.True(vm.HasInstallCommand(Protocol.Nfs));
-        Assert.Empty(vm.Badges.Count == 0 ? Array.Empty<CapabilityBadge>() : vm.Badges.Where(b => b.Label == "IIS 未装"));
+        Assert.DoesNotContain(vm.Badges, b => b.Label == "服务已停");
+        Assert.Equal(2, vm.Badges.Count(b => b.Label == "IIS 未装"));
     }
 
     [Fact]

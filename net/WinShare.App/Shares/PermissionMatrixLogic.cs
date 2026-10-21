@@ -147,7 +147,7 @@ public static class PermissionMatrixLogic
     {
         var data = new
         {
-            exportedAt = exportedAt.ToString("O"),
+            exportedAt = exportedAt.ToString("O").Replace("+00:00", "Z"),
             shares = shares.Select(s => new
             {
                 name = s.name,

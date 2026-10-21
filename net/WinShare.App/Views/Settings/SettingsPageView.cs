@@ -26,6 +26,8 @@ public sealed class SettingsPageView : UserControl
         DataContext = _vm;
         Content = BuildRoot();
         Loaded += async (_, _) => await _vm.RefreshAsync();
+        // 全局刷新透传（F5 / 菜单 / 托盘 → 事件总线；对齐 TS refreshTick 失效重取）
+        AppServices.Bus?.Subscribe<WinShare.App.Events.RefreshRequested>(evt => { _ = _vm.RefreshAsync(); });
     }
 
     FrameworkElement BuildRoot()

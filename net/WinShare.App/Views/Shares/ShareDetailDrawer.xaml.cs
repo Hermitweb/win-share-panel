@@ -116,6 +116,7 @@ public partial class ShareDetailDrawer : UserControl
     // ===== Tab 切换 =====
     void OnTabChanged(object sender, RoutedEventArgs e)
     {
+        if (RbProps is null || RbConns is null || RbFiles is null || RbSite is null || TabContent is null) return;
         TabContent.SelectedIndex = RbProps.IsChecked == true ? 1
             : RbConns.IsChecked == true ? 2
             : RbFiles.IsChecked == true ? 3

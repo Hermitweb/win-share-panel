@@ -142,7 +142,7 @@ public static class SettingsUi
             MinHeight = 28,
             ToolTip = stopHint,
         };
-        b.Click += onClick;
+        if (onClick is not null) b.Click += onClick; // 禁用占位按钮允许 null 处理器
         if (primary)
         {
             b.Background = Token("BrushPrimary", "#1677FF");

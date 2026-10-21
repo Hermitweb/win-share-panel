@@ -79,9 +79,9 @@ public class ShareImportGuardTests
     public void Guard_RejectsMissingSharesArray()
     {
         Assert.Equal("导入文件格式错误",
-            Assert.Throws<ArgumentException>(() => ShareImportGuard.GuardImportJson("{"other":"1"")).Message);
+            Assert.Throws<ArgumentException>(() => ShareImportGuard.GuardImportJson("{\"other\":\"1\"}")).Message);
         Assert.Equal("导入文件格式错误",
-            Assert.Throws<ArgumentException>(() => ShareImportGuard.GuardImportJson("{"shares":"nope"")).Message);
+            Assert.Throws<ArgumentException>(() => ShareImportGuard.GuardImportJson("{\"shares\":\"nope\"}")).Message);
         Assert.Equal("导入内容不合法或超过 2MB 上限",
             Assert.Throws<ArgumentException>(() => ShareImportGuard.GuardImportJson(null)).Message);
     }

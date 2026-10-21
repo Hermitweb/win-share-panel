@@ -28,6 +28,7 @@ public sealed class AlertRulesCardViewModel : SettingsCardBase
         WeakPasswordAlert = rules.weakPasswordAlert;
         SelectedIdle = rules.idleAlertMinutes ?? 0;
         var disk = rules.diskLowGb;
+        DiskLowGb = disk;
         DiskDraft = disk;
         Raise();
     }

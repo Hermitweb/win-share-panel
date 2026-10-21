@@ -57,16 +57,31 @@ public class SettingsModuleTests
         {
             var t = Type.GetType($"{typeName}, {asm.GetName().Name}") ?? asm.GetType(typeName)
                 ?? throw new InvalidOperationException($"类型未找到：{typeName}");
+            // WPF 控件实例化要求 STA 线程（xUnit 默认 MTA）：起 STA 线程反射 new，结果/异常回传断言
+            object? instance = null;
+            Exception? instEx = null;
+            var sta = new System.Threading.Thread(() =>
+            {
+                try { instance = Activator.CreateInstance(t, nonPublic: false); }
+                catch (Exception e) { instEx = e; }
+            })
+            {
+                IsBackground = true,
+            };
+            sta.SetApartmentState(System.Threading.ApartmentState.STA);
+            sta.Start();
+            sta.Join();
             try
             {
-                var instance = Activator.CreateInstance(t, nonPublic: false);
+                if (instEx is not null) throw instEx;
                 Assert.NotNull(instance);
             }
             catch (ReflectionTypeLoadException ex)
             {
                 // WPF 宿主类型加载失败（CI 无 Windows Desktop Runtime）：如实降级，不断言假绿
                 hostTypeMissing = ex.LoaderExceptions.Any(e =>
-                    (e is TypeLoadException tle && tle.FriendlyMessage.Contains("PresentationFramework")) ||
+                    (e is TypeLoadException tle &&
+                     ((tle.TypeName?.Contains("PresentationFramework") ?? false) || tle.Message.Contains("PresentationFramework"))) ||
                     e.Message.Contains("PresentationFramework") ||
                     e.Message.Contains("WindowsDesktop"));
             }

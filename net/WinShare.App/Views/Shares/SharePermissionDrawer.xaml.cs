@@ -48,6 +48,7 @@ public partial class SharePermissionDrawer : UserControl
 
     void OnTabChanged(object sender, RoutedEventArgs e)
     {
+        if (RbNtfs is null || TabContent is null) return;
         TabContent.SelectedIndex = RbNtfs.IsChecked == true ? 1 : 0;
     }
 

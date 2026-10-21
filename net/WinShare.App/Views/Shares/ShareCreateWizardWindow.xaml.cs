@@ -243,7 +243,7 @@ public partial class ShareCreateWizardWindow : Window
 
     void OnNfsPermChanged(object sender, RoutedEventArgs e)
     {
-        if (_syncing) return;
+        if (_syncing || _vm is null || RadNfsRo is null) return;
         Form.NfsPermission = RadNfsRo.IsChecked == true ? "ro" : "rw";
     }
 

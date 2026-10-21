@@ -14,7 +14,7 @@ public sealed class FakeShareService : IShareService
     public List<Share> Shares { get; } = new();
     public List<SharePermission> Permissions { get; } = new();
     public ShareConnections? Connections { get; set; }
-    public List<ShareOpenFile> OpenFiles { get; } = new();
+    public List<ShareOpenFile> OpenFiles { get; set; } = new();
     public CloseOpenFilesResult? CloseResult { get; set; }
     public string ExportJson { get; set; } = "{}";
     public ImportReport? ImportReport { get; set; }
@@ -44,9 +44,14 @@ public sealed class FakeShareService : IShareService
     public Task<Share> UpdateShareAsync(string name, UpdateShareOpts opts)
     {
         Updated.Add((name, opts));
-        return Task.FromResult(Shares.First(s => s.name == name));
+        return Task.FromResult(Shares.FirstOrDefault(s => s.name == name) ?? new Share
+        {
+            name = name, path = @"E:\DocsFallback", description = "", protocol = Protocol.Smb,
+            type = ShareType.Disk, hidden = false, encrypted = false, concurrentUsers = 0,
+            status = ShareStatus.Enabled, cached = false,
+        });
     }
-    public Task DeleteShareAsync(string name)
+        public Task DeleteShareAsync(string name)
     {
         if (FailOn.Contains(name)) return Task.FromException(new Exception("模拟失败"));
         Deleted.Add(name);
@@ -63,7 +68,7 @@ public sealed class FakeShareService : IShareService
         Task.FromResult<IReadOnlyList<SharePermission>>(Permissions);
     public Task<ShareConnections> GetShareConnectionsAsync(string name)
     {
-        if (FailOn.Contains(name)) return Task.FromException(new Exception("模拟失败"));
+        if (FailOn.Contains(name)) return Task.FromException<ShareConnections>(new Exception("模拟失败"));
         return Task.FromResult(Connections ?? new ShareConnections { concurrentUsers = 0, clientConnections = Array.Empty<ClientConnection>() });
     }
     public Task<IReadOnlyList<ShareOpenFile>> GetShareOpenFilesAsync(string name) =>
@@ -152,7 +157,7 @@ public sealed class FakeDiskService : IDiskService
     public string SuggestRootResult { get; set; } = "E:\\Share";
     public Task<IReadOnlyList<DiskUsage>> GetDiskUsagesAsync() => Task.FromResult(Usages);
     public string? DriveOfPath(string p) =>
-        p?.StartsWith("E:") ? "E:" : p?.StartsWith("D:") ? "D:" : null;
+        p?.StartsWith("E:") == true ? "E:" : p?.StartsWith("D:") == true ? "D:" : null;
     public bool IsUnc(string p) => p?.StartsWith(@"\\") == true;
     public string SuggestShareRoot(IReadOnlyList<DiskUsage> usages, string userHome = "") => "E:\\";
     public Task<string> SuggestRootAsync() => Task.FromResult(SuggestRootResult);
@@ -171,13 +176,27 @@ public sealed class FakeSharesFeed : ISharesDataFeed
     public Dictionary<Protocol, ProtocolCapabilities?>? CapMap { get; set; }
     public List<Protocol> Installed { get; } = new();
 
-    public Task<IReadOnlyList<Share>?> ListSharesAsync(string? protocol) =>
-        Task.FromResult(IReadOnlyList<Share>? (Shares is null ? null
-        : protocol is null ? Shares : Shares.Where(s => s.protocol.ToString().ToLowerInvariant() == protocol).ToList()));
+    public Task<IReadOnlyList<Share>?> ListSharesAsync(string? protocol)
+    {
+        IReadOnlyList<Share>? result;
+        if (Shares is null)
+        {
+            result = null;
+        }
+        else if (protocol is null)
+        {
+            result = Shares;
+        }
+        else
+        {
+            result = Shares.Where(s => s.protocol.ToString().ToLowerInvariant() == protocol).ToList();
+        }
+        return Task.FromResult(result);
+    }
     public Task<IReadOnlyList<PermissionPreset>?> ListPresetsAsync() =>
         Task.FromResult<IReadOnlyList<PermissionPreset>?>(Presets);
     public Task<(IReadOnlyList<LocalUser> users, IReadOnlyList<LocalGroup> groups)> ListUsersGroupsAsync() =>
-        Task.FromResult((Users ?? new List<LocalUser>(), Groups ?? new List<LocalGroup>()));
+        Task.FromResult((users: Users ?? new List<LocalUser>(), groups: Groups ?? new List<LocalGroup>()));
     public Task<IReadOnlyList<DiskUsage>?> ListDiskUsagesAsync() => Task.FromResult(Disks);
     public Task<OsInfo?> GetOsInfoAsync() => Task.FromResult(OsInfo);
     public Task<Dictionary<Protocol, ProtocolFeatureState>?> DetectProtocolsAsync() => Task.FromResult(Caps);

@@ -24,14 +24,14 @@ public abstract class SettingsCardBase : INotifyPropertyChanged
     public string? Success
     {
         get => _success;
-        protected set { _success = value; _error = null; Raise(); }
+        protected set { _success = value; if (value is not null) _error = null; Raise(); }
     }
 
     /// <summary>最近一次失败文案（null=暂无）；设值即清 Success。</summary>
     public string? Error
     {
         get => _error;
-        protected set { _error = value; _success = null; Raise(); }
+        protected set { _error = value; if (value is not null) _success = null; Raise(); }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

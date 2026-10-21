@@ -66,6 +66,8 @@ public class ProtocolConfigCardViewModelTests
         Assert.Equal(240, vm.TcpTimeout); // 服务器值回填镜像
         vm.DirectoryCacheExpiry = 120;    // 只改一项
         vm.SaveAsync().Wait();
+        Assert.Null(vm.Error);
+        Assert.Equal("已保存", vm.Success);
         var written = Assert.IsType<NfsServerConfig>(adapters[Protocol.Nfs].LastSetConfig);
         Assert.Equal(120, written.directoryCacheExpiry);
         Assert.Equal(current.gracefulUnmount, written.gracefulUnmount);   // 未改字段原值

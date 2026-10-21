@@ -13,7 +13,7 @@ public class SettingsTransferViewModelTests
 {
     static string TempDir()
     {
-        var d = Path.Combine(Path.GetTempPath(), "wsp-transfer-" + Guid.NewGuid().ToString("n"));
+        var d = Path.Combine(AppContext.BaseDirectory, "wsp-transfer-" + Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(d);
         return d;
     }
@@ -90,7 +90,7 @@ public class SettingsTransferViewModelTests
     [InlineData("这不是 JSON", "不是合法的 JSON 文件")]
     [InlineData("[1,2]", "文件结构不是本应用的设置导出")]
     [InlineData("""{"format":"other","version":1,"settings":{}}""", "文件格式不符：不是本应用的设置导出文件")]
-    [InlineData("""{"version":99,"settings":{}}""", "文件缺少版本号，无法判断兼容性")]
+    [InlineData("""{"version":99,"settings":{}}""", "文件格式不符：不是本应用的设置导出文件")]
     [InlineData("""{"format":"winshare-panel/settings","version":2,"settings":{}}""", "文件版本（2）高于本程序支持的版本（1），请先升级程序")]
     [InlineData("""{"format":"winshare-panel/settings","version":1}""", "文件里没有 settings 段")]
     [InlineData("""{"format":"winshare-panel/settings","version":1,"settings":{"whatever":1}}""", "文件里没有任何可识别的设置项")]

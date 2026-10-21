@@ -13,7 +13,7 @@ public class AlertRulesCardViewModelTests
 
     static string TempDir()
     {
-        var d = Path.Combine(Path.GetTempPath(), "wsp-alert-" + Guid.NewGuid().ToString("n"));
+        var d = Path.Combine(AppContext.BaseDirectory, "wsp-alert-" + Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(d);
         return d;
     }
@@ -79,8 +79,9 @@ public class AlertRulesCardViewModelTests
         Assert.Equal(40, vm.DiskLowGb);
         Assert.Equal(40, vm.DiskDraft);
         Assert.False(vm.DiskDirty);
-        await vm.SaveDiskAsync();
-        Assert.Equal(40, store.Load().alertRules.diskLowGb);
+        await vm.SaveDiskAsync(); // 跟随后无 dirty → 不应写盘（store 值保持）
+        Assert.Equal(20, store.Load().alertRules.diskLowGb);
+        Assert.Null(vm.Success);
     }
 
     [Fact]

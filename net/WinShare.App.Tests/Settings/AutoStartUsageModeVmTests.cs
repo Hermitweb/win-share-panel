@@ -13,7 +13,7 @@ public class AutoStartUsageModeVmTests
 {
     static string TempDir()
     {
-        var d = Path.Combine(Path.GetTempPath(), "wsp-as-" + Guid.NewGuid().ToString("n"));
+        var d = Path.Combine(AppContext.BaseDirectory, "wsp-as-" + Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(d);
         return d;
     }
@@ -58,8 +58,9 @@ public class AutoStartUsageModeVmTests
         var svc = new StubPathRegistrationService { ThrowOnSet = new UnauthorizedAccessException("登录项只读") };
         var vm = new AutoStartCardViewModel(svc, new AppSettingsStore(TempDir()));
         var err = await vm.WriteAsync(true);
-        Assert.Contains("开机自启设置失败", err!);
-        Assert.Null(vm.Pending);
+        Assert.Equal("登录项只读", err);
+        Assert.Contains("开机自启设置失败", vm.Error!); // 错误面文案（对齐 TS message.error）
+        Assert.Null(vm.Pending); // 目标态作废
     }
 
     // ===== 使用模式与外观 =====

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using WinShare.Core.Contracts;
+using RC = WinShare.Core.Contracts.RequestCompression; // 遮蔽防护：Smb 卡镜像属性 RequestCompression 与本枚举同名
 
 namespace WinShare.App.Settings;
 
@@ -268,11 +269,18 @@ public abstract class ProtocolConfigCardViewModel<TConfig> : SettingsCardBase
 
     static void SetBacking(object instance, PropertyInfo prop, object? value)
     {
-        // init-only 属性无公有 setter；经 backing field（_Name）写入
+        // 优先公共 setter（契约 record 若带 set 直接写）；否则经 backing field 写
+        // （老编译器 _Name / 新编译器 <Name>k__BackingField 双命名都查）
+        if (prop.CanWrite)
+        {
+            prop.SetValue(instance, value);
+            return;
+        }
         var field = typeof(TConfig)
-            .GetField($"_{prop.Name}", BindingFlags.NonPublic | BindingFlags.Instance)
+            .GetField("_" + prop.Name, BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? typeof(TConfig).GetField($"<{prop.Name}>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException($"配置类型缺少字段 {prop.Name}");
-        RuntimeHelpers.SetFieldValue(instance, field, value);
+        field.SetValue(instance, value);
     }
 }
 
@@ -323,20 +331,20 @@ public sealed class SmbConfigCardViewModel : ProtocolConfigCardViewModel<SmbServ
 
     SmbServerConfig C() => Config ??= new SmbServerConfig();
 
-    public static string RequestCompressionName(RequestCompression c) => c switch
+    public static string RequestCompressionName(RC c) => c switch
     {
-        RequestCompression.Off => "关闭",
-        RequestCompression.Allow => "允许",
-        RequestCompression.Require => "要求",
+        RC.Off => "关闭",
+        RC.Allow => "允许",
+        RC.Require => "要求",
         _ => c.ToString(),
     };
 
-    static RequestCompression ParseCompression(string? s) => s switch
+    static RC ParseCompression(string? s) => s switch
     {
-        "关闭" or "Off" => RequestCompression.Off,
-        "允许" or "Allow" => RequestCompression.Allow,
-        "要求" or "Require" => RequestCompression.Require,
-        _ => RequestCompression.Off,
+        "关闭" or "Off" => RC.Off,
+        "允许" or "Allow" => RC.Allow,
+        "要求" or "Require" => RC.Require,
+        _ => RC.Off,
     };
 
     protected override IReadOnlyDictionary<string, object?> BuildPatch()
