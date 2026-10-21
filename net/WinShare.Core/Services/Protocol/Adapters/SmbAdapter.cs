@@ -209,6 +209,21 @@ public sealed class SmbAdapter : IProtocolAdapter
         }
     }
 
+    public async Task StopServiceAsync()
+    {
+        Logger.Info("adapter:smbAdapter", "[stopService:smb] 停止 SMB 服务...");
+        try
+        {
+            await _smb.StopServiceAsync();
+            Logger.Info("adapter:smbAdapter", "[stopService:smb] 服务已停止");
+        }
+        catch (Exception e)
+        {
+            Logger.Error("adapter:smbAdapter", $"[stopService:smb] 停止失败: {e.Message}");
+            throw;
+        }
+    }
+
     // TS: getConfig()/setConfig()/defaultConfig()/restoreDefault() —— 同步转调 smb.*
     public async Task<object?> GetConfigAsync() => await _smb.GetConfigAsync();
 

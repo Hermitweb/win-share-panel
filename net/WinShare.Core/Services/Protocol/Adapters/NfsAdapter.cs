@@ -371,6 +371,21 @@ public sealed class NfsAdapter : IProtocolAdapter
         }
     }
 
+    public async Task StopServiceAsync()
+    {
+        Logger.Info("adapter:nfsAdapter", "[stopService:nfs] 停止服务...");
+        try
+        {
+            await _nfs.StopServiceAsync();
+            Logger.Info("adapter:nfsAdapter", "[stopService:nfs] 服务已停止");
+        }
+        catch (Exception e)
+        {
+            Logger.Error("adapter:nfsAdapter", "[stopService:nfs] 停止失败:", e.Message);
+            throw;
+        }
+    }
+
     public async Task<object?> GetConfigAsync() => await _nfs.GetConfigAsync();
 
     public async Task SetConfigAsync(object? config)

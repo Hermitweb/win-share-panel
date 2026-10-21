@@ -384,6 +384,21 @@ public sealed class FtpAdapter : IProtocolAdapter
         }
     }
 
+    public async Task StopServiceAsync()
+    {
+        Logger.Info("adapter:ftpAdapter", "[stopService:ftp] 停止服务...");
+        try
+        {
+            await _ftp.StopServiceAsync();
+            Logger.Info("adapter:ftpAdapter", "[stopService:ftp] 服务已停止");
+        }
+        catch (Exception e)
+        {
+            Logger.Error("adapter:ftpAdapter", "[stopService:ftp] 停止失败:", e.Message);
+            throw;
+        }
+    }
+
     public async Task<object?> GetConfigAsync() => await _ftp.GetConfigAsync();
 
     public async Task SetConfigAsync(object? config)

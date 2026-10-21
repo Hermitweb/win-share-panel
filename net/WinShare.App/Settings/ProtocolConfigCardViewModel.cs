@@ -181,6 +181,9 @@ public abstract class ProtocolConfigCardViewModel<TConfig> : SettingsCardBase
     /// </summary>
     public async Task StartAsync() => await ServiceActionAsync("启动", a => a.RestartServiceAsync(), s => $"{s} 服务已启动");
 
+    /// <summary>停止服务（契约已补 IProtocolAdapter.StopServiceAsync）。</summary>
+    public async Task StopAsync() => await ServiceActionAsync("停止", a => a.StopServiceAsync(), s => $"{s} 服务已停止");
+
     async Task ServiceActionAsync(string verb, Func<IProtocolAdapter, Task> action, Func<string, string> text)
     {
         var adapter = Adapter;

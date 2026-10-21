@@ -83,6 +83,9 @@ public sealed class AppSettingsPageView : UserControl
         p.Children.Add(BuildFirewallCard());
         p.Children.Add(BuildSecurityCard());
 
+        p.Children.Add(SectionHeader("操作回收站"));
+        p.Children.Add(BuildJournalCard());
+
         p.Children.Add(SectionHeader("日志"));
         p.Children.Add(BuildAuditCard());
         p.Children.Add(BuildAppLogCard());
@@ -629,6 +632,107 @@ public sealed class AppSettingsPageView : UserControl
     }
 
     // ===== 审计日志（journal 台账最近 200 条 + 结果过滤；对齐 LogPanels.AuditLogPanel 语义） =====
+
+    StackPanel? _journalPanel;
+
+    /// <summary>
+    /// 操作回收站（TS: JournalDrawer.tsx）：最近 200 条可撤销操作 + 一键撤销 + 清空。
+    /// 撤销语义见 Core JournalService（delete 走快照重建、toggle-off 走 disabled 通道、permset 回写权限）；
+    /// create 与非 SMB 操作仅留档（按钮对 undoable=false 的条目禁用并注明）。
+    /// </summary>
+    Border BuildJournalCard()
+    {
+        var p = new StackPanel();
+        p.Children.Add(SettingsUi.HeaderRow("操作回收站",
+            SettingsUi.Button("刷新", (_, _) => RebuildJournal()),
+            SettingsUi.Button("清空", (_, _) =>
+            {
+                IJournalService? svc = SettingsServiceSlots.JournalService;
+                if (svc is null) return;
+                MessageBoxResult ok = MessageBox.Show("清空后无法恢复撤销能力，继续？", "清空操作日志", MessageBoxButton.YesNo);
+                if (ok != MessageBoxResult.Yes) return;
+                int n = svc.ClearJournal();
+                RebuildJournal();
+                MessageBox.Show($"已清空 {n} 条操作记录", "操作回收站");
+            })));
+        p.Children.Add(SettingsUi.FogText("最近 200 条操作留档：共享删除/禁用/权限变更可一键撤销；创建与非 SMB 操作仅留档。"));
+        _journalPanel = new StackPanel();
+        p.Children.Add(_journalPanel);
+        RebuildJournal();
+        return SettingsUi.Card(p);
+    }
+
+    void RebuildJournal()
+    {
+        var panel = _journalPanel;
+        if (panel is null) return;
+        panel.Children.Clear();
+        IJournalService? svc = SettingsServiceSlots.JournalService;
+        if (svc is null)
+        {
+            panel.Children.Add(SettingsUi.FogText("操作回收站服务未注册：撤销能力不可用（服务层接入后自动可用）。"));
+            return;
+        }
+        IReadOnlyList<JournalEntry> entries;
+        try
+        {
+            entries = svc.ListJournal();
+        }
+        catch (Exception e)
+        {
+            panel.Children.Add(SettingsUi.FogText($"读取操作日志失败：{e.Message}"));
+            return;
+        }
+        if (entries.Count == 0)
+        {
+            panel.Children.Add(SettingsUi.FogText("暂无操作记录（删除/禁用共享后此处会出现可撤销条目）"));
+            return;
+        }
+
+        foreach (JournalEntry entry in entries.Take(50))
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
+            row.Children.Add(new TextBlock
+            {
+                Text = $"{entry.action} {entry.protocol.ToString().ToUpperInvariant()} {entry.name}",
+                Width = 240,
+                FontSize = 12,
+                Foreground = SettingsUi.Token("BrushText", "#1F2733"),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+            row.Children.Add(new TextBlock
+            {
+                Text = entry.detail ?? "",
+                FontSize = 12,
+                Width = 320,
+                Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
+            JournalEntry captured = entry;
+            var undo = SettingsUi.Button(entry.undoable ? "撤销" : "仅留档", async (_, _) =>
+            {
+                IJournalService? s = SettingsServiceSlots.JournalService;
+                if (s is null) return;
+                try
+                {
+                    string msg = await s.UndoJournalAsync(captured.id);
+                    RebuildJournal();
+                    MessageBox.Show(msg, "撤销成功");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "撤销失败");
+                }
+            });
+            undo.IsEnabled = entry.undoable;
+            row.Children.Add(undo);
+            panel.Children.Add(row);
+        }
+        if (entries.Count > 50)
+        {
+            panel.Children.Add(SettingsUi.FogText($"仅显示最近 50 条（共 {entries.Count} 条）", 4, 0));
+        }
+    }
 
     Border BuildAuditCard()
     {

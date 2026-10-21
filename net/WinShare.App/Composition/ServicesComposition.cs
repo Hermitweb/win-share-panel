@@ -78,6 +78,7 @@ public static class ServicesComposition
         var update = new UpdateService();
         var pathReg = new PathRegistrationService(AppContext.BaseDirectory, isPackaged: true, ps);
         var transfer = new TransferService(store);
+        var journal = new JournalService(store, share, user);
 
         // === 注入 UI 静态槽 ===
         Shares.SharesServices.Share = share;
@@ -99,6 +100,9 @@ public static class ServicesComposition
         Settings.SettingsServiceSlots.DiagnoseService = diagnose;
         Settings.SettingsServiceSlots.PathRegistrationService = pathReg;
         Settings.SettingsServiceSlots.SystemService = system;
+        Settings.SettingsServiceSlots.JournalService = journal;
+        Settings.SettingsServiceSlots.PresetService = preset;
+        Settings.SettingsServiceSlots.SmbService = smb;
 
         // 仪表板数据源 + 24h 趋势采样器依赖
         AppServices.SystemService = system;

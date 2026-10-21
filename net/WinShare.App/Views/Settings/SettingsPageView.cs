@@ -191,6 +191,8 @@ public sealed class SettingsPageView : UserControl
         Add("NFS", new TabItem { Content = new NfsTabView(_vm.Nfs, _vm.Detection) });
         Add("FTP", new TabItem { Content = new FtpTabView(_vm.Ftp, _vm.Detection) });
         Add("WebDAV", new TabItem { Content = new WebdavTabView(_vm.Webdav, _vm.Detection) });
+        Add("权限模板", new TabItem { Content = new PresetTabView() });
+        Add("快照历史", new TabItem { Content = new SnapshotTabView() });
         return tabs;
     }
 }

@@ -429,6 +429,21 @@ public sealed class WebdavAdapter : IProtocolAdapter
         }
     }
 
+    public async Task StopServiceAsync()
+    {
+        Logger.Info("adapter:webdavAdapter", "[stopService:webdav] 停止服务...");
+        try
+        {
+            await _webdav.StopServiceAsync();
+            Logger.Info("adapter:webdavAdapter", "[stopService:webdav] 服务已停止");
+        }
+        catch (Exception e)
+        {
+            Logger.Error("adapter:webdavAdapter", "[stopService:webdav] 停止失败:", e.Message);
+            throw;
+        }
+    }
+
     public async Task<object?> GetConfigAsync() => await _webdav.GetConfigAsync();
 
     public async Task SetConfigAsync(object? config)

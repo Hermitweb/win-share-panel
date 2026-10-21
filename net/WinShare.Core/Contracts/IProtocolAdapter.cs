@@ -30,6 +30,8 @@ public interface IProtocolAdapter
     // 协议级配置与服务控制（TS: unknown 类型 → C# object?）
     Task<ServiceStatus> GetServiceStatusAsync();
     Task RestartServiceAsync();
+    /// <summary>TS: 原版无此成员（UI「停止」按钮当时被禁用）；补齐服务层能力后启用。</summary>
+    Task StopServiceAsync();
     Task<object?> GetConfigAsync();
     Task SetConfigAsync(object? config);
     /// <summary>TS: defaultConfig?()（同步默认配置对象，供 UI 表单初始化/重置预填）。</summary>

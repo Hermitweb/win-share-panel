@@ -157,26 +157,25 @@ public abstract class ProtocolTabView<TConfig> : UserControl
         var save = SettingsUi.Button("保存配置", async (_, _) => await Card.SaveAsync(), primary: true);
         var restore = SettingsUi.Button("恢复默认", async (_, _) => await Card.RestoreDefaultAsync());
         var restart = SettingsUi.Button("重启服务", async (_, _) => await Card.RestartAsync());
-        // 停止：契约无 stop 方法 → 禁用并注明（缺口，见任务回报）；启动：stopped 态经 restart 达成
-        var stop = SettingsUi.Button("停止", null, stopHint: "契约缺口：IProtocolAdapter 无停止方法（待 Core 服务层补齐）");
-        stop.IsEnabled = false;
+        // 停止：契约已补 IProtocolAdapter.StopServiceAsync（v1.1.1）；启动：stopped 态经 restart 达成
+        var stop = SettingsUi.Button("停止", async (_, _) =>
+        {
+            MessageBoxResult confirm = MessageBox.Show($"停止 {Card.Protocol.Display()} 服务将中断所有连接，继续？", "停止确认", MessageBoxButton.YesNo);
+            if (confirm == MessageBoxResult.Yes) await Card.StopAsync();
+        }, stopHint: "停止该协议服务（会中断现存连接）");
         var start = SettingsUi.Button("启动", async (_, _) => await Card.StartAsync());
 
         Card.PropertyChanged += (_, _) =>
         {
-            if (Card.IsServiceStopped)
-            {
-                start.Visibility = Visibility.Visible;
-                stop.Visibility = Visibility.Collapsed;
-            }
-            else
-            {
-                start.Visibility = Visibility.Collapsed;
-                stop.Visibility = Visibility.Collapsed;
-            }
+            // 三态显隐：stopped → 显示「启动」；running → 显示「停止」；未知/未读取 → 两者都隐藏
+            bool stopped = Card.IsServiceStopped;
+            bool running = Card.Service?.status == WinShare.Core.Contracts.ServiceState.Running;
+            start.Visibility = stopped ? Visibility.Visible : Visibility.Collapsed;
+            stop.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
             save.IsEnabled = !Card.Busy && !degraded;
             restore.IsEnabled = !Card.Busy && !degraded;
             restart.IsEnabled = !Card.Busy && !degraded;
+            stop.IsEnabled = !Card.Busy && !degraded;
         };
 
         row.Children.Add(save);

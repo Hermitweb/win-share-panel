@@ -17,6 +17,12 @@ public static class SettingsServiceSlots
     public static IDiagnoseService? DiagnoseService { get; set; }
     public static IPathRegistrationService? PathRegistrationService { get; set; }
     public static ISystemService? SystemService { get; set; }
+    /// <summary>操作回收站（IJournalService，v1.1.1 落地）。</summary>
+    public static IJournalService? JournalService { get; set; }
+    /// <summary>权限模板（IPresetService，v1.1.1 落地的设置页 Tab 数据源）。</summary>
+    public static IPresetService? PresetService { get; set; }
+    /// <summary>SMB 服务（ISmbService，快照历史 Tab 数据源）。</summary>
+    public static ISmbService? SmbService { get; set; }
 
     /// <summary>测试钩子：全部槽位复位为 null（对齐契约服务缺席的出厂态）。</summary>
     public static void ResetForTesting()
@@ -28,5 +34,8 @@ public static class SettingsServiceSlots
         DiagnoseService = null;
         PathRegistrationService = null;
         SystemService = null;
+        JournalService = null;
+        PresetService = null;
+        SmbService = null;
     }
 }
