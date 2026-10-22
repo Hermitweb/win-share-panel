@@ -142,13 +142,14 @@ public sealed class AppSettingsPageView : UserControl
             relaunch.IsEnabled = false;
             relaunch.ToolTip = "系统服务未注册（等待 Core 服务层实现）：UAC 重启暂不可用";
         }
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+        // 纵向单列：标签与按钮各占一行
+        var row = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
         row.Children.Add(new TextBlock
         {
             Text = "UAC 重启",
-            Width = 110,
             Foreground = SettingsUi.Token("BrushText", "#1F2733"),
         });
+        relaunch.HorizontalAlignment = HorizontalAlignment.Left;
         row.Children.Add(relaunch);
         rows.Children.Add(row);
 
@@ -157,27 +158,25 @@ public sealed class AppSettingsPageView : UserControl
 
     StackPanel AboutRow(string label, string value, bool copyable = false, bool open = false)
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+        // 纵向单列：标签一行、值（含复制/打开按钮）在下逐行排列
+        var row = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
         row.Children.Add(new TextBlock
         {
             Text = label,
-            Width = 110,
             Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            VerticalAlignment = VerticalAlignment.Top,
+            TextWrapping = TextWrapping.Wrap,
         });
-        var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var right = new StackPanel { Margin = new Thickness(0, 2, 0, 0) };
         right.Children.Add(new TextBlock
         {
             Text = value,
             Foreground = SettingsUi.Token("BrushPrimary", "#1677FF"),
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            MaxWidth = 380,
+            TextWrapping = TextWrapping.Wrap,
             ToolTip = value,
         });
         if (copyable)
         {
-            right.Children.Add(SettingsUi.Button("复制", (_, _) =>
+            var copyBtn = SettingsUi.Button("复制", (_, _) =>
             {
                 try
                 {
@@ -187,11 +186,17 @@ public sealed class AppSettingsPageView : UserControl
                 {
                     // 剪贴板被占用时忽略（与 TS execCommand 兜底等价的最小面）
                 }
-            }));
+            });
+            copyBtn.HorizontalAlignment = HorizontalAlignment.Left;
+            copyBtn.Margin = new Thickness(0, 4, 0, 0);
+            right.Children.Add(copyBtn);
         }
         if (open)
         {
-            right.Children.Add(SettingsUi.Button("在浏览器打开", (_, _) => OpenExternal(value)));
+            var openBtn = SettingsUi.Button("在浏览器打开", (_, _) => OpenExternal(value));
+            openBtn.HorizontalAlignment = HorizontalAlignment.Left;
+            openBtn.Margin = new Thickness(0, 4, 0, 0);
+            right.Children.Add(openBtn);
         }
         row.Children.Add(right);
         return row;
@@ -332,10 +337,11 @@ public sealed class AppSettingsPageView : UserControl
     {
         var p = new StackPanel();
         p.Children.Add(SettingsUi.HeaderRow("使用模式与外观"));
-        var mode = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+        // 纵向单列：模式/主题各自一行，标签与选项垂直排列；Checked 即提交逻辑不变
+        var mode = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         mode.Children.Add(SettingsUi.FogText("使用模式", 0, 4));
-        var novice = new RadioButton { Content = "新手模式", GroupName = "usage-mode", Margin = new Thickness(0, 0, 12, 0) };
-        var expert = new RadioButton { Content = "专家模式", GroupName = "usage-mode", Margin = new Thickness(0, 0, 12, 0) };
+        var novice = new RadioButton { Content = "新手模式", GroupName = "usage-mode", Margin = new Thickness(0, 0, 0, 4) };
+        var expert = new RadioButton { Content = "专家模式", GroupName = "usage-mode", Margin = new Thickness(0, 0, 0, 4) };
         novice.IsChecked = !_vm.Usage.AdvancedMode;
         expert.IsChecked = _vm.Usage.AdvancedMode;
         novice.Checked += async (_, _) => await _vm.Usage.ApplyModeAsync(false);
@@ -345,10 +351,10 @@ public sealed class AppSettingsPageView : UserControl
         p.Children.Add(mode);
         _usageRadios = mode;
 
-        var theme = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+        var theme = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
         theme.Children.Add(SettingsUi.FogText("外观主题", 0, 4));
-        var light = new RadioButton { Content = "浅色", GroupName = "theme", Margin = new Thickness(0, 0, 12, 0) };
-        var dark = new RadioButton { Content = "深色", GroupName = "theme", Margin = new Thickness(0, 0, 12, 0) };
+        var light = new RadioButton { Content = "浅色", GroupName = "theme", Margin = new Thickness(0, 0, 0, 4) };
+        var dark = new RadioButton { Content = "深色", GroupName = "theme", Margin = new Thickness(0, 0, 0, 4) };
         light.IsChecked = _vm.Usage.Theme == WinShare.Core.Contracts.ThemeMode.Light;
         dark.IsChecked = _vm.Usage.Theme == WinShare.Core.Contracts.ThemeMode.Dark;
         light.Checked += async (_, _) => await _vm.Usage.ApplyThemeAsync(WinShare.Core.Contracts.ThemeMode.Light);
@@ -369,7 +375,8 @@ public sealed class AppSettingsPageView : UserControl
     {
         var p = new StackPanel();
         p.Children.Add(SettingsUi.HeaderRow("开机自启"));
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        // 纵向单列：开关与状态文案各占一行
+        var row = new StackPanel();
         _autostartRow = row;
         p.Children.Add(row);
         p.Children.Add(SettingsUi.FogText(
@@ -390,7 +397,7 @@ public sealed class AppSettingsPageView : UserControl
             row.Children.Add(SettingsUi.FogText(vm.UnavailableNote ?? "开机自启管理不可用"));
             return;
         }
-        var sw = new CheckBox { Content = vm.Pending is not null ? "写入中…" : vm.StateText, Margin = new Thickness(0, 0, 12, 0) };
+        var sw = new CheckBox { Content = vm.Pending is not null ? "写入中…" : vm.StateText, Margin = new Thickness(0, 0, 0, 4) };
         sw.Checked += async (_, _) => { await vm.WriteAsync(true); };
         sw.Unchecked += async (_, _) => { await vm.WriteAsync(false); };
         sw.IsChecked = vm.Pending is not null ? vm.Pending : vm.Actual;
@@ -404,12 +411,14 @@ public sealed class AppSettingsPageView : UserControl
     {
         var p = new StackPanel();
         p.Children.Add(SettingsUi.HeaderRow("告警规则"));
-        var grid = new WrapPanel();
+        // 纵向单列（原 WrapPanel 横向换行取消）：每个控件独立一行
+        var grid = new StackPanel();
         var vm = _vm.Alerts;
 
         var idleCombo = SettingsUi.ComboField("空闲会话提醒", "SelectedIdle", vm,
             ["关闭", "15 分钟", "30 分钟", "60 分钟"], width: 110);
-        // 下拉选项→数值提交（label 顺序对齐 AlertRulesCardViewModel.IdleOptions）
+        // 下拉选项→数值提交（label 顺序对齐 AlertRulesCardViewModel.IdleOptions）；
+        // 索引取控件依赖 SettingsUi.FieldRow 的 [0]=标签、[1]=控件 子元素顺序
         var idleMap = new[] { 0, 15, 30, 60 };
         var idleCb = (ComboBox)((StackPanel)idleCombo).Children[1];
         idleCb.SelectionChanged += (_, _) =>
@@ -417,6 +426,7 @@ public sealed class AppSettingsPageView : UserControl
             var idx = idleCb.SelectedIndex;
             if (idx >= 0 && idx < idleMap.Length) _ = vm.SaveIdleAsync(idleMap[idx]);
         };
+        idleCb.HorizontalAlignment = HorizontalAlignment.Left;
         grid.Children.Add(idleCombo);
         grid.Children.Add(SettingsUi.FogText("会话空闲超过该时长时在监控页提示（关闭=不提示）"));
 
@@ -426,8 +436,8 @@ public sealed class AppSettingsPageView : UserControl
         _ = row;
         grid.Children.Add(row);
 
-        var diskRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
-        var tb = new TextBox { Width = 100 };
+        var diskRow = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+        var tb = new TextBox { Width = 100, HorizontalAlignment = HorizontalAlignment.Left };
         // DiskDraft 为只读展示属性（经 SetDiskDraft 写）：TextBox 显示走 OneWay，输入经 TextChanged 走 SetDiskDraft，失焦保存
         tb.SetBinding(TextBox.TextProperty, new System.Windows.Data.Binding("DiskDraft")
         {
@@ -464,8 +474,9 @@ public sealed class AppSettingsPageView : UserControl
             "不会读取或改动系统自带、以及其他软件创建的防火墙规则。"));
 
         var vm = _vm.Firewall;
-        var pickRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
-        var combo = new ComboBox { Width = 300, VerticalAlignment = VerticalAlignment.Center };
+        // 纵向单列：预设下拉 / 起止端口 / 添加按钮 / 规则列表 / 消息条 自上而下逐行排列
+        var pickRow = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
+        var combo = new ComboBox { Width = 300, HorizontalAlignment = HorizontalAlignment.Left };
         combo.ItemsSource = FirewallCardViewModel.Presets.ToList();
         combo.DisplayMemberPath = nameof(FirewallPresetDef.Label);
         vm.PropertyChanged += (_, _) =>
@@ -483,9 +494,9 @@ public sealed class AppSettingsPageView : UserControl
         pickRow.Children.Add(SettingsUi.FogText("预设", 0, 0));
         pickRow.Children.Add(combo);
 
-        var rangeRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 4) };
-        var from = new TextBox { Width = 100, Text = "50000" };
-        var to = new TextBox { Width = 100, Text = "51000" };
+        var rangeRow = new StackPanel { Margin = new Thickness(0, 4, 0, 4) };
+        var from = new TextBox { Width = 100, Text = "50000", HorizontalAlignment = HorizontalAlignment.Left };
+        var to = new TextBox { Width = 100, Text = "51000", HorizontalAlignment = HorizontalAlignment.Left };
         void SyncRange()
         {
             _ = int.TryParse(from.Text.Trim(), out var f);
@@ -494,14 +505,15 @@ public sealed class AppSettingsPageView : UserControl
         }
         from.LostFocus += (_, _) => SyncRange();
         to.LostFocus += (_, _) => SyncRange();
-        rangeRow.Children.Add(SettingsUi.FogText("起始", 0, 0));
+        rangeRow.Children.Add(SettingsUi.FogText("起始", 0, 2));
         rangeRow.Children.Add(from);
-        rangeRow.Children.Add(SettingsUi.FogText("结束", 0, 0));
+        rangeRow.Children.Add(SettingsUi.FogText("结束", 0, 2));
         rangeRow.Children.Add(to);
         SyncRange();
 
         var add = SettingsUi.Button("添加预设规则", async (_, _) => await vm.AddAsync(), primary: true);
-        var controls = new StackPanel { Orientation = Orientation.Horizontal };
+        add.HorizontalAlignment = HorizontalAlignment.Left;
+        var controls = new StackPanel();
         controls.Children.Add(pickRow);
         controls.Children.Add(rangeRow);
         controls.Children.Add(add);
@@ -522,18 +534,17 @@ public sealed class AppSettingsPageView : UserControl
             }
             foreach (var r in list)
             {
-                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
+                // 每条规则纵向：名称 / 端口 / 状态 / 删除按钮各占一行
+                var row = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
                 row.Children.Add(new TextBlock
                 {
                     Text = r.name,
-                    Width = 260,
                     Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    TextWrapping = TextWrapping.Wrap,
                 });
                 row.Children.Add(new TextBlock
                 {
                     Text = r.ports,
-                    Width = 120,
                     Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
                 });
                 row.Children.Add(new TextBlock
@@ -543,6 +554,7 @@ public sealed class AppSettingsPageView : UserControl
                     FontWeight = FontWeights.SemiBold,
                 });
                 var del = SettingsUi.Button("删除", async (_, _) => await vm.RemoveAsync(r.name));
+                del.HorizontalAlignment = HorizontalAlignment.Left;
                 del.ToolTip = "只删除 WinShare Panel 组内这一条规则，不影响系统与其他软件的规则。";
                 row.Children.Add(del);
                 rules.Children.Add(row);
@@ -610,20 +622,22 @@ public sealed class AppSettingsPageView : UserControl
             foreach (var issue in report.issues)
             {
                 var (label, color) = SecurityCardViewModel.LevelInfo(issue.level);
-                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+                // 纵向单列：级别标签与明细各占一行
+                var row = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
                 row.Children.Add(new TextBlock
                 {
                     Text = label,
                     Foreground = SettingsUi.TagColor(color),
                     FontWeight = FontWeights.SemiBold,
-                    Width = 44,
                     FontSize = 12,
                 });
                 row.Children.Add(new TextBlock
                 {
-                    Text = $" {issue.user}：{issue.issue}",
+                    Text = $"{issue.user}：{issue.issue}",
                     FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap,
                     Foreground = SettingsUi.Token("BrushText", "#1F2733"),
+                    Margin = new Thickness(0, 2, 0, 0),
                 });
                 panel.Children.Add(row);
             }
@@ -691,22 +705,21 @@ public sealed class AppSettingsPageView : UserControl
 
         foreach (JournalEntry entry in entries.Take(50))
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
+            // 纵向单列：操作摘要 / 明细 / 撤销按钮各占一行（撤销语义与禁用态不变）
+            var row = new StackPanel { Margin = new Thickness(0, 2, 0, 4) };
             row.Children.Add(new TextBlock
             {
                 Text = $"{entry.action} {entry.protocol.ToString().ToUpperInvariant()} {entry.name}",
-                Width = 240,
                 FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
                 Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-                TextTrimming = TextTrimming.CharacterEllipsis,
             });
             row.Children.Add(new TextBlock
             {
                 Text = entry.detail ?? "",
                 FontSize = 12,
-                Width = 320,
+                TextWrapping = TextWrapping.Wrap,
                 Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
-                TextTrimming = TextTrimming.CharacterEllipsis,
             });
             JournalEntry captured = entry;
             var undo = SettingsUi.Button(entry.undoable ? "撤销" : "仅留档", async (_, _) =>
@@ -725,6 +738,7 @@ public sealed class AppSettingsPageView : UserControl
                 }
             });
             undo.IsEnabled = entry.undoable;
+            undo.HorizontalAlignment = HorizontalAlignment.Left;
             row.Children.Add(undo);
             panel.Children.Add(row);
         }
@@ -784,36 +798,34 @@ public sealed class AppSettingsPageView : UserControl
             var shown = f is "全部" or "" ? rows : rows.Where(r => r.Result == f).ToList();
             foreach (var r in shown)
             {
-                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
+                // 纵向单列：时间 / 操作 / 对象 / 结果 / 说明 各占一行（过滤行为不变）
+                var row = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
                 row.Children.Add(new TextBlock
                 {
                     Text = r.Time ?? "",
-                    Width = 170,
                     Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
                     FontFamily = new FontFamily("Consolas"),
+                    FontSize = 12,
                 });
-                row.Children.Add(new TextBlock { Text = r.Action ?? "-", Width = 90, FontSize = 12 });
+                row.Children.Add(new TextBlock { Text = r.Action ?? "-", FontSize = 12 });
                 row.Children.Add(new TextBlock
                 {
                     Text = r.Target ?? "-",
                     FontSize = 12,
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    MaxWidth = 300,
+                    TextWrapping = TextWrapping.Wrap,
                 });
                 row.Children.Add(new TextBlock
                 {
                     Text = r.Result,
                     Foreground = SettingsUi.TagColor(r.Result == "可撤销" ? "blue" : "green"),
                     FontSize = 12,
-                    Width = 60,
                 });
                 row.Children.Add(new TextBlock
                 {
                     Text = r.Detail ?? "",
                     Foreground = SettingsUi.TagColor("red"),
                     FontSize = 12,
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    MaxWidth = 200,
+                    TextWrapping = TextWrapping.Wrap,
                 });
                 list.Children.Add(row);
             }

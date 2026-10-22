@@ -46,10 +46,12 @@ public partial class SharePermissionDrawer : UserControl
         CandTip.Text = vm.CandidatesTip;
     }
 
+    // 1 列纵向流：区块选择器驱动内容区显隐（原 TabControl SelectedIndex 的等价面）
     void OnTabChanged(object sender, RoutedEventArgs e)
     {
-        if (RbNtfs is null || TabContent is null) return;
-        TabContent.SelectedIndex = RbNtfs.IsChecked == true ? 1 : 0;
+        if (RbShare is null || RbNtfs is null || SecShare is null || SecNtfs is null) return;
+        SecShare.Visibility = RbShare.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        SecNtfs.Visibility = RbNtfs.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
     void OnReload(object sender, RoutedEventArgs e) => _ = _vm?.LoadAsync();

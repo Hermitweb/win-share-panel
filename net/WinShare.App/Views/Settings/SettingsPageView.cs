@@ -8,8 +8,8 @@ namespace WinShare.App.Views.Settings;
 
 /// <summary>
 /// 「服务器配置」页（route /settings，替换 PlaceholderPage；对齐 src/pages/Settings.tsx）。
-/// 结构：页头（一键诊断 + 刷新）→ 版本适配卡 → 一键诊断卡 → 4 协议 Tab（SMB/NFS/FTP/WebDAV，
-/// 各 Tab = 能力门控 + 配置预设 + 表单 + 服务控制）。
+/// 纵向单列流：页头（一键诊断 + 刷新按钮行保留横向右对齐）→ 版本适配卡 → 一键诊断卡
+/// → 6 个板块卡（SMB/NFS/FTP/WebDAV/权限模板/快照历史）自上而下全展开，无页签、无折叠。
 /// 纯代码构建（无 XAML），设计期/单测可直接 new。
 /// </summary>
 public sealed class SettingsPageView : UserControl
@@ -37,7 +37,7 @@ public sealed class SettingsPageView : UserControl
         var content = new StackPanel();
         content.Children.Add(BuildOsCompatCard());
         content.Children.Add(BuildDiagnoseCard());
-        content.Children.Add(BuildProtocolTabs());
+        content.Children.Add(BuildProtocolSections());
         outer.Children.Add(new ScrollViewer { Content = content });
         return outer;
     }
@@ -109,11 +109,17 @@ public sealed class SettingsPageView : UserControl
         }
         static string Bit(bool on, string name) => $"{name}：{(on ? "支持" : "不支持")}";
         target.Children.Add(SettingsUi.FogText($"{os.caption}（build {os.buildNumber}）", 0, 4));
-        target.Children.Add(SettingsUi.FogText(string.Join("    ",
-            Bit(os.features.smbShareModule, "SMB 共享模块"),
-            Bit(os.features.nfsServerCmdlets, "NFS 服务器 Cmdlets"),
-            Bit(os.features.iisAvailable, "IIS"),
-            Bit(os.features.smbQuicConfig, "SMB QUIC 配置"))));
+        // 纵向单列：每个能力位独立一行（原为空格拼接的横排单行）
+        foreach (var bit in new[]
+                 {
+                     Bit(os.features.smbShareModule, "SMB 共享模块"),
+                     Bit(os.features.nfsServerCmdlets, "NFS 服务器 Cmdlets"),
+                     Bit(os.features.iisAvailable, "IIS"),
+                     Bit(os.features.smbQuicConfig, "SMB QUIC 配置"),
+                 })
+        {
+            target.Children.Add(SettingsUi.FogText(bit));
+        }
         if (_vm.OsCompat.QuicHint is { } hint)
         {
             target.Children.Add(SettingsUi.FogText(hint));
@@ -152,47 +158,58 @@ public sealed class SettingsPageView : UserControl
         foreach (var item in items)
         {
             var (label, color) = DiagnoseViewModel.StatusInfo(item.status);
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+            // 纵向单列：状态词 / 明细 / 修复按钮各自独立成行
+            var row = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
             row.Children.Add(new TextBlock
             {
                 Text = label,
                 Foreground = SettingsUi.TagColor(color),
                 FontWeight = FontWeights.SemiBold,
-                Width = 44,
                 FontSize = 12,
             });
             row.Children.Add(new TextBlock
             {
-                Text = $" {item.label}：{item.detail}",
+                Text = $"{item.label}：{item.detail}",
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = SettingsUi.Token("BrushText", "#1F2733"),
+                Margin = new Thickness(0, 2, 0, 2),
             });
             if (item.fix is { } fix)
             {
-                row.Children.Add(SettingsUi.Button("修复", async (_, _) =>
+                var repair = SettingsUi.Button("修复", async (_, _) =>
                 {
                     await _vm.Diagnose.ApplyFixAsync(fix, null);
-                }));
+                });
+                repair.HorizontalAlignment = HorizontalAlignment.Left;
+                row.Children.Add(repair);
             }
             panel.Children.Add(row);
         }
     }
 
-    TabControl BuildProtocolTabs()
+    /// <summary>
+    /// 6 个协议板块纵向全展开成一列（原 TabControl 取消）：SMB → NFS → FTP → WebDAV →
+    /// 权限模板 → 快照历史，板块名作卡标题，不加折叠头。
+    /// </summary>
+    StackPanel BuildProtocolSections()
     {
-        var tabs = new TabControl { Margin = new Thickness(0, 0, 0, 12) };
-        void Add(string header, TabItem item)
-        {
-            item.Header = header;
-            tabs.Items.Add(item);
-        }
-        Add("SMB", new TabItem { Content = new SmbTabView(_vm.Smb, _vm.Detection) });
-        Add("NFS", new TabItem { Content = new NfsTabView(_vm.Nfs, _vm.Detection) });
-        Add("FTP", new TabItem { Content = new FtpTabView(_vm.Ftp, _vm.Detection) });
-        Add("WebDAV", new TabItem { Content = new WebdavTabView(_vm.Webdav, _vm.Detection) });
-        Add("权限模板", new TabItem { Content = new PresetTabView() });
-        Add("快照历史", new TabItem { Content = new SnapshotTabView() });
-        return tabs;
+        var stack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
+        stack.Children.Add(ProtocolSectionCard("SMB", new SmbTabView(_vm.Smb, _vm.Detection)));
+        stack.Children.Add(ProtocolSectionCard("NFS", new NfsTabView(_vm.Nfs, _vm.Detection)));
+        stack.Children.Add(ProtocolSectionCard("FTP", new FtpTabView(_vm.Ftp, _vm.Detection)));
+        stack.Children.Add(ProtocolSectionCard("WebDAV", new WebdavTabView(_vm.Webdav, _vm.Detection)));
+        stack.Children.Add(ProtocolSectionCard("权限模板", new PresetTabView()));
+        stack.Children.Add(ProtocolSectionCard("快照历史", new SnapshotTabView()));
+        return stack;
+    }
+
+    /// <summary>板块卡：SettingsUi.Card 卡壳 + 板块名卡标题 + 板块内容（纵向单列，不加折叠头）。</summary>
+    Border ProtocolSectionCard(string sectionTitle, UserControl section)
+    {
+        var p = new StackPanel();
+        p.Children.Add(SettingsUi.CardTitle(sectionTitle));
+        p.Children.Add(section);
+        return SettingsUi.Card(p);
     }
 }

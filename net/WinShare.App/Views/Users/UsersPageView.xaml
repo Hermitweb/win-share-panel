@@ -33,34 +33,35 @@
             </StackPanel>
         </DockPanel>
 
-        <!-- Tab 选择（对齐 antd Tabs：本地用户 / 本地组 / 权限矩阵 / NTFS 权限） -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+        <!-- Tab 选择（对齐 antd Tabs：本地用户 / 本地组 / 权限矩阵 / NTFS 权限；1 列纵向流） -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,8">
             <RadioButton x:Name="TabUsers" GroupName="UsersTab" Content="本地用户" IsChecked="True"
-                         Checked="OnTab" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTab" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="TabGroups" GroupName="UsersTab" Content="本地组"
-                         Checked="OnTab" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTab" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="TabMatrix" GroupName="UsersTab" Content="权限矩阵"
-                         Checked="OnTab" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTab" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="TabNtfs" GroupName="UsersTab" Content="NTFS 权限"
                          Checked="OnTab" FontSize="13" />
         </StackPanel>
 
-        <!-- 批量操作条（仅用户 Tab；对齐 TS 选中后出现的蓝色操作条） -->
+        <!-- 批量操作条（仅用户 Tab；对齐 TS 选中后出现的蓝色操作条；1 列纵向流，按钮行横向右对齐） -->
         <Border x:Name="BatchBar" Grid.Row="2" Style="{DynamicResource CardStyle}" Padding="8"
                 Margin="0,0,0,8" Visibility="Collapsed">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock x:Name="BatchCount" Text="已选 0 个用户" FontSize="12"
-                           VerticalAlignment="Center" Margin="4,0,12,0" />
-                <Button x:Name="BtnBatchEnable" Content="批量启用" Style="{DynamicResource DashButton}"
-                         Click="OnBatchEnable" Padding="8,2" FontSize="12" />
-                <Button x:Name="BtnBatchDisable" Content="批量禁用" Style="{DynamicResource DashButton}"
-                         Click="OnBatchDisable" Padding="8,2" FontSize="12" Margin="8,0,0,0" />
-                <Button x:Name="BtnBatchAssign" Content="分配到组" Style="{DynamicResource DashButton}"
-                         Click="OnBatchAssign" Padding="8,2" FontSize="12" Margin="8,0,0,0" />
-                <Button x:Name="BtnBatchDelete" Content="批量删除" Style="{DynamicResource DashButton}"
-                         Click="OnBatchDelete" Padding="8,2" FontSize="12" Margin="8,0,0,0" />
-                <Button x:Name="BtnBatchClear" Content="取消选择" Style="{DynamicResource DashButton}"
-                         Click="OnBatchClear" Padding="8,2" FontSize="12" Margin="8,0,0,0" />
+            <StackPanel>
+                <TextBlock x:Name="BatchCount" Text="已选 0 个用户" FontSize="12" Margin="4,0,0,8" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="BtnBatchEnable" Content="批量启用" Style="{DynamicResource DashButton}"
+                             Click="OnBatchEnable" Padding="8,2" FontSize="12" />
+                    <Button x:Name="BtnBatchDisable" Content="批量禁用" Style="{DynamicResource DashButton}"
+                             Click="OnBatchDisable" Padding="8,2" FontSize="12" Margin="8,0,0,0" />
+                    <Button x:Name="BtnBatchAssign" Content="分配到组" Style="{DynamicResource DashButton}"
+                             Click="OnBatchAssign" Padding="8,2" FontSize="12" Margin="8,0,0,0" />
+                    <Button x:Name="BtnBatchDelete" Content="批量删除" Style="{DynamicResource DashButton}"
+                             Click="OnBatchDelete" Padding="8,2" FontSize="12" Margin="8,0,0,0" />
+                    <Button x:Name="BtnBatchClear" Content="取消选择" Style="{DynamicResource DashButton}"
+                             Click="OnBatchClear" Padding="8,2" FontSize="12" Margin="8,0,0,0" />
+                </StackPanel>
             </StackPanel>
         </Border>
 
@@ -72,20 +73,21 @@
             <!-- ===== 本地用户面板 ===== -->
             <Border x:Name="UsersPanel" Style="{DynamicResource CardStyle}">
                 <DockPanel>
-                    <!-- 工具行：搜索 + 字段 + 仅启用 + 新建（对齐 TS 工具行） -->
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <!-- 工具行：搜索 + 字段 + 仅启用 + 新建（对齐 TS 工具行；1 列纵向流，新建按钮单独一行右对齐） -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBox x:Name="SearchBox" Width="240" Padding="6,3" FontSize="13"
-                                 ToolTip="搜索用户名" TextChanged="OnFilterChanged" />
-                        <ComboBox x:Name="SearchFieldCombo" Width="110" Margin="8,0,0,0" FontSize="12"
-                                  SelectionChanged="OnSearchFieldChanged">
+                                 ToolTip="搜索用户名" TextChanged="OnFilterChanged"
+                                 Margin="0,0,0,8" />
+                        <ComboBox x:Name="SearchFieldCombo" Width="110" HorizontalAlignment="Left" FontSize="12"
+                                  SelectionChanged="OnSearchFieldChanged" Margin="0,0,0,8">
                             <ComboBoxItem Content="仅用户名" IsSelected="True" />
                             <ComboBoxItem Content="全部字段" />
                         </ComboBox>
                         <CheckBox x:Name="OnlyEnabledChk" Content="仅启用" FontSize="12"
-                                  Margin="16,0,0,0" VerticalAlignment="Center" Checked="OnFilterChanged"
+                                  Margin="0,0,0,8" Checked="OnFilterChanged"
                                   Unchecked="OnFilterChanged" />
                         <Button x:Name="BtnCreateUser" Content="+ 新建用户" HorizontalAlignment="Right"
-                                Style="{DynamicResource DashButton}" Margin="16,0,0,0"
+                                Style="{DynamicResource DashButton}"
                                 VerticalAlignment="Center" Click="OnCreateUser" />
                     </StackPanel>
                     <DataGrid x:Name="UsersGrid" AutoGenerateColumns="False" IsReadOnly="True"
@@ -142,10 +144,11 @@
             <!-- ===== 本地组面板 ===== -->
             <Border x:Name="GroupsPanel" Style="{DynamicResource CardStyle}" Visibility="Collapsed">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <!-- 工具行：提示在上、新建组按钮单独一行右对齐（1 列纵向流） -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBlock Text="系统内置组（如 Administrators/Users）不可删除，但可管理成员。"
                                    FontSize="12" Foreground="{DynamicResource BrushFog}"
-                                   VerticalAlignment="Center" />
+                                   TextWrapping="Wrap" Margin="0,0,0,8" />
                         <Button x:Name="BtnCreateGroup" Content="+ 新建组" HorizontalAlignment="Right"
                                 Style="{DynamicResource DashButton}" Click="OnCreateGroup" />
                     </StackPanel>
@@ -177,10 +180,11 @@
             <!-- ===== 权限矩阵面板 ===== -->
             <Border x:Name="MatrixPanel" Style="{DynamicResource CardStyle}" Visibility="Collapsed">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <!-- 1 列纵向流：提示在上，操作按钮行单独一行右对齐（按钮行豁免保持横向） -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBlock x:Name="MatrixHint" Text="" FontSize="12"
-                                   Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center"
-                                   TextWrapping="Wrap" MaxWidth="420" />
+                                   Foreground="{DynamicResource BrushFog}"
+                                   TextWrapping="Wrap" Margin="0,0,0,8" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button x:Name="BtnMatrixReload" Content="重新加载" Style="{DynamicResource DashButton}"
                                     Padding="8,2" FontSize="12" Click="OnMatrixReload" />
@@ -205,12 +209,13 @@
             <!-- ===== NTFS 权限面板 ===== -->
             <Border x:Name="NtfsPanel" Style="{DynamicResource CardStyle}" Visibility="Collapsed">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-                        <TextBlock Text="查看路径 NTFS 权限：" FontSize="12" VerticalAlignment="Center" />
+                    <!-- 1 列纵向流：标签在上，路径框与查看按钮各占一行 -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="查看路径 NTFS 权限：" FontSize="12" Margin="0,0,0,4" />
                         <TextBox x:Name="NtfsPathBox" Width="360" Padding="6,3" FontSize="13"
-                                 Margin="8,0,0,0" ToolTip="如 C:\Users 或某共享路径" />
+                                 Margin="0,0,0,4" ToolTip="如 C:\Users 或某共享路径" />
                         <Button x:Name="BtnNtfsView" Content="查看" Style="{DynamicResource DashButton}"
-                                Margin="8,0,0,0" Click="OnNtfsView" />
+                                HorizontalAlignment="Left" Click="OnNtfsView" />
                     </StackPanel>
                     <DataGrid x:Name="NtfsGrid" AutoGenerateColumns="False" IsReadOnly="True"
                               CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="13">

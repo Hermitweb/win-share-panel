@@ -21,8 +21,8 @@
             <!-- NFS 专有（TS editShare.protocol==='nfs'） -->
             <StackPanel x:Name="BlockNfs" Visibility="Collapsed">
                 <TextBlock Text="NFS 权限" FontSize="12" Margin="0,0,0,4" />
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <RadioButton x:Name="RadEditRw" GroupName="EditNfs" Content="读写" IsChecked="True" Margin="0,0,16,0" />
+                <StackPanel Margin="0,0,0,8">
+                    <RadioButton x:Name="RadEditRw" GroupName="EditNfs" Content="读写" IsChecked="True" Margin="0,0,0,6" />
                     <RadioButton x:Name="RadEditRo" GroupName="EditNfs" Content="只读" />
                 </StackPanel>
                 <CheckBox x:Name="ChkEditRoot" Content="允许 root 访问（新手模式不渲染不提交）" Margin="0,0,0,8" />
@@ -31,15 +31,15 @@
             <!-- FTP 专有 -->
             <StackPanel x:Name="BlockFtp" Visibility="Collapsed">
                 <TextBlock Text="SSL 策略" FontSize="12" Margin="0,0,0,4" />
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <RadioButton x:Name="RadEditSslAllow" GroupName="EditSsl" Content="允许" IsChecked="True" Margin="0,0,12,0" />
-                    <RadioButton x:Name="RadEditSslRequire" GroupName="EditSsl" Content="要求" Margin="0,0,12,0" />
+                <StackPanel Margin="0,0,0,8">
+                    <RadioButton x:Name="RadEditSslAllow" GroupName="EditSsl" Content="允许" IsChecked="True" Margin="0,0,0,6" />
+                    <RadioButton x:Name="RadEditSslRequire" GroupName="EditSsl" Content="要求" Margin="0,0,0,6" />
                     <RadioButton x:Name="RadEditSslCred" GroupName="EditSsl" Content="要求凭据" />
                 </StackPanel>
                 <TextBlock Text="认证模式" FontSize="12" Margin="0,0,0,4" />
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <RadioButton x:Name="RadEditAnon" GroupName="EditAuth" Content="匿名" Margin="0,0,12,0" />
-                    <RadioButton x:Name="RadEditBasic" GroupName="EditAuth" Content="基本" IsChecked="True" Margin="0,0,12,0" />
+                <StackPanel Margin="0,0,0,8">
+                    <RadioButton x:Name="RadEditAnon" GroupName="EditAuth" Content="匿名" Margin="0,0,0,6" />
+                    <RadioButton x:Name="RadEditBasic" GroupName="EditAuth" Content="基本" IsChecked="True" Margin="0,0,0,6" />
                     <RadioButton x:Name="RadEditWin" GroupName="EditAuth" Content="Windows" />
                 </StackPanel>
             </StackPanel>

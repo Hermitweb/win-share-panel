@@ -48,7 +48,8 @@ public sealed class BatchAssignDialog : Window
             Close();
         };
 
-        var tags = new WrapPanel { Margin = new Thickness(0, 0, 0, 12) };
+        // 1 列纵向流：用户列表自上而下堆叠
+        var tags = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
         foreach (var u in selectedUsers)
         {
             var tag = new Border
@@ -56,7 +57,8 @@ public sealed class BatchAssignDialog : Window
                 BorderThickness = new Thickness(1),
                 BorderBrush = Brushes.Gray,
                 Padding = new Thickness(6, 1, 6, 1),
-                Margin = new Thickness(0, 0, 4, 4),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 4),
             };
             tag.Child = new TextBlock { Text = u, FontSize = 12 };
             tags.Children.Add(tag);
@@ -193,7 +195,8 @@ public sealed class UserCreateDialog : Window
         var nameBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "如 john.doe" };
         var pwdBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
         var pwdStrength = new TextBlock { FontSize = 12, Margin = new Thickness(0, 2, 0, 8) };
-        var genBtn = new Button { Content = "⚡ 生成密码", Padding = new Thickness(8, 2, 8, 2), FontSize = 12, Margin = new Thickness(8, 0, 0, 0), ToolTip = "生成 12 位随机强密码" };
+        // 1 列纵向流：生成按钮独立一行（原在密码框右侧）
+        var genBtn = new Button { Content = "⚡ 生成密码", Padding = new Thickness(8, 2, 8, 2), FontSize = 12, Margin = new Thickness(0, 4, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, ToolTip = "生成 12 位随机强密码" };
         var confirmBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
         var fullNameBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "用户显示名（可选）" };
         var descBox = new TextBox
@@ -205,18 +208,19 @@ public sealed class UserCreateDialog : Window
             TextWrapping = TextWrapping.Wrap,
             ToolTip = "账号用途描述（可选）",
         };
-        var enabledChk = new CheckBox { Content = "启用账号", IsChecked = true, FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
-        var mayChangeChk = new CheckBox { Content = "允许用户修改密码", IsChecked = true, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
-        var neverExpChk = new CheckBox { Content = "密码永不过期", IsChecked = true, FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
+        // 1 列纵向流：开关项自上而下堆叠
+        var enabledChk = new CheckBox { Content = "启用账号", IsChecked = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
+        var mayChangeChk = new CheckBox { Content = "允许用户修改密码", IsChecked = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
+        var neverExpChk = new CheckBox { Content = "密码永不过期", IsChecked = true, FontSize = 13 };
 
-        // 分配到组（多选 checkbox；对齐 TS 多选 Select）
-        var groupChks = new WrapPanel { Margin = new Thickness(0, 4, 0, 8) };
+        // 分配到组（多选 checkbox；对齐 TS 多选 Select；1 列纵向流）
+        var groupChks = new StackPanel { Margin = new Thickness(0, 4, 0, 8) };
         foreach (var g in vm.Groups)
             groupChks.Children.Add(new CheckBox
             {
                 Content = $"{g.name}{(string.IsNullOrEmpty(g.description) ? "" : $" ({g.description})")}",
                 FontSize = 12,
-                Margin = new Thickness(0, 0, 12, 4),
+                Margin = new Thickness(0, 0, 0, 4),
                 Tag = g.name,
             });
 
@@ -299,7 +303,11 @@ public sealed class UserCreateDialog : Window
                 new TextBlock { Text = "用户名", FontSize = 12, Margin = new Thickness(0, 0, 0, 2) },
                 nameBox,
                 new TextBlock { Text = "密码", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) },
-                new StackPanel { Orientation = Orientation.Horizontal, Children = { pwdBox, genBtn } },
+                // 1 列纵向流：密码框与生成按钮各占一行
+                new StackPanel
+                {
+                    Children = { pwdBox, genBtn },
+                },
                 pwdStrength,
                 new TextBlock { Text = "确认密码", FontSize = 12, Margin = new Thickness(0, 4, 0, 2) },
                 confirmBox,
@@ -307,7 +315,8 @@ public sealed class UserCreateDialog : Window
                 fullNameBox,
                 new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) },
                 descBox,
-                new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0), Children = { enabledChk, mayChangeChk, neverExpChk } },
+                // 1 列纵向流：开关项各占一行（原横排）
+                new StackPanel { Margin = new Thickness(0, 8, 0, 0), Children = { enabledChk, mayChangeChk, neverExpChk } },
                 new TextBlock { Text = "分配到组（可选）", FontSize = 12, Margin = new Thickness(0, 8, 0, 2) },
                 groupChks,
                 err,
@@ -361,15 +370,16 @@ public sealed class GroupManageDialog : Window
             TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
-        var saveDescBtn = new Button { Content = "保存描述", MinWidth = 90 };
+        // 1 列纵向流：按钮左对齐独占一行
+        var saveDescBtn = new Button { Content = "保存描述", MinWidth = 90, HorizontalAlignment = HorizontalAlignment.Left };
         saveDescBtn.Click += async (_, _) =>
         {
             if (await _vm.UpdateGroupDescriptionAsync(_groupName, _descBox.Text.Trim()) is { ok: true })
                 Operated = true;
         };
 
-        _renameBox = new TextBox { Text = group.name, FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
-        var renameBtn = new Button { Content = "重命名", MinWidth = 90, Margin = new Thickness(8, 0, 0, 0) };
+        _renameBox = new TextBox { Text = group.name, FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 4) };
+        var renameBtn = new Button { Content = "重命名", MinWidth = 90, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
         renameBtn.Click += async (_, _) =>
         {
             var (ok, _) = await _vm.RenameGroupAsync(_groupName, _renameBox.Text);
@@ -382,8 +392,8 @@ public sealed class GroupManageDialog : Window
             }
         };
 
-        _addBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "手动输入用户名或组名（兼容域账号）" };
-        var addBtn = new Button { Content = "添加", MinWidth = 70, Margin = new Thickness(8, 0, 0, 0) };
+        _addBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 4), ToolTip = "手动输入用户名或组名（兼容域账号）" };
+        var addBtn = new Button { Content = "添加", MinWidth = 70, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
         _addBox.KeyDown += (_, e) =>
         {
             if (e.Key == System.Windows.Input.Key.Enter) _ = AddMemberAsync();
@@ -418,8 +428,8 @@ public sealed class GroupManageDialog : Window
         };
 
         _membersList = new ListBox { FontSize = 12, Height = 120 };
-        _removeCombo = new ComboBox { FontSize = 13, Width = 220, VerticalAlignment = VerticalAlignment.Center };
-        var removeBtn = new Button { Content = "移除", MinWidth = 60, Margin = new Thickness(8, 0, 0, 0) };
+        _removeCombo = new ComboBox { FontSize = 13, Width = 220, Margin = new Thickness(0, 0, 0, 4) };
+        var removeBtn = new Button { Content = "移除", MinWidth = 60, HorizontalAlignment = HorizontalAlignment.Left };
         removeBtn.Click += async (_, _) =>
         {
             var m = _removeCombo.SelectedItem as string;
@@ -432,44 +442,27 @@ public sealed class GroupManageDialog : Window
         };
 
         var root = new StackPanel { Margin = new Thickness(16) };
+        // 1 列纵向流：描述框与保存按钮各占一行（原横排包装去掉）
         root.Children.Add(new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
         root.Children.Add(_descBox);
-        root.Children.Add(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 4, 0, 12),
-            Children = { saveDescBtn },
-        });
+        saveDescBtn.Margin = new Thickness(0, 4, 0, 12);
+        root.Children.Add(saveDescBtn);
+        // 1 列纵向流：输入框与按钮各占一行（原横排）
         root.Children.Add(new TextBlock { Text = "组名（重命名）", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
-        root.Children.Add(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 0, 0, 12),
-            Children = { _renameBox, renameBtn },
-        });
-        root.Children.Add(new TextBlock { Text = "手动添加成员（兼容域账号）", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
-        root.Children.Add(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 0, 0, 12),
-            Children = { _addBox, addBtn },
-        });
+        root.Children.Add(_renameBox);
+        root.Children.Add(renameBtn);
+        root.Children.Add(new TextBlock { Text = "手动添加成员（兼容域账号）", FontSize = 12, Margin = new Thickness(0, 12, 0, 4) });
+        root.Children.Add(_addBox);
+        root.Children.Add(addBtn);
         root.Children.Add(new TextBlock { Text = "从本地用户批量添加", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
         root.Children.Add(_batchGrid);
         root.Children.Add(batchBtn);
         root.Children.Add(new TextBlock { Text = "当前成员（名称 · 类型 · 来源）", FontSize = 12, Margin = new Thickness(0, 12, 0, 4) });
         root.Children.Add(_membersList);
-        root.Children.Add(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 8, 0, 0),
-            Children =
-            {
-                new TextBlock { Text = "移除成员：", FontSize = 12, VerticalAlignment = VerticalAlignment.Center },
-                _removeCombo,
-                removeBtn,
-            },
-        });
+        // 1 列纵向流：移除成员区自上而下堆叠（原横排标签+下拉+按钮）
+        root.Children.Add(new TextBlock { Text = "移除成员：", FontSize = 12, Margin = new Thickness(0, 8, 0, 4) });
+        root.Children.Add(_removeCombo);
+        root.Children.Add(removeBtn);
         Content = root;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
@@ -596,11 +589,12 @@ public sealed class UserEditDialog : Window
             TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
-        _enabledChk = new CheckBox { Content = "启用账号", IsChecked = user.enabled, FontSize = 13, Margin = new Thickness(0, 0, 16, 0), VerticalAlignment = VerticalAlignment.Center };
-        _mayChangeChk = new CheckBox { Content = "允许修改密码", IsChecked = user.userMayChangePassword, FontSize = 13, Margin = new Thickness(0, 0, 16, 0), VerticalAlignment = VerticalAlignment.Center };
-        _neverExpiresChk = new CheckBox { Content = "密码永不过期", IsChecked = !user.passwordExpires, FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
-        _newPwdBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Width = 220, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
-        _pwdSwitch = new CheckBox { Content = "重设密码", FontSize = 12, IsChecked = false, VerticalAlignment = VerticalAlignment.Center };
+        // 1 列纵向流：各开关项独立一行（原横排 16px 间距改底部 4px）
+        _enabledChk = new CheckBox { Content = "启用账号", IsChecked = user.enabled, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
+        _mayChangeChk = new CheckBox { Content = "允许修改密码", IsChecked = user.userMayChangePassword, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
+        _neverExpiresChk = new CheckBox { Content = "密码永不过期", IsChecked = !user.passwordExpires, FontSize = 13 };
+        _newPwdBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Width = 220, Margin = new Thickness(0, 4, 0, 4), Visibility = Visibility.Collapsed };
+        _pwdSwitch = new CheckBox { Content = "重设密码", FontSize = 12, IsChecked = false, Margin = new Thickness(0, 4, 0, 0) };
         _pwdSwitch.Checked += (_, _) =>
         {
             _newPwdBox.Visibility = Visibility.Visible;
@@ -609,7 +603,7 @@ public sealed class UserEditDialog : Window
         _pwdSwitch.Unchecked += (_, _) => _newPwdBox.Visibility = Visibility.Collapsed;
         _newPwdBox.TextChanged += (_, _) => UpdateStrength();
         _pwdStrength = new TextBlock { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
-        var genPwdBtn = new Button { Content = "生成", MinWidth = 56, VerticalAlignment = VerticalAlignment.Center };
+        var genPwdBtn = new Button { Content = "生成", MinWidth = 56, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0) };
         genPwdBtn.ToolTip = "生成 12 位随机强密码";
         genPwdBtn.Click += (_, _) =>
         {
@@ -617,7 +611,7 @@ public sealed class UserEditDialog : Window
             UpdateStrength();
         };
 
-        var saveBtn = new Button { Content = "保存", MinWidth = 90, IsDefault = true };
+        var saveBtn = new Button { Content = "保存", MinWidth = 90, IsDefault = true, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 12, 0, 0) };
         saveBtn.Click += async (_, _) =>
         {
             var problem = UsersValidators.ValidateUserName(_nameBox.Text.Trim());
@@ -657,6 +651,7 @@ public sealed class UserEditDialog : Window
                 $"上次登录：{UsersViewModel.FmtTime(user.lastLogon, "yyyy-MM-dd HH:mm:ss")}",
         };
 
+        // 1 列纵向流：开关/密码行各占一行（原横排）
         var propsPanel = new StackPanel();
         propsPanel.Children.Add(new TextBlock { Text = "用户名", FontSize = 12, Margin = new Thickness(0, 0, 0, 2) });
         propsPanel.Children.Add(_nameBox);
@@ -665,31 +660,20 @@ public sealed class UserEditDialog : Window
         propsPanel.Children.Add(_fullNameBox);
         propsPanel.Children.Add(new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) });
         propsPanel.Children.Add(_descBox);
-        propsPanel.Children.Add(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 8, 0, 0),
-            Children = { _enabledChk, _mayChangeChk, _neverExpiresChk },
-        });
-        propsPanel.Children.Add(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 4, 0, 0),
-            Children = { _pwdSwitch, _newPwdBox, _pwdStrength, genPwdBtn },
-        });
+        propsPanel.Children.Add(_enabledChk);
+        propsPanel.Children.Add(_mayChangeChk);
+        propsPanel.Children.Add(_neverExpiresChk);
+        propsPanel.Children.Add(_pwdSwitch);
+        propsPanel.Children.Add(_newPwdBox);
+        propsPanel.Children.Add(_pwdStrength);
+        propsPanel.Children.Add(genPwdBtn);
         propsPanel.Children.Add(detail);
-        propsPanel.Children.Add(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 12, 0, 0),
-            Children = { saveBtn },
-        });
+        propsPanel.Children.Add(saveBtn);
 
         // ===== 所属组 Tab =====
         _currentGroups = new ListBox { FontSize = 12, Height = 90 };
-        _addGroupCombo = new ComboBox { FontSize = 13, Width = 300, VerticalAlignment = VerticalAlignment.Center };
-        var addGrpBtn = new Button { Content = "添加", MinWidth = 60, Margin = new Thickness(8, 0, 0, 0) };
+        _addGroupCombo = new ComboBox { FontSize = 13, Width = 300, Margin = new Thickness(0, 0, 0, 4) };
+        var addGrpBtn = new Button { Content = "添加", MinWidth = 60, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
         addGrpBtn.Click += async (_, _) =>
         {
             var g = (_addGroupCombo.SelectedItem as ComboBoxItem)?.Tag as string;
@@ -701,8 +685,8 @@ public sealed class UserEditDialog : Window
                 ReloadGroupViews();
             }
         };
-        _removeCombo = new ComboBox { FontSize = 13, Width = 220, VerticalAlignment = VerticalAlignment.Center };
-        var removeBtn = new Button { Content = "移除", MinWidth = 60, Margin = new Thickness(8, 0, 0, 0) };
+        _removeCombo = new ComboBox { FontSize = 13, Width = 220, Margin = new Thickness(0, 0, 0, 4) };
+        var removeBtn = new Button { Content = "移除", MinWidth = 60, HorizontalAlignment = HorizontalAlignment.Left };
         removeBtn.Click += async (_, _) =>
         {
             var g = _removeCombo.SelectedItem as string;
@@ -718,22 +702,12 @@ public sealed class UserEditDialog : Window
         groupsPanel.Children.Add(new TextBlock { Text = "当前所属组", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
         groupsPanel.Children.Add(_currentGroups);
         groupsPanel.Children.Add(new TextBlock { Text = "添加到组", FontSize = 12, Margin = new Thickness(0, 8, 0, 4) });
-        groupsPanel.Children.Add(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Children = { _addGroupCombo, addGrpBtn },
-        });
-        groupsPanel.Children.Add(new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 8, 0, 0),
-            Children =
-            {
-                new TextBlock { Text = "从组移除：", FontSize = 12, VerticalAlignment = VerticalAlignment.Center },
-                _removeCombo,
-                removeBtn,
-            },
-        });
+        // 1 列纵向流：下拉/按钮各占一行（原横排）
+        groupsPanel.Children.Add(_addGroupCombo);
+        groupsPanel.Children.Add(addGrpBtn);
+        groupsPanel.Children.Add(new TextBlock { Text = "从组移除：", FontSize = 12, Margin = new Thickness(0, 8, 0, 4) });
+        groupsPanel.Children.Add(_removeCombo);
+        groupsPanel.Children.Add(removeBtn);
 
         // ===== 共享权限 Tab =====
         _permGrid = new DataGrid
@@ -757,29 +731,43 @@ public sealed class UserEditDialog : Window
             FontSize = 12,
             Margin = new Thickness(0, 0, 0, 4),
         });
+        // 1 列纵向流：刷新按钮与说明文字各占一行（原横排）
         permsPanel.Children.Add(_permGrid);
-        permsPanel.Children.Add(new StackPanel
+        permRefresh.HorizontalAlignment = HorizontalAlignment.Left;
+        permRefresh.Margin = new Thickness(0, 8, 0, 0);
+        permsPanel.Children.Add(permRefresh);
+        permsPanel.Children.Add(new TextBlock
         {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 8, 0, 0),
-            Children =
-            {
-                permRefresh,
-                new TextBlock
-                {
-                    Text = "  权限来源为 SMB 共享级别授权。NTFS 级别权限请在「共享管理」页对单个共享编辑。",
-                    FontSize = 12,
-                    Foreground = Brushes.Gray,
-                    VerticalAlignment = VerticalAlignment.Center,
-                },
-            },
+            Text = "权限来源为 SMB 共享级别授权。NTFS 级别权限请在「共享管理」页对单个共享编辑。",
+            FontSize = 12,
+            Foreground = Brushes.Gray,
+            Margin = new Thickness(0, 4, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
         });
 
-        var tab = new TabControl { Margin = new Thickness(16), FontSize = 13 };
-        tab.Items.Add(new TabItem { Header = "属性", Content = propsPanel });
-        tab.Items.Add(new TabItem { Header = "所属组", Content = groupsPanel });
-        tab.Items.Add(new TabItem { Header = "共享权限", Content = permsPanel });
-        Content = tab;
+        // 1 列纵向流：区块选择器纵向堆叠，正文区自上而下全展开、选中区块可见（原 TabControl 页签隐藏结构取消）
+        var rbProps = new RadioButton { Content = "属性", GroupName = "UserDetailTab", IsChecked = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 6) };
+        var rbGroups = new RadioButton { Content = "所属组", GroupName = "UserDetailTab", FontSize = 13, Margin = new Thickness(0, 0, 0, 6) };
+        var rbPerms = new RadioButton { Content = "共享权限", GroupName = "UserDetailTab", FontSize = 13 };
+        void ApplySectionVisibility()
+        {
+            propsPanel.Visibility = rbProps.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            groupsPanel.Visibility = rbGroups.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            permsPanel.Visibility = rbPerms.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        }
+        rbProps.Checked += (_, _) => ApplySectionVisibility();
+        rbGroups.Checked += (_, _) => ApplySectionVisibility();
+        rbPerms.Checked += (_, _) => ApplySectionVisibility();
+
+        var root = new StackPanel { Margin = new Thickness(16) };
+        root.Children.Add(rbProps);
+        root.Children.Add(rbGroups);
+        root.Children.Add(rbPerms);
+        root.Children.Add(new StackPanel { Margin = new Thickness(0, 8, 0, 0) });
+        root.Children.Add(propsPanel);
+        root.Children.Add(groupsPanel);
+        root.Children.Add(permsPanel);
+        Content = root;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         ReloadGroupViews();

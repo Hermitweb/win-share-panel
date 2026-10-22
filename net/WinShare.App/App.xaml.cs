@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using WinShare.App.Dashboard;
 using WinShare.App.Events;
@@ -85,6 +86,10 @@ public partial class App : Application
         });
 
         LogSink.Info("main", $"[startup] 进程位宽 {(Environment.Is64BitProcess ? "64" : "32")}（Windows）→ WPF net10");
+        // 已知环境事实（2026-10-22 定位）：本机火绒（HipsDaemon）会按进程拦截未签名 Debug 构建对
+        // %APPDATA%\WinSharePanel 的写入与 PowerShell 子进程调用——表现为日志/状态零写入、仪表板数据为空、
+        // 磁盘探测失败。pwsh 手工验证同路径同身份可写，Core 探针（.repro\ProbeDisk）在独立宿主下数据全正常。
+        // 处置：将 WinShare.App.exe 加入火绒信任区（或签名/发布 Release 产物）后即恢复；应用侧不做降级掩盖。
     }
 
     /// <summary>

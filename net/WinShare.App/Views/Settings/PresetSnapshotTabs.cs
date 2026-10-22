@@ -59,42 +59,44 @@ public sealed class PresetTabView : UserControl
 
         foreach (PermissionPreset preset in presets)
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 3) };
+            // 纵向单列：名称/说明/类型/条目数各占一行，操作按钮逐个上下排列（handler 语义不变）
+            var row = new StackPanel { Margin = new Thickness(0, 3, 0, 6) };
             row.Children.Add(new TextBlock
             {
                 Text = preset.name,
-                Width = 200,
                 FontSize = 12,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.Wrap,
             });
             row.Children.Add(new TextBlock
             {
                 Text = preset.description,
-                Width = 300,
                 FontSize = 12,
                 Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
-                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 0),
             });
             row.Children.Add(new TextBlock
             {
                 Text = preset.builtIn ? "内置" : "自定义",
-                Width = 60,
                 FontSize = 12,
                 Foreground = SettingsUi.Token("BrushPrimary", "#1677FF"),
+                Margin = new Thickness(0, 2, 0, 0),
             });
             row.Children.Add(new TextBlock
             {
                 Text = $"{preset.entries?.Count ?? 0} 条",
-                Width = 60,
                 FontSize = 12,
                 Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
+                Margin = new Thickness(0, 2, 0, 0),
             });
 
             PermissionPreset captured = preset;
-            row.Children.Add(SettingsUi.Button("查看", (_, _) => ShowEntries(captured)));
-            row.Children.Add(SettingsUi.Button("复制", async (_, _) =>
+            var viewBtn = SettingsUi.Button("查看", (_, _) => ShowEntries(captured));
+            viewBtn.HorizontalAlignment = HorizontalAlignment.Left;
+            row.Children.Add(viewBtn);
+            var copyBtn = SettingsUi.Button("复制", async (_, _) =>
             {
                 try
                 {
@@ -106,7 +108,9 @@ public sealed class PresetTabView : UserControl
                 {
                     MessageBox.Show(ex.Message, "复制失败");
                 }
-            }));
+            });
+            copyBtn.HorizontalAlignment = HorizontalAlignment.Left;
+            row.Children.Add(copyBtn);
             var del = SettingsUi.Button("删除", async (_, _) =>
             {
                 MessageBoxResult ok = MessageBox.Show($"删除模板「{captured.name}」？", "删除确认", MessageBoxButton.YesNo);
@@ -121,6 +125,7 @@ public sealed class PresetTabView : UserControl
                     MessageBox.Show(ex.Message, "删除失败");
                 }
             });
+            del.HorizontalAlignment = HorizontalAlignment.Left;
             del.IsEnabled = !preset.builtIn;
             row.Children.Add(del);
             _list.Children.Add(row);
@@ -226,16 +231,16 @@ public sealed class SnapshotTabView : UserControl
 
         foreach (SmbSnapshotMeta snap in snaps)
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 3) };
+            // 纵向单列：快照时间一行、回滚按钮独立一行（handler 语义不变）
+            var row = new StackPanel { Margin = new Thickness(0, 3, 0, 6) };
             row.Children.Add(new TextBlock
             {
                 Text = snap.ts,
-                Width = 260,
                 FontSize = 12,
                 Foreground = SettingsUi.Token("BrushText", "#1F2733"),
             });
             SmbSnapshotMeta captured = snap;
-            row.Children.Add(SettingsUi.Button("回滚到此快照", async (_, _) =>
+            var rollBtn = SettingsUi.Button("回滚到此快照", async (_, _) =>
             {
                 MessageBoxResult ok = MessageBox.Show(
                     $"回滚到 {captured.ts} 的配置？当前配置会被覆盖。", "回滚确认", MessageBoxButton.YesNo);
@@ -250,7 +255,9 @@ public sealed class SnapshotTabView : UserControl
                 {
                     MessageBox.Show(ex.Message, "回滚失败");
                 }
-            }));
+            });
+            rollBtn.HorizontalAlignment = HorizontalAlignment.Left;
+            row.Children.Add(rollBtn);
             _list.Children.Add(row);
         }
     }

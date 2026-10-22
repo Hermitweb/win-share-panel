@@ -49,14 +49,14 @@ public partial class ShareDetailDrawer : UserControl
             VCached.Text = share.cached ? "是" : "否";
         }
 
-        // ===== Tab 显隐（TS items 按协议组装） =====
+        // ===== Tab 显隐（TS items 按协议组装；1 列纵向流：区块选择器 + 对应内容区显隐） =====
         RbProps.Visibility = RbConns.Visibility = RbFiles.Visibility =
             smb ? Visibility.Visible : Visibility.Collapsed;
         RbSite.Visibility = !smb ? Visibility.Visible : Visibility.Collapsed;
         FooterNote.Visibility = !smb ? Visibility.Visible : Visibility.Collapsed;
         if (!smb) FooterProto.Text = share.protocol.ToString().ToUpperInvariant();
         RbInfo.IsChecked = true;
-        TabContent.SelectedIndex = 0;
+        ApplySectionVisibility();
 
         // ===== 高级属性预填（TS form 按协议预填） =====
         EDescription.Text = vm.Description;
@@ -113,15 +113,18 @@ public partial class ShareDetailDrawer : UserControl
         BtnCloseAll.Visibility = vm.OpenFiles.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // ===== Tab 切换 =====
-    void OnTabChanged(object sender, RoutedEventArgs e)
+    // ===== Tab 切换（1 列纵向流：选中区块对应内容区显示，其余区块收起） =====
+    void OnTabChanged(object sender, RoutedEventArgs e) => ApplySectionVisibility();
+
+    /// <summary>区块显隐：选中区块的 RadioButton 与其内容区成对显示；未选中内容区 Collapsed。</summary>
+    void ApplySectionVisibility()
     {
-        if (RbProps is null || RbConns is null || RbFiles is null || RbSite is null || TabContent is null) return;
-        TabContent.SelectedIndex = RbProps.IsChecked == true ? 1
-            : RbConns.IsChecked == true ? 2
-            : RbFiles.IsChecked == true ? 3
-            : RbSite.IsChecked == true ? 4
-            : 0;
+        if (RbInfo is null || RbProps is null || RbConns is null || RbFiles is null || RbSite is null) return;
+        SecInfo.Visibility = RbInfo.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        SecProps.Visibility = RbProps.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        SecConns.Visibility = RbConns.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        SecFiles.Visibility = RbFiles.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        SecSite.Visibility = RbSite.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ===== 高级属性保存（TS handleSave） =====

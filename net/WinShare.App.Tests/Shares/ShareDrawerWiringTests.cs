@@ -142,8 +142,9 @@ public class ShareDrawerWiringTests
 
     static string XamlPath(string relative)
     {
+        // 向上找仓库根（bin 目录层级因平台名 x64 浮动，放宽到 12 层）
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        for (var i = 0; i < 6 && dir is not null; i++)
+        for (var i = 0; i < 12 && dir is not null; i++)
         {
             var candidate = Path.Combine(dir.FullName, "net/WinShare.App", relative);
             if (File.Exists(candidate)) return candidate;

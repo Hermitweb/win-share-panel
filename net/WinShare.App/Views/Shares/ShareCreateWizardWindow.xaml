@@ -23,20 +23,20 @@
             <!-- 常见场景预设（TS 场景预设按钮组；填入后仍可逐项调整） -->
             <TextBlock Text="常见预设" FontSize="12" Margin="0,0,0,4"
                        ToolTip="一键填入该场景常用参数，填入后仍可逐项调整" />
-            <StackPanel x:Name="ScenarioPanel" Orientation="Horizontal" Margin="0,0,0,12" />
+            <StackPanel x:Name="ScenarioPanel" Margin="0,0,0,12" />
 
             <!-- 共享名（TS name：必填；手改后路径变化不再自动带名） -->
             <TextBlock Text="共享名" FontSize="12" Margin="0,0,0,4" />
             <TextBox x:Name="TxtName" FontSize="13" Margin="0,0,0,12"
                      TextChanged="OnNameChanged" Text="SharedDocs" />
 
-            <!-- 本地路径（TS path：必填；浏览/拖拽/手输都会带出共享名） -->
+            <!-- 本地路径（TS path：必填；浏览/拖拽/手输都会带出共享名；1 列纵向流） -->
             <TextBlock Text="本地路径" FontSize="12" Margin="0,0,0,4" />
-            <DockPanel Margin="0,0,0,12">
-                <Button x:Name="BtnBrowse" Content="浏览" Width="64" DockPanel.Dock="Right"
-                        Click="OnBrowse" Padding="4" />
+            <StackPanel Margin="0,0,0,12">
                 <TextBox x:Name="TxtPath" FontSize="13" Text="D:\Share" TextChanged="OnPathChanged" />
-            </DockPanel>
+                <Button x:Name="BtnBrowse" Content="浏览" HorizontalAlignment="Left"
+                        Padding="8,2" Margin="0,4,0,0" Click="OnBrowse" />
+            </StackPanel>
 
             <!-- 描述 -->
             <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4" />
@@ -92,10 +92,10 @@
             <!-- ===== NFS 专有 ===== -->
             <StackPanel x:Name="BlockNfs" Visibility="Collapsed">
                 <TextBlock Text="认证方式" FontSize="12" Margin="0,0,0,4" />
-                <StackPanel x:Name="NfsAuthPanel" Orientation="Horizontal" Margin="0,0,0,8" />
+                <StackPanel x:Name="NfsAuthPanel" Margin="0,0,0,8" />
                 <TextBlock Text="默认访问权限" FontSize="12" Margin="0,0,0,4" />
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <RadioButton x:Name="RadNfsRw" GroupName="NfsPerm" Content="读写" IsChecked="True" Margin="0,0,16,0"
+                <StackPanel Margin="0,0,0,8">
+                    <RadioButton x:Name="RadNfsRw" GroupName="NfsPerm" Content="读写" IsChecked="True" Margin="0,0,0,6"
                                  Checked="OnNfsPermChanged" />
                     <RadioButton x:Name="RadNfsRo" GroupName="NfsPerm" Content="只读" Checked="OnNfsPermChanged" />
                 </StackPanel>
@@ -115,15 +115,15 @@
                 <TextBox x:Name="TxtFtpPort" FontSize="13" Width="120" HorizontalAlignment="Left"
                          Text="21" Margin="0,0,0,8" />
                 <TextBlock Text="SSL 策略" FontSize="12" Margin="0,0,0,4" />
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <RadioButton x:Name="RadFtpSslAllow" GroupName="Ssl" Content="允许" IsChecked="True" Margin="0,0,12,0" />
-                    <RadioButton x:Name="RadFtpSslRequire" GroupName="Ssl" Content="要求" Margin="0,0,12,0" />
+                <StackPanel Margin="0,0,0,8">
+                    <RadioButton x:Name="RadFtpSslAllow" GroupName="Ssl" Content="允许" IsChecked="True" Margin="0,0,0,6" />
+                    <RadioButton x:Name="RadFtpSslRequire" GroupName="Ssl" Content="要求" Margin="0,0,0,6" />
                     <RadioButton x:Name="RadFtpSslCred" GroupName="Ssl" Content="要求凭据" />
                 </StackPanel>
                 <TextBlock Text="认证模式" FontSize="12" Margin="0,0,0,4" />
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <RadioButton x:Name="RadFtpAnon" GroupName="Auth" Content="匿名" Margin="0,0,12,0" />
-                    <RadioButton x:Name="RadFtpBasic" GroupName="Auth" Content="基本" IsChecked="True" Margin="0,0,12,0" />
+                <StackPanel Margin="0,0,0,8">
+                    <RadioButton x:Name="RadFtpAnon" GroupName="Auth" Content="匿名" Margin="0,0,0,6" />
+                    <RadioButton x:Name="RadFtpBasic" GroupName="Auth" Content="基本" IsChecked="True" Margin="0,0,0,6" />
                     <RadioButton x:Name="RadFtpWin" GroupName="Auth" Content="Windows" />
                 </StackPanel>
             </StackPanel>

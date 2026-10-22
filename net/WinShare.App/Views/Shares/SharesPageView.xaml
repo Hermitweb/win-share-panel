@@ -38,49 +38,57 @@
             <!-- 协议未安装引导（TS ProtocolCapabilityBanner；内容在代码后置构建） -->
             <StackPanel x:Name="BannerPanel" Grid.Row="1" Margin="0,0,0,12" Visibility="Collapsed" />
 
-            <!-- 协议 Tabs（全部/SMB/NFS/FTP/WebDAV；未装协议 Tab 前置橙点） -->
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+            <!-- 协议 Tabs（全部/SMB/NFS/FTP/WebDAV；未装协议橙点；1 列纵向流） -->
+            <StackPanel Grid.Row="2" Margin="0,0,0,8">
                 <RadioButton x:Name="TabAll" GroupName="ProtoTab" Content="全部" IsChecked="True"
-                             Checked="OnProtocolTab" FontSize="13" Margin="0,0,16,0" />
+                             Checked="OnProtocolTab" FontSize="13" Margin="0,0,0,6" />
                 <RadioButton x:Name="TabSmb" GroupName="ProtoTab" Content="SMB"
-                             Checked="OnProtocolTab" FontSize="13" Margin="0,0,16,0" />
-                <StackPanel x:Name="TabNfs" Orientation="Horizontal" Margin="0,0,16,0">
-                    <RadioButton x:Name="TabNfsRadio" GroupName="ProtoTab" Content="NFS"
-                                 Checked="OnProtocolTab" FontSize="13" />
-                    <Ellipse x:Name="TabNfsDot" Width="7" Height="7" Fill="#FAAD14"
-                             VerticalAlignment="Bottom" Margin="2,0,0,4" Visibility="Collapsed" />
+                             Checked="OnProtocolTab" FontSize="13" Margin="0,0,0,6" />
+                <StackPanel x:Name="TabNfs" Margin="0,0,0,6">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="TabNfsRadio" GroupName="ProtoTab" Content="NFS"
+                                     Checked="OnProtocolTab" FontSize="13" />
+                        <Ellipse x:Name="TabNfsDot" Width="7" Height="7" Fill="#FAAD14"
+                                 VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed" />
+                    </StackPanel>
                 </StackPanel>
-                <StackPanel x:Name="TabFtp" Orientation="Horizontal" Margin="0,0,16,0">
-                    <RadioButton x:Name="TabFtpRadio" GroupName="ProtoTab" Content="FTP"
-                                 Checked="OnProtocolTab" FontSize="13" />
-                    <Ellipse x:Name="TabFtpDot" Width="7" Height="7" Fill="#FAAD14"
-                             VerticalAlignment="Bottom" Margin="2,0,0,4" Visibility="Collapsed" />
+                <StackPanel x:Name="TabFtp" Margin="0,0,0,6">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="TabFtpRadio" GroupName="ProtoTab" Content="FTP"
+                                     Checked="OnProtocolTab" FontSize="13" />
+                        <Ellipse x:Name="TabFtpDot" Width="7" Height="7" Fill="#FAAD14"
+                                 VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed" />
+                    </StackPanel>
                 </StackPanel>
-                <StackPanel x:Name="TabWebdav" Orientation="Horizontal" Margin="0,0,0,0">
-                    <RadioButton x:Name="TabWebdavRadio" GroupName="ProtoTab" Content="WebDAV"
-                                 Checked="OnProtocolTab" FontSize="13" />
-                    <Ellipse x:Name="TabWebdavDot" Width="7" Height="7" Fill="#FAAD14"
-                             VerticalAlignment="Bottom" Margin="2,0,0,4" Visibility="Collapsed" />
+                <StackPanel x:Name="TabWebdav">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="TabWebdavRadio" GroupName="ProtoTab" Content="WebDAV"
+                                     Checked="OnProtocolTab" FontSize="13" />
+                        <Ellipse x:Name="TabWebdavDot" Width="7" Height="7" Fill="#FAAD14"
+                                 VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed" />
+                    </StackPanel>
                 </StackPanel>
             </StackPanel>
 
-            <!-- 搜索 / 只看有人连接 / 批量工具栏（TS keyword + onlyConnected + selectedShares 栏） -->
+            <!-- 搜索 / 只看有人连接 / 批量工具栏（TS keyword + onlyConnected + selectedShares 栏；1 列纵向流） -->
             <DockPanel Grid.Row="3" Margin="0,0,0,8" LastChildFill="False">
-                <TextBox x:Name="TxtSearch" Width="320" VerticalAlignment="Center"
-                         Padding="6,4" FontSize="13" TextChanged="OnSearchChanged" />
-                <CheckBox x:Name="ChkOnlyConnected" Content="只看有人连接" Margin="16,0,0,0"
-                          VerticalAlignment="Center" Checked="OnOnlyConnected" Unchecked="OnOnlyConnected"
-                          FontSize="13" />
-                <StackPanel x:Name="BatchBar" DockPanel.Dock="Right" Orientation="Horizontal"
-                            VerticalAlignment="Center" Visibility="Collapsed">
+                <StackPanel DockPanel.Dock="Left">
+                    <TextBox x:Name="TxtSearch" Width="320"
+                             Padding="6,4" FontSize="13" TextChanged="OnSearchChanged"
+                             Margin="0,0,0,6" />
+                    <CheckBox x:Name="ChkOnlyConnected" Content="只看有人连接"
+                              Checked="OnOnlyConnected" Unchecked="OnOnlyConnected"
+                              FontSize="13" />
+                </StackPanel>
+                <StackPanel x:Name="BatchBar" DockPanel.Dock="Right" Visibility="Collapsed">
                     <TextBlock x:Name="TxtSelectedCount" Text="已选 0" FontSize="12"
-                               Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
+                               Foreground="{DynamicResource BrushFog}" />
                     <Button Content="清空" Click="OnClearSelection" Padding="8,2" FontSize="12"
-                            Margin="12,0,0,0" VerticalAlignment="Center" />
+                            Margin="0,6,0,0" />
                     <Button Content="批量启停" Click="OnBatchToggle" Padding="8,2" FontSize="12"
-                            Margin="8,0,0,0" VerticalAlignment="Center" />
+                            Margin="0,6,0,0" />
                     <Button Content="批量删除" Click="OnBatchDelete" Padding="8,2" FontSize="12"
-                            Margin="8,0,0,0" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                            Margin="0,6,0,0" VerticalContentAlignment="Center"
                             Foreground="#A8071A" />
                 </StackPanel>
             </DockPanel>
@@ -197,7 +205,7 @@
                             <TextBlock x:Name="EmptyHint" FontSize="13" Foreground="{DynamicResource BrushFog}"
                                        HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="420"
                                        Margin="0,8,0,8" TextAlignment="Center" />
-                            <StackPanel x:Name="EmptyBadges" Orientation="Horizontal" HorizontalAlignment="Center"
+                            <StackPanel x:Name="EmptyBadges" HorizontalAlignment="Center"
                                         Margin="0,0,0,12" />
                             <Button x:Name="BtnInstall" Content="一键安装" Style="{DynamicResource DashButton}"
                                     HorizontalAlignment="Center" Click="OnInstall" />

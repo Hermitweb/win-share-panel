@@ -29,10 +29,13 @@ public partial class DashboardPageView : UserControl
         Loaded += async (_, _) =>
         {
             _vm = AppServices.DashboardViewModel;
+            // VM 的 PropertyChanged 可能在后台线程（RefreshAsync 续体/采样器）触发；
+            // 控件赋值必须回 UI 线程，否则 InvalidOperationException 会被 ApplyVm 的 catch 吞掉，
+            // 表现为「卡片只剩标题、动态内容永不出现」——曾据此误判为渲染/Effect 问题。
             _vm.PropertyChanged += (_, _) =>
             {
                 if (Dispatcher.CheckAccess()) ApplyVm();
-                else Dispatcher.BeginInvoke(ApplyVm);
+                else Dispatcher.BeginInvoke(new Action(ApplyVm));
             };
             await _vm.RefreshAsync();
             ApplyVm();
@@ -42,11 +45,21 @@ public partial class DashboardPageView : UserControl
         };
     }
 
+    /// <summary>UI 线程守卫：任何线程调用都安全（非 UI 线程自动转投 Dispatcher）。</summary>
     void ApplyVm()
     {
         if (_vm is null) return;
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(new Action(ApplyVm));
+            return;
+        }
         try { ApplyVmCore(); }
-        catch (Exception e) { Shell.LogSink.Warn("dashboard", "ApplyVm 渲染失败：" + e); }
+        // 不再静默：布局/绑定异常必须能在 app.log 里按 error 级别看到（曾因降级为 Warn 而漏判）
+        catch (Exception e)
+        {
+            Shell.LogSink.Error("dashboard", "ApplyVm 渲染失败：" + e);
+        }
     }
 
     void ApplyVmCore()
@@ -99,6 +112,7 @@ public partial class DashboardPageView : UserControl
 
         TrendChart.InvalidateVisual();
         TopChart.InvalidateVisual();
+
     }
 
     /// <summary>
@@ -125,7 +139,8 @@ public partial class DashboardPageView : UserControl
         if (!hasRows) return;
         foreach (var row in _vm.ProtocolRows)
         {
-            var p = new StackPanel { Margin = new Thickness(0, 0, 8, 8) };
+            // 纵向 1 列（B4 决策）：每协议一行，行内标签 + 计数
+            var p = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
             var color = WpfColors.ToBrush(ProtocolPalette.Color(row.Protocol));
             var tag = new Border
             {
@@ -143,26 +158,33 @@ public partial class DashboardPageView : UserControl
                 VerticalAlignment = VerticalAlignment.Center,
             };
             p.Children.Add(tag);
-            p.Children.Add(new TextBlock
+            // 计数行：共享数 + 会话（同一行内的成对短文本，允许横向）
+            var counts = new StackPanel { Orientation = Orientation.Horizontal };
+            counts.Children.Add(new TextBlock
             {
                 Text = "共享数",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromRgb(0x8C, 0x8C, 0x8C)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
             });
-            p.Children.Add(new TextBlock
+            counts.Children.Add(new TextBlock
             {
                 Text = row.Shares.ToString(),
-                FontSize = 20,
+                FontSize = 18,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = color,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 12, 0),
             });
-            p.Children.Add(new TextBlock
+            counts.Children.Add(new TextBlock
             {
                 Text = $"会话 {row.Sessions}",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromRgb(0x8C, 0x8C, 0x8C)),
-                Margin = new Thickness(0, 2, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
             });
+            p.Children.Add(counts);
             ProtocolGrid.Children.Add(p);
         }
     }

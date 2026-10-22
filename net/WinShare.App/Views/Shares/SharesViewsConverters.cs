@@ -68,7 +68,8 @@ public static class SharesViewsConverters
             {
                 CornerRadius = new CornerRadius(3),
                 Padding = new Thickness(8, 1, 8, 1),
-                Margin = new Thickness(0, 0, 6, 0),
+                // 1 列纵向流：徽标自上而下堆叠，留底部间距
+                Margin = new Thickness(0, 0, 0, 6),
                 Background = new SolidColorBrush(Color.FromArgb(0x26, color.R, color.G, color.B)),
             };
             border.Child = new TextBlock { Text = text, FontSize = 11, Foreground = new SolidColorBrush(color) };

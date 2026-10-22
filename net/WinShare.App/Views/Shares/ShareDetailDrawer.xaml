@@ -13,24 +13,25 @@
         <TextBlock x:Name="DrawerTitle" Grid.Row="0" Text="共享详情" FontSize="16"
                    FontWeight="SemiBold" Margin="0,0,0,12" />
 
-        <!-- Tabs（TS：info / props+SMB / conns+SMB / files+SMB / proto-cfg+非SMB） -->
-        <StackPanel x:Name="Tabs" Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+        <!-- 区块选择（TS 原 Tabs：info / props+SMB / conns+SMB / files+SMB / proto-cfg+非SMB；
+             1 列纵向流：区块选择器纵向堆叠，正文区纵向全展开、选中区块可见，取消页签隐藏结构） -->
+        <StackPanel x:Name="Tabs" Grid.Row="1" Margin="0,0,0,12">
             <RadioButton x:Name="RbInfo" GroupName="DrawerTab" Content="基本信息" IsChecked="True"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="RbProps" GroupName="DrawerTab" Content="高级属性"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="RbConns" GroupName="DrawerTab" Content="连接"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="RbFiles" GroupName="DrawerTab" Content="打开文件"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="RbSite" GroupName="DrawerTab" Content="站点配置"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
         </StackPanel>
 
-        <TabControl x:Name="TabContent" Grid.Row="2" Padding="0,8,0,0">
+        <!-- 正文内容区（1 列纵向流：各区块自上而下堆叠，可见性随区块选择器） -->
+        <StackPanel x:Name="TabContent" Grid.Row="2">
             <!-- 基本信息（TS Descriptions column=1） -->
-            <TabItem>
-                <StackPanel>
+            <StackPanel x:Name="SecInfo" Margin="0,8,0,0">
                     <Grid Margin="0,0,0,6">
                         <TextBlock Text="共享名" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
                         <TextBlock x:Name="VName" FontSize="13" />
@@ -72,12 +73,10 @@
                         <TextBlock Text="缓存" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
                         <TextBlock x:Name="VCached" FontSize="13" />
                     </Grid>
-                </StackPanel>
-            </TabItem>
+            </StackPanel>
 
             <!-- 高级属性（SMB；TS form 预填 + 保存属性） -->
-            <TabItem>
-                <StackPanel>
+            <StackPanel x:Name="SecProps" Margin="0,8,0,0">
                     <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4" />
                     <TextBox x:Name="EDescription" FontSize="13" Margin="0,0,0,10" />
                     <TextBlock Text="并发用户上限（0=无限制）" FontSize="12" Margin="0,0,0,4" />
@@ -101,17 +100,15 @@
                             HorizontalAlignment="Left" />
                     <TextBlock x:Name="LSaveSmbMsg" FontSize="12" Margin="0,8,0,0"
                                Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
-                </StackPanel>
-            </TabItem>
+            </StackPanel>
 
-            <!-- 连接（SMB；TS conns Tab：刷新独立 nonce + 空态文案） -->
-            <TabItem>
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <!-- 连接（SMB；TS conns Tab：刷新独立 nonce + 空态文案；1 列纵向流：计数与按钮分列上下） -->
+            <StackPanel x:Name="SecConns" Margin="0,8,0,0">
+                    <StackPanel Margin="0,0,0,8">
                         <TextBlock x:Name="ConnCountText" Text="当前 0 个连接" FontSize="12"
-                                   Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
+                                   Foreground="{DynamicResource BrushFog}" />
                         <Button Content="刷新" Click="OnRefreshConns" Padding="8,2" FontSize="12"
-                                HorizontalAlignment="Right" />
+                                HorizontalAlignment="Right" Margin="0,4,0,0" />
                     </StackPanel>
                     <Grid>
                         <DataGrid x:Name="ConnsGrid" AutoGenerateColumns="False" CanUserAddRows="False"
@@ -128,20 +125,19 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Visibility="Collapsed" />
                     </Grid>
-                </DockPanel>
-            </TabItem>
+            </StackPanel>
 
-            <!-- 打开文件（SMB；TS files Tab：失败静默置空 + 全部关闭确认） -->
-            <TabItem>
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <!-- 打开文件（SMB；TS files Tab：失败静默置空 + 全部关闭确认；1 列纵向流：计数在上、按钮在下） -->
+            <StackPanel x:Name="SecFiles" Margin="0,8,0,0">
+                    <StackPanel Margin="0,0,0,8">
                         <TextBlock x:Name="FilesCountText" Text="0 个打开文件" FontSize="12"
-                                   Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
+                                   Foreground="{DynamicResource BrushFog}" />
                         <Button x:Name="BtnCloseAll" Content="全部关闭" Click="OnCloseAll"
                                 Padding="8,2" FontSize="12" Foreground="#A8071A"
-                                Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,8,0" />
+                                HorizontalAlignment="Left" Margin="0,4,0,0"
+                                Visibility="Collapsed" />
                         <Button Content="刷新" Click="OnRefreshFiles" Padding="8,2" FontSize="12"
-                                HorizontalAlignment="Right" />
+                                HorizontalAlignment="Left" Margin="0,4,0,0" />
                     </StackPanel>
                     <Grid>
                         <DataGrid x:Name="FilesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
@@ -159,12 +155,10 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Visibility="Collapsed" />
                     </Grid>
-                </DockPanel>
-            </TabItem>
+            </StackPanel>
 
-            <!-- 站点配置（非 SMB；TS proto-cfg Tab：按协议渲染字段组） -->
-            <TabItem>
-                <StackPanel>
+            <!-- 站点配置（非 SMB；TS proto-cfg Tab：按协议渲染字段组；1 列纵向流） -->
+            <StackPanel x:Name="SecSite" Margin="0,8,0,0">
                     <!-- NFS 站点配置 -->
                     <StackPanel x:Name="SiteNfs" Visibility="Collapsed">
                         <TextBlock Text="共享权限" FontSize="12" Margin="0,0,0,4" />
@@ -191,11 +185,11 @@
                         </ComboBox>
                         <TextBlock Text="本地物理路径（修改后需与新路径的 NTFS 权限及授权规则匹配）" FontSize="12"
                                    Margin="0,0,0,4" TextWrapping="Wrap" />
-                        <DockPanel Margin="0,0,0,10">
-                            <Button x:Name="BtnSiteBrowse" Content="浏览" Width="64" DockPanel.Dock="Right"
-                                    Click="OnSiteBrowse" Padding="4" />
+                        <StackPanel Margin="0,0,0,10">
                             <TextBox x:Name="TSitePath" FontSize="13" />
-                        </DockPanel>
+                            <Button x:Name="BtnSiteBrowse" Content="浏览" HorizontalAlignment="Left"
+                                    Click="OnSiteBrowse" Padding="8,2" Margin="0,4,0,0" />
+                        </StackPanel>
                     </StackPanel>
                     <!-- WebDAV 站点配置 -->
                     <StackPanel x:Name="SiteWebdav" Visibility="Collapsed">
@@ -208,9 +202,8 @@
                             HorizontalAlignment="Left" />
                     <TextBlock x:Name="LSaveSiteMsg" FontSize="12" Margin="0,8,0,0"
                                Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
-                </StackPanel>
-            </TabItem>
-        </TabControl>
+            </StackPanel>
+        </StackPanel>
 
         <!-- 非 SMB 提示（TS Drawer 底部说明） -->
         <TextBlock x:Name="FooterNote" Visibility="Collapsed" Margin="0,8,0,0" FontSize="11"

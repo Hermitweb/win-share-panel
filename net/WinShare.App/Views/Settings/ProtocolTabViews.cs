@@ -6,31 +6,26 @@ using WinShare.Core.Contracts;
 namespace WinShare.App.Views.Settings;
 
 /// <summary>
-/// 协议配置页签基座（对齐 ProtocolSettingsShell.tsx + 各面板降级分支
+/// 协议配置板块基座（纵向流重构：原协议配置页签，去掉 TabItem 载体语义，
+/// 内容作为独立 section 直接嵌入设置页纵向单列；卡壳由宿主 SettingsPageView 提供，
+/// 本基座不再自带 Border）。降级分支不变（对齐 ProtocolSettingsShell.tsx + 各面板
 /// [Source: src/components/ProtocolSettingsShell.tsx + NfsSettingsPanel.tsx]）：
 /// 未安装 → 安装引导横幅；未知/探测中 → 占位；已装 → 预设条 + 表单 + 动作按钮组 + 服务状态 + 底部说明。
 /// 契约服务缺席（card.DegradedNote）→ 顶部降级说明 + 动作按钮禁用（只读降级，不崩不臆造）。
+/// 内部布局一律纵向单列；重渲染时只能 Clear+Add 回同一面板（_svcStrip / _form）。
 /// </summary>
-public abstract class ProtocolTabView<TConfig> : UserControl
+public abstract class ProtocolSectionView<TConfig> : UserControl
     where TConfig : class, new()
 {
     public ProtocolConfigCardViewModel<TConfig> Card { get; }
     public ProtocolDetectionViewModel Detection { get; }
 
-    protected ProtocolTabView(ProtocolConfigCardViewModel<TConfig> card, ProtocolDetectionViewModel detection)
+    protected ProtocolSectionView(ProtocolConfigCardViewModel<TConfig> card, ProtocolDetectionViewModel detection)
     {
         Card = card;
         Detection = detection;
-        var body = new StackPanel { Margin = new Thickness(16), DataContext = card };
-        Content = new Border
-        {
-            Background = SettingsUi.Token("BrushCard", "#FFFFFF"),
-            BorderBrush = SettingsUi.Token("BrushBorder", "#E4E9F0"),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8),
-            Child = body,
-        };
+        var body = new StackPanel { Margin = new Thickness(0), DataContext = card };
+        Content = body;
         _form = BuildForm();
         body.Children.Add(BuildBanner());
         body.Children.Add(BuildPresets());
@@ -87,7 +82,7 @@ public abstract class ProtocolTabView<TConfig> : UserControl
                     var badges = ProtocolDetectionViewModel.InferBadges(cap);
                     if (badges.Count > 0)
                     {
-                        var bp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 4) };
+                        var bp = new StackPanel { Margin = new Thickness(0, 4, 0, 4) };
                         foreach (var b in badges)
                         {
                             bp.Children.Add(new TextBlock
@@ -95,14 +90,13 @@ public abstract class ProtocolTabView<TConfig> : UserControl
                                 Text = b.Label,
                                 Foreground = SettingsUi.TagColor(b.Color),
                                 FontSize = 11,
-                                Margin = new Thickness(6, 0, 0, 0),
+                                Margin = new Thickness(0, 0, 0, 2),
                             });
                         }
                         stack.Children.Add(bp);
                     }
                     if (Detection.HasInstallCommand(proto))
                     {
-                        var installHost = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
                         var install = SettingsUi.Button("安装", async (sender, _) =>
                         {
                             // 经 sender 引用自身：避免 async 提升闭包捕获尚未赋值的本地变量（CS0841）
@@ -111,8 +105,9 @@ public abstract class ProtocolTabView<TConfig> : UserControl
                             if (sender is Button b2) b2.IsEnabled = true;
                             Rebuild();
                         }, primary: true);
-                        installHost.Children.Add(install);
-                        stack.Children.Add(installHost);
+                        install.HorizontalAlignment = HorizontalAlignment.Left;
+                        install.Margin = new Thickness(0, 4, 0, 0);
+                        stack.Children.Add(install);
                     }
                 }
             }
@@ -129,9 +124,9 @@ public abstract class ProtocolTabView<TConfig> : UserControl
 
     protected StackPanel BuildPresets()
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
-        row.Children.Add(SettingsUi.FogText("配置预设", 4, 4));
-        var cb = new ComboBox { Width = 260, VerticalAlignment = VerticalAlignment.Center, DataContext = Card };
+        var p = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+        p.Children.Add(SettingsUi.FogText("配置预设", 4, 4));
+        var cb = new ComboBox { Width = 260, HorizontalAlignment = HorizontalAlignment.Left, DataContext = Card };
         var defs = Presets;
         cb.ItemsSource = defs.ToList();
         cb.DisplayMemberPath = nameof(ConfigPreset.Name);
@@ -145,13 +140,13 @@ public abstract class ProtocolTabView<TConfig> : UserControl
             }
             await Card.ApplyPresetAsync(preset);
         };
-        row.Children.Add(cb);
-        return row;
+        p.Children.Add(cb);
+        return p;
     }
 
     protected StackPanel BuildActions()
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+        var row = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
         var degraded = Card.DegradedNote is not null;
 
         var save = SettingsUi.Button("保存配置", async (_, _) => await Card.SaveAsync(), primary: true);
@@ -164,6 +159,12 @@ public abstract class ProtocolTabView<TConfig> : UserControl
             if (confirm == MessageBoxResult.Yes) await Card.StopAsync();
         }, stopHint: "停止该协议服务（会中断现存连接）");
         var start = SettingsUi.Button("启动", async (_, _) => await Card.StartAsync());
+        // 纵向单列：按钮逐个独立成行（左对齐），禁用/三态显隐逻辑不变
+        foreach (var b in new[] { save, restore, restart, start, stop })
+        {
+            b.HorizontalAlignment = HorizontalAlignment.Left;
+            b.Margin = new Thickness(0, 0, 0, 4);
+        }
 
         Card.PropertyChanged += (_, _) =>
         {
@@ -188,8 +189,8 @@ public abstract class ProtocolTabView<TConfig> : UserControl
     }
 }
 
-/// <summary>SMB 页签（表单逐字段对齐 Settings.tsx 服务器配置面板；新手模式收起高级参数）。</summary>
-public sealed class SmbTabView : ProtocolTabView<SmbServerConfig>
+/// <summary>SMB 板块（纵向单列；表单逐字段对齐 Settings.tsx 服务器配置面板；新手模式收起高级参数）。</summary>
+public sealed class SmbTabView : ProtocolSectionView<SmbServerConfig>
 {
     public SmbTabView(SmbConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
@@ -253,8 +254,8 @@ public sealed class SmbTabView : ProtocolTabView<SmbServerConfig>
     }
 }
 
-/// <summary>NFS 页签（基础配置 + 连接与超时；身份映射/网关信息只读）。</summary>
-public sealed class NfsTabView : ProtocolTabView<NfsServerConfig>
+/// <summary>NFS 板块（纵向单列；基础配置 + 连接与超时；身份映射/网关信息只读）。</summary>
+public sealed class NfsTabView : ProtocolSectionView<NfsServerConfig>
 {
     public NfsTabView(NfsConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
@@ -285,8 +286,8 @@ public sealed class NfsTabView : ProtocolTabView<NfsServerConfig>
     }
 }
 
-/// <summary>FTP 页签（SSL/安全、认证、被动端口、消息与目录浏览、用户隔离/超时/文件处理/日志）。</summary>
-public sealed class FtpTabView : ProtocolTabView<FtpServerConfig>
+/// <summary>FTP 板块（纵向单列；SSL/安全、认证、被动端口、消息与目录浏览、用户隔离/超时/文件处理/日志）。</summary>
+public sealed class FtpTabView : ProtocolSectionView<FtpServerConfig>
 {
     public FtpTabView(FtpConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
@@ -340,8 +341,8 @@ public sealed class FtpTabView : ProtocolTabView<FtpServerConfig>
     }
 }
 
-/// <summary>WebDAV 页签（Authoring、请求筛选、认证、请求限制；服务器级只读状态单列）。</summary>
-public sealed class WebdavTabView : ProtocolTabView<WebdavServerConfig>
+/// <summary>WebDAV 板块（纵向单列；Authoring、请求筛选、认证、请求限制；服务器级只读状态单列）。</summary>
+public sealed class WebdavTabView : ProtocolSectionView<WebdavServerConfig>
 {
     public WebdavTabView(WebdavConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 

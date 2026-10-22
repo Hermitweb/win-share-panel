@@ -108,28 +108,24 @@ public static class SettingsUi
         return new Border { Padding = new Thickness(0), Child = stack, Margin = new Thickness(0, 6, 0, 0) };
     }
 
-    /// <summary>卡片标题行（标题 + 右侧按钮组，对齐 antd Card extra）。</summary>
-    public static DockPanel HeaderRow(string title, params Control[] extras)
+    /// <summary>卡片标题行（标题在上，操作按钮组在下逐行排列；纵向单列布局，按钮仍走 SettingsUi.Button 工厂）。</summary>
+    public static StackPanel HeaderRow(string title, params Control[] extras)
     {
-        var row = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
-        var titleBlock = new TextBlock
+        var p = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+        p.Children.Add(new TextBlock
         {
             Text = title,
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
             Foreground = Token("BrushText", "#1F2733"),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        var extrasPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            Margin = new Thickness(0, 0, 0, 4),
+        });
         foreach (var c in extras)
         {
-            c.Margin = new Thickness(8, 0, 0, 0);
-            extrasPanel.Children.Add(c);
+            c.HorizontalAlignment = HorizontalAlignment.Left;
+            p.Children.Add(c);
         }
-        DockPanel.SetDock(titleBlock, Dock.Left);
-        row.Children.Add(titleBlock);
-        row.Children.Add(extrasPanel);
-        return row;
+        return p;
     }
 
     public static Button Button(string text, RoutedEventHandler onClick, bool primary = false, string? stopHint = null)
@@ -152,13 +148,13 @@ public static class SettingsUi
         return b;
     }
 
-    /// <summary>开关字段（CheckBox + 标签；DataContext 取传入 VM 实例）。</summary>
+    /// <summary>开关字段（CheckBox + 标签；DataContext 取传入 VM 实例；纵向布局下每个开关独立一行）。</summary>
     public static CheckBox Toggle(string label, string vmPath, object vm)
     {
         var cb = new CheckBox
         {
             Content = label,
-            Margin = new Thickness(0, 0, 16, 4),
+            Margin = new Thickness(0, 0, 0, 4),
             Foreground = Token("BrushText", "#1F2733"),
         };
         // 不显式设 DataContext：继承宿主面板（_form）的 DataContext（=卡 VM），
@@ -168,9 +164,10 @@ public static class SettingsUi
         return cb;
     }
 
+    /// <summary>开关组（纵向单列：每个 CheckBox 独立一行；重渲染时只能 Clear+Add 回同一面板）。</summary>
     public static StackPanel ToggleGroup(params CheckBox[] boxes)
     {
-        var p = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+        var p = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         foreach (var b in boxes) p.Children.Add(b);
         return p;
     }
@@ -209,19 +206,19 @@ public static class SettingsUi
         return FieldRow(label, cb);
     }
 
-    /// <summary>字段行（标签 + 控件横排；对齐 antd Form.Item 的紧凑近似）。</summary>
+    /// <summary>字段行（标签在上、控件在下；纵向单列，每个字段独占一块。
+    /// 子元素顺序保持 [0]=标签、[1]=控件，调用方可按索引取控件（如告警卡 idleMap 提交））。</summary>
     public static StackPanel FieldRow(string label, Control control)
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+        var row = new StackPanel { Margin = new Thickness(0, 0, 0, 6) };
         row.Children.Add(new TextBlock
         {
             Text = label,
-            Width = 170,
-            VerticalAlignment = VerticalAlignment.Center,
             Foreground = Token("BrushText", "#1F2733"),
-            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 2),
         });
-        control.VerticalAlignment = VerticalAlignment.Center;
+        control.HorizontalAlignment = HorizontalAlignment.Left;
         control.Margin = new Thickness(0);
         row.Children.Add(control);
         return row;
@@ -241,7 +238,7 @@ public static class SettingsUi
             {
                 Text = "服务状态",
                 Foreground = Token("BrushFog", "#731F2733"),
-                Margin = new Thickness(0, 0, 8, 0),
+                Margin = new Thickness(0, 0, 0, 2),
             }
         };
         if (status is null)
@@ -256,21 +253,21 @@ public static class SettingsUi
                 Text = status.status.ToString(),
                 Foreground = Token(running ? "BrushSuccess" : "BrushDanger", running ? "#52C41A" : "#FF4D4F"),
                 FontWeight = FontWeights.SemiBold,
-                Margin = new Thickness(0, 0, 16, 0),
+                Margin = new Thickness(0, 0, 0, 2),
             });
-            list.Add(new TextBlock { Text = $"启动类型：{status.startType}", Foreground = Token("BrushFog", "#731F2733"), Margin = new Thickness(0, 0, 16, 0) });
+            list.Add(new TextBlock { Text = $"启动类型：{status.startType}", Foreground = Token("BrushFog", "#731F2733"), Margin = new Thickness(0, 0, 0, 2) });
             list.Add(new TextBlock { Text = $"服务名：{status.name}", Foreground = Token("BrushFog", "#731F2733") });
         }
         return list;
     }
 
     /// <summary>
-    /// 服务状态面（对齐 ProtocolSettingsShell Descriptions：状态 tag + 启动类型 + 服务名；
-    /// 状态 null 时显示「未读取」）。
+    /// 服务状态面（纵向单列：状态 / 启动类型 / 服务名逐行排列；状态 null 时显示「未读取」）。
+    /// 重渲染约束：调用方只能 Clear+Add 回同一面板（见 ProtocolSectionView 基座注释）。
     /// </summary>
     public static StackPanel SvcStatusStrip(WinShare.Core.Contracts.ServiceStatus? status, string protocolLabel)
     {
-        var panel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        var panel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
         foreach (var c in SvcStatusStripChildren(status, protocolLabel)) panel.Children.Add(c);
         return panel;
     }

@@ -100,10 +100,10 @@
 | C1 | 页头：一键诊断（禁用+原因）+ 刷新（#341-364） | `SettingsPageView.BuildHeader` 同语义 | ✅ |
 | C2 | 版本适配卡（`OsCompatCard.tsx`：OS/计算机/PowerShell/SMB/NFS/IIS/QUIC 七项 + 缺失告警 + 候选列表） | `OsCompatCardViewModel` 四位 + QuicHint | ⚠️ **[SVC]** 缺 PowerShell 运行时探测（`ISystemService` 无 psRuntime 契约面） |
 | C3 | 一键诊断卡：逐项红绿灯 + 一键修复 + Popconfirm（`DiagnoseModal.tsx`） | `DiagnoseViewModel` + 修复按钮 | ⚠️ **[SVC]** 缺共享名下拉选择器（需共享列表数据） |
-| C4 | 四协议 Tab SMB/NFS/FTP/WebDAV（#718-732） | `TabControl` 四 Tab | ✅ |
+| C4 | 四协议 Tab SMB/NFS/FTP/WebDAV（#718-732） | 六板块纵向全展开（原 `TabControl` 已取消，见 T5 纵向重构） | ✅ |
 | C5 | SMB 配置表单：基础协议/安全/性能功能三组共 17 开关 + 高级参数 7 项 + 请求压缩下拉（#389-578） | `SmbTabView` 逐字段对齐 | ✅ |
 | C6 | 新手模式收敛：高级参数收起 + 文案说明（#521-578） | `AdvancedMode` 分支 | ✅ |
-| C7 | 操作组：保存配置/恢复默认(确认)/重启服务(确认)/启动/停止（#580-608） | 五按钮（`ProtocolTabViews#152-189`） | ⚠️ 「停止」按钮禁用 + 契约缺口 tooltip（`IProtocolAdapter` 无 stop）——非 UI 缺失，属服务层能力缺口 |
+| C7 | 操作组：保存配置/恢复默认(确认)/重启服务(确认)/启动/停止（#580-608） | 五按钮（`ProtocolSectionView` 纵向逐行，原 `ProtocolTabView` 已改名） | ⚠️ 「停止」按钮禁用 + 契约缺口 tooltip（`IProtocolAdapter` 无 stop）——非 UI 缺失，属服务层能力缺口 |
 | C8 | 服务状态 Descriptions：状态 Tag/启动类型/服务名（#609-628） | `SvcStatusStrip` 同三值 | ✅ |
 | C9 | 配置预设条 + 风险提示二次确认（`ConfigPresetBar.tsx`） | `BuildPresets` + 风险确认 | ✅ |
 | C10 | 权限模板 Tab：表格（名称/描述/分类/类型/条目）+ 查看/复制/删除 + 导入导出（#638-666） | **未做** | ❌ **[SVC]** `IPresetService` 不在 T3d 依赖清单（DELIVERY.md §4 已披露） |
@@ -206,15 +206,15 @@
 
 | 模式 | 定义 | 命中 | 判定 |
 |---|---|---|---|
-| A | `foreach (... in X.Children) Y.Children.Add(...)`，X≠Y | `ProtocolTabViews.cs#45-51`（原实现：`SvcStatusStrip(status)` 造新面板后把其 `Children` 逐个 Add 进 `_svcStrip`） | **危险 → 已修**（见下） |
+| A | `foreach (... in X.Children) Y.Children.Add(...)`，X≠Y | `ProtocolSectionView`（原 `ProtocolTabView`，文件 ProtocolSectionViews 同名改造）原实现：`SvcStatusStrip(status)` 造新面板后把其 `Children` 逐个 Add 进 `_svcStrip` | **危险 → 已修**（见下） |
 | B | 已挂载元素重复 Add / 重复设 Content / 父容器复用 | 无。所有 `Content =` / `Child =` 赋值目标均为同方法内新建对象；`SettingsUi.Card/HederRow/MessageStrip` 每次调用返回新容器 | 安全 |
 | C | PropertyChanged/事件处理器里 new 控件后跨容器搬 | 逐点核查：`AppSettingsPageView` 的 8 处 Rebuild（`RebuildAboutRows/RebuildAutoStartRow/RebuildSecurity/RebuildAudit/RebuildRules/...`）均先 `panel.Children.Clear()` 再把**新建**子元素 Add 回**同一 panel**；`SettingsPageView` 的 `RebuildOsCompat/RebuildDiagnoseItems` 同型；`SharesPageView` 的 `BuildProtocolGrid/BannerPanel` 同型 | 安全 |
 | D | 其它逻辑父冲突写法 | 无。XAML 侧无 `x:Name` 元素被两处引用；`Panel.ZIndex` 未使用；抽屉控件常驻单一宿主 Grid | 安全 |
 
 ### 模式 A 修复详情（本次审计确认其已修且有效）
 
-- **修复内容**（工作区既有改动，本次审计确认并验证）：`ProtocolTabViews.cs#45-51` 由「造新面板 → 搬其 Children」改为「`_svcStrip.Children.Clear()` + 逐个 Add `SettingsUi.SvcStatusStripChildren(status, ...)` 返回的**新构造元素**」。配套 `SettingsUi.cs` 抽出 `SvcStatusStripChildren`（返回 `List<UIElement>`，每次新造），并加了防再犯注释。
-- **实证**：`%APPDATA%\WinSharePanel\logs\app.log` 中 `2026-10-21 18:26:50` 与 `18:26:58` 两条 `[crash-reporter]` error，堆栈正是 `ProtocolTabView\`1.<.ctor>b__6_0 → ProtocolTabViews.cs:line 47 → UIElementCollection.Add → ChangeLogicalParent`，即本模式。那是**修复前的旧构建产物**留下的记录；本次重新构建后重跑六路由（含 /settings 两次）`errorDelta=0`，修复有效。
+- **修复内容**（工作区既有改动，本次审计确认并验证；类现名 `ProtocolSectionView`，T5 纵向重构改名）：由「造新面板 → 搬其 Children」改为「`_svcStrip.Children.Clear()` + 逐个 Add `SettingsUi.SvcStatusStripChildren(status, ...)` 返回的**新构造元素**」。配套 `SettingsUi.cs` 抽出 `SvcStatusStripChildren`（返回 `List<UIElement>`，每次新造），并加了防再犯注释。
+- **实证**：`%APPDATA%\WinSharePanel\logs\app.log` 中 `2026-10-21 18:26:50` 与 `18:26:58` 两条 `[crash-reporter]` error，堆栈正是 `ProtocolSectionView\`1.<.ctor>b__6_0 → ProtocolSectionViews.cs（修复时文件尚名 ProtocolTabViews.cs，line 47）→ UIElementCollection.Add → ChangeLogicalParent`，即本模式。那是**修复前的旧构建产物**留下的记录；本次重新构建后重跑六路由（含 /settings 两次）`errorDelta=0`，修复有效。
 - **同类回归测试**：`ShareDrawerWiringTests.DetailDrawer_SetShare_可重复调用不抛_逻辑父唯一`（对抽屉重复 `SetShare`，验证不会抛逻辑父异常）。
 
 ---

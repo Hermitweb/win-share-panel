@@ -41,30 +41,32 @@
             </StackPanel>
         </DockPanel>
 
-        <!-- 协议 Tab（对齐 protoTabs：SMB/NFS 有会话；FTP/WebDAV 无原生会话 API → 空态引导） -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+        <!-- 协议 Tab（对齐 protoTabs：SMB/NFS 有会话；FTP/WebDAV 无原生会话 API → 空态引导；1 列纵向流） -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,8">
             <RadioButton x:Name="ProtoSmb" GroupName="Proto" Content="SMB" IsChecked="True"
-                         Checked="OnProto" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnProto" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="ProtoNfs" GroupName="Proto" Content="NFS"
-                         Checked="OnProto" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnProto" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="ProtoFtp" GroupName="Proto" Content="FTP"
-                         Checked="OnProto" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnProto" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="ProtoWebdav" GroupName="Proto" Content="WebDAV"
                          Checked="OnProto" FontSize="13" />
         </StackPanel>
 
-        <!-- 选中操作条（对齐 selectionBar：已选 N / 清空 / 批量断开） -->
+        <!-- 选中操作条（对齐 selectionBar：已选 N / 清空 / 批量断开；1 列纵向流，按钮行横向右对齐） -->
         <Border x:Name="SelectionBar" Grid.Row="2" Style="{DynamicResource CardStyle}" Padding="8"
                 Margin="0,0,0,8" Visibility="Collapsed">
-            <StackPanel Orientation="Horizontal">
+            <StackPanel>
                 <TextBlock x:Name="SelectedCount" Text="已选 0" FontSize="12"
-                           Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center"
-                           Margin="4,0,12,0" />
-                <Button x:Name="BtnClearSelection" Content="清空" Style="{DynamicResource DashButton}"
-                         Padding="8,2" FontSize="12" Click="OnClearSelection" />
-                <Button x:Name="BtnBatchClose" Content="批量断开" Style="{DynamicResource DashButton}"
-                         Padding="8,2" FontSize="12" Margin="8,0,0,0" Foreground="#FF4D4F"
-                         Click="OnBatchClose" />
+                           Foreground="{DynamicResource BrushFog}"
+                           Margin="4,0,0,8" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="BtnClearSelection" Content="清空" Style="{DynamicResource DashButton}"
+                             Padding="8,2" FontSize="12" Click="OnClearSelection" />
+                    <Button x:Name="BtnBatchClose" Content="批量断开" Style="{DynamicResource DashButton}"
+                             Padding="8,2" FontSize="12" Margin="8,0,0,0" Foreground="#FF4D4F"
+                             Click="OnBatchClose" />
+                </StackPanel>
             </StackPanel>
         </Border>
 
@@ -76,9 +78,10 @@
             <!-- ===== SMB：会话 + 打开文件 子 Tab ===== -->
             <Border x:Name="SmbPanel" Style="{DynamicResource CardStyle}">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <!-- SMB 子 Tab（会话/打开文件；1 列纵向流，两表上下堆叠） -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <RadioButton x:Name="SmbSessionsTab" GroupName="SmbSub" Content="会话 (0)"
-                                     IsChecked="True" Checked="OnSmbSub" FontSize="13" Margin="0,0,16,0" />
+                                     IsChecked="True" Checked="OnSmbSub" FontSize="13" Margin="0,0,0,6" />
                         <RadioButton x:Name="SmbFilesTab" GroupName="SmbSub" Content="打开文件 (0)"
                                      Checked="OnSmbSub" FontSize="13" />
                     </StackPanel>

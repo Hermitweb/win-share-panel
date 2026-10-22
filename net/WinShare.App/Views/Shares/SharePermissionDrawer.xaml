@@ -17,23 +17,23 @@
         <TextBlock x:Name="DrawerTitle" Grid.Row="0" Text="权限管理" FontSize="16"
                    FontWeight="SemiBold" Margin="0,0,0,12" />
 
-        <!-- TS Tabs：共享权限 / NTFS 权限 -->
-        <StackPanel x:Name="Tabs" Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+        <!-- TS Tabs：共享权限 / NTFS 权限；1 列纵向流：区块选择器纵向堆叠，正文区纵向全展开、选中区块可见 -->
+        <StackPanel x:Name="Tabs" Grid.Row="1" Margin="0,0,0,12">
             <RadioButton x:Name="RbShare" GroupName="PermTab" Content="共享权限" IsChecked="True"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
             <RadioButton x:Name="RbNtfs" GroupName="PermTab" Content="NTFS 权限"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,16,0" />
+                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
         </StackPanel>
 
-        <TabControl x:Name="TabContent" Grid.Row="2" Padding="0,8,0,0">
+        <StackPanel x:Name="TabContent" Grid.Row="2">
             <!-- 共享权限（TS：行表格 + 添加账号 + 候选提示 + 保存确认） -->
-            <TabItem>
+            <StackPanel x:Name="SecShare" Margin="0,8,0,0">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBlock Text="修改后点击「保存」生效。Deny 优先于其他权限。" FontSize="12"
-                                   Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
+                                   Foreground="{DynamicResource BrushFog}" />
                         <Button Content="重新加载" Click="OnReload" Padding="8,2" FontSize="12"
-                                HorizontalAlignment="Right" />
+                                HorizontalAlignment="Right" Margin="0,4,0,0" />
                     </StackPanel>
                     <DataGrid x:Name="RowsGrid" AutoGenerateColumns="False" CanUserAddRows="False"
                               IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
@@ -57,27 +57,30 @@
                         <StackPanel>
                         <TextBlock Text="添加账号" FontSize="12" Foreground="{DynamicResource BrushFog}"
                                    Margin="0,0,0,6" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBox x:Name="TxtNewAccount" Width="180" FontSize="13" Padding="4" />
-                            <ComboBox x:Name="CmbNewType" Width="90" FontSize="13" Margin="8,0,0,0"
-                                      SelectedIndex="0">
+                        <!-- 1 列纵向流：账号/类型/权限/添加各自独占一行（每行控件靠左，宽度收敛） -->
+                        <StackPanel>
+                            <TextBox x:Name="TxtNewAccount" Width="220" HorizontalAlignment="Left" FontSize="13" Padding="4"
+                                     Margin="0,0,0,6" />
+                            <ComboBox x:Name="CmbNewType" Width="90" HorizontalAlignment="Left" FontSize="13"
+                                      SelectedIndex="0" Margin="0,0,0,6">
                                 <ComboBoxItem Content="用户" Tag="User" />
                                 <ComboBoxItem Content="组" Tag="Group" />
                             </ComboBox>
-                            <ComboBox x:Name="CmbNewAccess" Width="110" FontSize="13"
-                                      Margin="8,0,0,0" SelectedIndex="2">
+                            <ComboBox x:Name="CmbNewAccess" Width="110" HorizontalAlignment="Left" FontSize="13"
+                                      SelectedIndex="2" Margin="0,0,0,6">
                                 <ComboBoxItem Content="完全控制" Tag="Full" />
                                 <ComboBoxItem Content="更改" Tag="Change" />
                                 <ComboBoxItem Content="只读" Tag="Read" />
                                 <ComboBoxItem Content="拒绝" Tag="Deny" />
                             </ComboBox>
                             <Button Content="添加" Click="OnAddRow" Padding="8,2" FontSize="12"
-                                    Margin="8,0,0,0" />
+                                    HorizontalAlignment="Left" />
                         </StackPanel>
                         <TextBlock x:Name="CandTip" FontSize="11" Foreground="{DynamicResource BrushFog}"
                                    Margin="0,6,0,0" TextWrapping="Wrap" />
                         <TextBlock x:Name="RowMsg" FontSize="12" Foreground="#D4380D"
                                    Margin="0,4,0,0" Visibility="Collapsed" />
+                        <!-- 按钮区（页脚操作行）：横向右对齐保持 -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                             <Button Content="保存" Click="OnSave" Padding="14,4" FontSize="13" />
                             <TextBlock x:Name="SaveMsg" FontSize="12" VerticalAlignment="Center"
@@ -86,17 +89,16 @@
                         </StackPanel>
                     </Border>
                 </DockPanel>
-            </TabItem>
+            </StackPanel>
 
-            <!-- NTFS 权限（TS：只读 ACL 视图，点了加载才读） -->
-            <TabItem>
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-                        <TextBlock x:Name="NtfsPathText" FontSize="12" Foreground="{DynamicResource BrushFog}"
-                                   VerticalAlignment="Center" TextWrapping="Wrap" />
-                        <Button Content="加载" Click="OnLoadNtfs" Padding="8,2" FontSize="12"
-                                HorizontalAlignment="Right" />
-                    </StackPanel>
+            <!-- NTFS 权限（TS：只读 ACL 视图，点了加载才读；1 列纵向流：路径在上、加载按钮在下） -->
+            <StackPanel x:Name="SecNtfs" Margin="0,8,0,0">
+                <StackPanel Margin="0,0,0,8">
+                    <TextBlock x:Name="NtfsPathText" FontSize="12" Foreground="{DynamicResource BrushFog}"
+                               TextWrapping="Wrap" />
+                    <Button Content="加载" Click="OnLoadNtfs" Padding="8,2" FontSize="12"
+                            HorizontalAlignment="Right" Margin="0,4,0,0" />
+                </StackPanel>
                     <Grid>
                         <DataGrid x:Name="NtfsGrid" AutoGenerateColumns="False" CanUserAddRows="False"
                                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
@@ -112,8 +114,7 @@
                                    Foreground="{DynamicResource BrushFog}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Grid>
-                </DockPanel>
-            </TabItem>
-        </TabControl>
+            </StackPanel>
+        </StackPanel>
     </Grid>
 </UserControl>

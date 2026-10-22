@@ -93,20 +93,16 @@
 
         <!-- 需要关注（告警规则评估；命中项经事件总线 AlertRaised） -->
         <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
-            <DockPanel>
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <TextBlock Text="{DynamicResource Dash.Attention}" FontSize="14" FontWeight="SemiBold" />
-                </StackPanel>
-                <Grid>
-                    <ItemsControl x:Name="AttentionList" />
-                    <TextBlock x:Name="AttentionEmpty" Text="{DynamicResource Dash.AttentionEmpty}"
-                               FontSize="12" Foreground="{DynamicResource BrushFog}"
-                               Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    <TextBlock x:Name="SkippedNote" FontSize="11" Foreground="{DynamicResource BrushFog}"
-                               TextWrapping="Wrap" Visibility="Collapsed" VerticalAlignment="Bottom"
-                               Margin="0,8,0,0" />
-                </Grid>
-            </DockPanel>
+            <!-- 纵向流（同协议分布卡：DockPanel 的 LastChildFill 会挤掉末位之外的内容） -->
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Dash.Attention}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <TextBlock x:Name="AttentionEmpty" Text="{DynamicResource Dash.AttentionEmpty}"
+                           FontSize="12" Foreground="{DynamicResource BrushFog}"
+                           Visibility="Collapsed" HorizontalAlignment="Center" />
+                <ItemsControl x:Name="AttentionList" />
+                <TextBlock x:Name="SkippedNote" FontSize="11" Foreground="{DynamicResource BrushFog}"
+                           TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
+            </StackPanel>
         </Border>
 
         <!-- 24h 趋势 + 协议分布 + 磁盘水位 + 热门共享（四张卡纵向流，对齐 TS 卡片顺序） -->
@@ -151,21 +147,29 @@
 
             <!-- 协议分布（对齐 4 列：Tag + 共享数 + 会话；未装提示留 T3b 接 protocolCaps） -->
             <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.Protocols}"
+                <!-- 纵向流：标题 → 空态 → 内容。禁用 DockPanel（LastChildFill 会把末位的空态提示当填充子，
+                     把 UniformGrid 挤到零尺寸 → 「静态可见/动态不可见」的真实根因），见 .repro\ROOTCAUSE.md -->
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Dash.Protocols}"
                                FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
-                    <UniformGrid x:Name="ProtocolGrid" Columns="4" />
                     <TextBlock x:Name="ProtocolEmpty" Visibility="Collapsed"
                                Text="协议统计暂未取到（本机四类协议均未检出或服务查询未完成）· 点右上「刷新」重试"
                                FontSize="12" Margin="2,4,0,4" Foreground="#8AA0B0" TextWrapping="Wrap" />
-                </DockPanel>
+                    <StackPanel x:Name="ProtocolGrid" />
+                </StackPanel>
             </Border>
 
             <!-- 磁盘水位（对齐 TS Dashboard.tsx#546：等级排序 + 进度条 + 剩余/共/百分比 + 三态空态） -->
             <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.Disk}"
+                <!-- 纵向流：标题 → 空态 → 列表（同协议分布卡，勿改回 DockPanel） -->
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource Dash.Disk}"
                                FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
+                    <TextBlock x:Name="DiskEmpty" Text="{DynamicResource Dash.DiskEmpty}"
+                               FontSize="12" Foreground="{DynamicResource BrushFog}"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Center"
+                               Visibility="Collapsed" />
                     <ItemsControl x:Name="DiskList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -187,12 +191,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock x:Name="DiskEmpty" Text="{DynamicResource Dash.DiskEmpty}"
-                               FontSize="12" Foreground="{DynamicResource BrushFog}"
-                               TextWrapping="Wrap" MaxWidth="420"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Visibility="Collapsed" />
-                </DockPanel>
+                </StackPanel>
             </Border>
 
             <!-- 热门共享连接数（PNG 导出目标区；图表未渲染时提示对齐 TS） -->

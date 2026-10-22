@@ -145,12 +145,14 @@ public partial class ShareCreateWizardWindow : Window
         ScenarioPanel.Children.Clear();
         foreach (var preset in _vm.CreateScenarios)
         {
+            // 1 列纵向流：场景预设按钮自上而下堆叠
             var btn = new Button
             {
                 Content = preset.Name,
                 FontSize = 12,
                 Padding = new Thickness(10, 2, 10, 2),
-                Margin = new Thickness(0, 0, 6, 0),
+                Margin = new Thickness(0, 0, 0, 6),
+                HorizontalAlignment = HorizontalAlignment.Left,
                 ToolTip = preset.Tip ?? preset.Name,
             };
             btn.Click += (_, _) =>
@@ -180,11 +182,12 @@ public partial class ShareCreateWizardWindow : Window
         var selected = Form.Authentication.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var (label, value) in new[] { ("Krb5", "krb5"), ("Krb5i", "krb5i"), ("Krb5p", "krb5p"), ("AUTH_SYS", "sys") })
         {
+            // 1 列纵向流：NFS 认证方式多选自上而下堆叠
             var cb = new CheckBox
             {
                 Content = label,
                 IsChecked = selected.Contains(value),
-                Margin = new Thickness(0, 0, 12, 0),
+                Margin = new Thickness(0, 0, 0, 6),
                 VerticalAlignment = VerticalAlignment.Center,
                 Tag = value,
             };

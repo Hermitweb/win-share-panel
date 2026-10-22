@@ -127,7 +127,7 @@ public partial class SharesPageView : UserControl
             var badges = _vm.UninstalledBannerItems
                 .FirstOrDefault(i => i.Protocol == ProtocolOf(proto))?.Badges
                 ?? Array.Empty<(string, string)>();
-            var badgePanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 12) };
+            var badgePanel = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
             SharesViewsConverters.BuildBadges(badgePanel, badges);
             EmptyBadges.Children.Clear();
             EmptyBadges.Children.Add(badgePanel);
@@ -140,24 +140,22 @@ public partial class SharesPageView : UserControl
         BannerPanel.Children.Clear();
         foreach (var item in bannerItems)
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+            // 1 列纵向流：每个未安装协议项独立一列（协议名 / 提示 / 徽标 / 安装按钮自上而下）
+            var row = new StackPanel { Margin = new Thickness(0, 0, 0, 6) };
             row.Children.Add(new TextBlock
             {
                 Text = item.Protocol.ToString().ToUpperInvariant(),
                 FontWeight = FontWeights.SemiBold,
-                MinWidth = 64,
-                VerticalAlignment = VerticalAlignment.Center,
             });
-            var right = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            right.Children.Add(new TextBlock
+            row.Children.Add(new TextBlock
             {
                 Text = string.IsNullOrEmpty(item.Hint) ? "未安装" : item.Hint,
                 FontSize = 12,
                 Foreground = Brushes.DimGray,
             });
-            var bp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+            var bp = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
             SharesViewsConverters.BuildBadges(bp, item.Badges);
-            right.Children.Add(bp);
+            row.Children.Add(bp);
             if (item.HasInstallCommand)
             {
                 var proto = item.Protocol;
@@ -166,12 +164,12 @@ public partial class SharesPageView : UserControl
                     Content = "安装",
                     FontSize = 12,
                     Padding = new Thickness(10, 2, 10, 2),
-                    Margin = new Thickness(12, 0, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Margin = new Thickness(0, 6, 0, 0),
                 };
                 btn.Click += async (_, _) => { if (_vm is not null) await _vm.InstallProtocolAsync(proto); };
-                right.Children.Add(btn);
+                row.Children.Add(btn);
             }
-            row.Children.Add(right);
             BannerPanel.Children.Add(row);
         }
 
