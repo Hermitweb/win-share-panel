@@ -9,7 +9,7 @@
 ![Platform](https://img.shields.io/badge/platform-Windows-10%2F11-lightgrey)
 ![Electron](https://img.shields.io/badge/Electron-31-47848F)
 ![React](https://img.shields.io/badge/React-19-61DAFB)
-![Tests](https://img.shields.io/badge/tests-191%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-755%20passed-brightgreen)
 
 </div>
 
@@ -65,9 +65,12 @@
 - **窗口风格化**：无边框 + 自定义标题栏 + Win11 Acrylic/Mica 磨砂材质
 - **三架构对齐**：x86 / x64 / arm64 逐架构单独打包（不做内嵌多架构的"胖"安装包）+ 产物 PE 头架构硬校验；x86 包经 `Sysnative` 使用原生 64 位 PowerShell，避免 32 位 PowerShell 的能力缺口
 - **体积优化**：依赖全部由 Vite 打包进 `out/`，故一律放 `devDependencies`（**不要**把 react/antd 搬回 `dependencies`，那会让 electron-builder 把整棵依赖树塞进 `app.asar`：实测 6.51 MiB → 147.9 MiB）；Electron 语言包只保留 `zh-CN` + `en-US`。合计 `Setup-x64` 96.5 → 69.2 MiB、`x64.msi` 106 → 79.0 MiB
-- **全面测试**：710 个单元测试（含注入防护、事务回滚、进程池排队/超时/崩溃、架构路径解析、100 并发压测）
+- **全面测试**：755 个单元测试（含注入防护、事务回滚、进程池排队/超时/崩溃、架构路径解析、100 并发压测）
 
-> 📸 截图占位 / Screenshots placeholder（待补充 / TBD）
+> 📸 截图 / Screenshots：**待补**。
+> 素材规格：应用窗口整图（≈1250×860）、浅色主题、**必须是有真实数据的画面**
+> （仪表板上共享数/连接数非空、共享管理列表非空）——空态与加载态截图没有展示价值。
+> 素材到位后放 `docs/screenshots/`，在此处引用。
 
 ---
 
@@ -117,9 +120,19 @@ pnpm build               # 只做 electron-vite 构建（main + preload + render
 pnpm typecheck      # 类型检查（含测试代码，noUnusedLocals/Parameters 收紧）
 pnpm lint           # ESLint（flat config，--max-warnings=0）
 pnpm format:check   # Prettier 风格检查
-pnpm test           # vitest（710 用例）
+pnpm test           # vitest（Electron/TS 侧用例）
 pnpm test:coverage  # 含覆盖率棘轮阈值
+pnpm build:dotnet   # .NET / WPF 侧构建（net/WinShare.slnx）
+pnpm test:dotnet    # .NET / WPF 侧测试（xUnit）
+
+# 5. WPF 重构版（net/）—— 与 Electron 版并行维护，CI 里有独立门禁
+dotnet build net/WinShare.slnx
+dotnet test  net/WinShare.slnx
 ```
+
+> `.NET` 侧构建在装有 Visual Studio 的 Windows 上不会踩 `MSB4126`：`net/WinShare.slnx`
+> 已显式登记 `Any CPU` 与 `x64` 两个平台（装 VS 的机器普遍带 `Platform=x64` 环境变量），
+> `global.json` 另把 SDK 固定在 10.0.x。
 
 ### 下载哪个安装包 / Which build to download
 

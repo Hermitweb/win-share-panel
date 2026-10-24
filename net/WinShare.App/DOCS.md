@@ -1,7 +1,11 @@
-# WinShare.App（WPF 壳 + 仪表板）扩展点文档
+# WinShare.App（WPF 壳 + 仪表板 + 六大模块）扩展点文档
 
-> T3a 交付。本文档是 T3b/c/d 接入后续模块（共享管理 / 用户权限 / 会话监控 / 服务配置 /
-> 应用设置 / 命令面板）的唯一契约参考。
+> 起始于 T3a 交付，随 T3b/c/d（共享管理 / 用户权限 / 会话监控 / 服务配置 / 应用设置）
+> 全部落地、以及 Core 服务层接线（2026-10）持续更新。
+>
+> **本文档描述的是当前实况**：六大路由已全部接真实页面（不再有路由挂在占位页上），
+> Core 契约服务已在组合根 `Composition/ServicesComposition.cs` 里装配并注入 UI 静态槽。
+> 标「历史」的段落保留只为说明沿革，不代表现状。
 
 ## 0. 目录结构
 
@@ -36,10 +40,20 @@ net/WinShare.App/
 ├── Services/TrendSampler.cs   5min 后台采样（首采/服务停跳过/失败跳过）
 ├── Views/
 │   ├── DashboardPageView.xaml(.cs)   仪表板页（对齐 Dashboard.tsx 卡片布局）
-│   ├── PlaceholderPage.cs            占位页（T3b/c/d 替换目标）
+│   ├── PlaceholderPage.cs            占位页脚手架（**当前无路由使用**，见 §3）
+│   ├── Shares/                       共享页 + 创建/编辑窗口 + 详情/权限抽屉
+│   ├── Users/                        用户与权限页 + 用户/组对话框
+│   ├── Sessions/                     会话监控页
+│   ├── Settings/                     服务配置页 / 应用设置页 / 协议页签视图
 │   ├── Charts/TrendChartControl.cs   24h 趋势自绘（WPF Drawing；渲染器可换）
 │   ├── Charts/TopSharesChartControl.cs 热门共享条形图
 │   └── Charts/ChartPngCapture.cs    PNG 导出（RenderTargetBitmap+PngBitmapEncoder，pixelRatio 2）
+├── Shares/ SharesModule + ViewModel 共享管理模块（T3b）
+├── Users/ UsersModule + ViewModel   用户与权限模块（T3c）
+├── Sessions/ SessionsModule + VM    会话监控模块（T3c）
+├── Settings/ SettingsModule + 卡片  服务配置 / 应用设置模块（T3d）
+├── FirstRun/                         首启三问向导（对齐 FirstRunGuide）
+├── Composition/ServicesComposition.cs 组合根：装配全部 Core 服务并注入 UI 静态槽
 ├── Theming/ThemeTokens.{Light,Dark}.xaml + ThemeManager.cs
 ├── I18n/Strings.{zh,en}.xaml + I18nManager.cs
 └── smoke.ps1                  冒烟脚本
@@ -90,28 +104,35 @@ sub.Unsubscribe();
   - `TrendSampled(HistoryPoint)` 采样成功（服务接上后由采样器发布）
 - 语义：同步发布在调用线程；handler 异常隔离（单个 handler 抛错不影响其他订阅者）。
 
-## 3. 导航注册 API（Navigation）——T3b/c/d 占位替换方式
+## 3. 导航注册 API（Navigation）
 
-占位路由与 T3 任务对应：
+当前路由表（**全部已接真实页面**，T3b/c/d 已于 2026-10 全部交付）：
 
-| 路由 | 侧栏标题（i18n key） | 占位页 | 替换任务 |
+| 路由 | 侧栏标题（i18n key） | 页面 | 装配入口 |
 |---|---|---|---|
-| `/` | Dash.Title | **已实现**（DashboardPageView） | — |
-| `/shares` | Nav.Share | PlaceholderPage | T3b |
-| `/users` | Nav.Users | PlaceholderPage | T3b/T3c |
-| `/sessions` | Nav.Sessions | PlaceholderPage | T3c |
-| `/settings` | Nav.Settings | PlaceholderPage | T3d |
-| `/app-settings` | Nav.AppSettings | PlaceholderPage | T3d |
+| `/` | Dash.Title | DashboardPageView | `App.RegisterPages()` 直接注册 |
+| `/shares` | Nav.Share | SharesPageView | `Shares.SharesModule.Register(reg)` |
+| `/users` | Nav.Users | UsersPageView | `Users.UsersModule.Register(reg)` |
+| `/sessions` | Nav.Sessions | SessionsPageView | `Sessions.SessionsModule.Register(reg)` |
+| `/settings` | Nav.Settings | SettingsPageView | `Settings.SettingsModule.Register(reg)` |
+| `/app-settings` | Nav.AppSettings | AppSettingsPageView | `Settings.SettingsModule.Register(reg)` |
 
-替换方式（在 `App.RegisterPages()` 中改一行）：
+注册机制：`NavigationRegistry.Register(AppPage)` 是**同路由二次注册即替换**。
+各 UI 模块在自己的 `XxxModule.Register(reg)` 里注册自己的路由，组合根 `App.RegisterPages()`
+只调这四个模块的 `Register` + 直接注册仪表板 —— 新增模块不需要改 `App.xaml.cs` 的路由清单。
 
 ```csharp
-// 替换前（占位）
-reg.Register(new AppPage { route = "/shares", titleKey = "Nav.Share", glyph = "▤",
-    factory = new PageFactory(() => new PlaceholderPage("/shares", AppServices.I18n.T("Nav.Share"))) });
-// 替换后（真实模块）
-reg.Register(new AppPage { route = "/shares", titleKey = "Nav.Share", glyph = "▤",
-    factory = new PageFactory(() => new SharesPageView()) });   // 你的 UserControl
+// 新增一个模块：在自己的 Module 里注册，组合根调一次即可
+public static void Register(NavigationRegistry reg)
+{
+    reg.Register(new AppPage
+    {
+        route = "/my-module",
+        titleKey = "Nav.MyModule",
+        glyph = "",
+        factory = new PageFactory(() => new MyModulePageView()),
+    });
+}
 ```
 
 - 页面要求：`UserControl`；构造无参（依赖从 `AppServices` 取）；挂上 `Loaded` 后自行拉数据。
@@ -119,24 +140,30 @@ reg.Register(new AppPage { route = "/shares", titleKey = "Nav.Share", glyph = "�
   目标页可读 `AppServices.Navigation.TakeAttention()`（一次性取走定位参数，对齐 TS
   `navigate(to, { state: attention })` 语义）。
 - 侧栏项显示 = `AppPage.titleKey` 经 `I18nManager.T()` 解析；i18n 缺键回退 key 本身。
+- **`Views/PlaceholderPage.cs` 是历史脚手架**：T3 期间用它占位再替换；现已无路由使用它
+  （各模块直接注册真实页）。保留该类仅供将来新增模块时临时挂载，**不是当前流程的一部分**。
 
-## 4. 契约服务接入（组合根扩展点）
+## 4. 契约服务接入（组合根）
 
-当前 `AppServices.SystemService`（`ISystemService` 槽位）为 null：
-- 仪表板数据馈送走 `ContractServicesDataFeed(null,...)` → 全 null → 界面如实空态（对齐 TS skippedSources 语义，不崩不臆造）。
-- 趋势采样器**未启动**（日志记录「ISystemService 未注册」）。
+**现状（2026-10）**：`Composition/ServicesComposition.Build()` 在应用启动时装配 **15 个 Core 契约服务**
+（share / smb / session / user / preset / system / disk / security / firewall / diagnose /
+update / path-registration / transfer / journal + 4 个协议适配器与 protocol registry），
+并写入 UI 侧静态槽（`SharesServices` / `UsersModule` / `SessionsModule` / `SettingsServiceSlots`）；
+`AppServices.SystemService` 也已赋值，故**仪表板数据馈送与 24h 趋势采样器都是活的**
+（不再走空馈送降级、采样器不再"未启动"）。
 
-服务实现（T-core）落地后：
+组合根调用点（`App.xaml.cs` 启动流程）：
 
 ```csharp
-AppServices.SystemService = systemServiceInstance;   // 任意时机（OnStartup 前）
+Composition.ComposedServices services = Composition.ServicesComposition.Build();
+AppServices.Compose(this, feed: new ContractServicesDataFeed(services.System, services.Disk, services.Smb, services.Security));
 ```
 
-即自动：① 采样器启动（`SystemServiceTrendSource`：`GetDashboardStatsAsync` →
-serviceStatus==Running 才写点；失败/停服跳过不写垃圾 0 点；5min 周期 + 首采一次，
-288 点上限由 AppSettingsStore.PushHistory 兜住，对齐 main.ts startHistorySampler）；
-② 把 `BuildDashboardFeed()` 换成
-`new ContractServicesDataFeed(sys, diskSvc, smbSvc, secSvc)`（可任意子集 null）。
+各模块从自己的静态槽取服务；**槽位为 null 时该模块走降级**（如实显示"未接入"，不崩不臆造）——
+这是防御路径，正常启动路径下槽位均有值。`ServicesComposition.Build()` 对单个服务构造失败
+采取"跳过并继续"策略（WPF 侧仍可运行）。
+
+服务实现位于 `net/WinShare.Core/`（命令串与 Electron 侧 TS 逐字对齐）。
 
 ## 5. 图表渲染器扩展点（LiveCharts2.SkiaSharpWPF 接入位）
 

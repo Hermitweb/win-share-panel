@@ -2,7 +2,109 @@
 
 本文件记录 WinShare Panel 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]（v1.4.0 开发中）
+## [Unreleased]（v1.4.2 开发中）
+
+### 🐛 修复 / Fixed：一键注册 PATH 的三处真实缺陷（v1.4.1 引入，v1.4.2 修正）
+
+本轮对全仓做了一次带门禁的体检，发现 v1.4.1（commit `a2497be`）引入的"一键注册/撤销 PATH"
+功能带着三个真实缺陷——其中两个当时只是**静默失效**，一个是**必然抛错**。
+其中前两个在 **WPF 移植版（.NET）里当时已是正确写法**（移植时已修正，只是没回修回 TS 原版），
+第三个两侧同病；本轮把 TS 侧补齐，并让两侧口径完全一致。
+
+- **撤销 PATH 必然抛 `SyntaxError`（`electron/services/pathRegistration.ts` 段匹配正则）**：
+  过滤用的正则尾部写成 `(?:"|\\)`，少了一个引号 —— 模板字面量求值后变成 `(?:"|\)`，
+  `\)` 被当成转义字面量括号，**分组永不闭合**，`new RegExp()` 直接抛
+  `Invalid regular expression: ... Unterminated group`。
+  后果：`unregisterAppFromUserPath()` **每次调用都失败**（打包版点"撤销 PATH 注册"必报错）。
+  修正：两侧统一为 `^"?<转义后的目录>"?$`（段可能带引号，故两侧各允许一个可选引号）。
+  注：该路径当时**渲染层没有任何调用点**，属潜伏缺陷而非线上事故；通道一旦接上 UI 即爆。
+- **注册表路径的反斜杠被 JS 吞掉（`readServicePendingMarker` 恒为 false）**：
+  命令串里写的是 `HKLM:Software\WinSharePanel`——JS 字符串字面量中 `\W` 是**无效转义，
+  反斜杠被直接丢弃**，实际发给 PowerShell 的是 `HKLM:SoftwareWinSharePanel`，
+  那是**另一个不存在的键**，`-ErrorAction SilentlyContinue` 静默吞掉 → 服务标记永远读不到。
+  修正：写成 `HKLM:Software\\WinSharePanel`。
+  （C# 侧 `\W` 是**编译错误**，所以 .NET 版天然免疫——这也是它没带这个 bug 的原因。）
+  ESLint 的 `no-useless-escape` 早已指出过这一行：那条告警不是噪音，指向真实的语义错误。
+- **目录路径未做正则元字符转义（TS 与 .NET 同病）**：只处理了反斜杠，路径里的 `( ) . [ ]` 等
+  仍被当成正则语法。装到 `C:\Program Files (x86)\WinShare Panel` 时，`(x86)` 变成捕获组，
+  真实段匹配不上，反而匹配到形似但不同的 `C:\Program Files x86\WinShare Panel` →
+  **撤销 PATH 会移除错段、留下真段**。修正：两侧统一加 `escapeRegExpLiteral()`
+  （TS 正则字符集 / C# `Regex.Replace` 同规则）。
+
+### ✨ 新增 / Added：系统注册项的 UI 入口（补上 v1.4.0 留下的空洞）
+
+v1.4.0 把 `system:registerPath` / `system:unregisterPath` / `system:pathRegistered` /
+`system:servicePending` 四个 IPC 通道与 preload 封装都做完了，但**渲染层一个调用点都没有**——
+通道建好却没有任何界面能用，用户无法自助把应用目录加进 PATH。
+
+- **`src/components/AppSettingsCards.tsx` 新增 `SystemRegistrationCard`**（挂在「应用设置」页）：
+  展示当前是否已注册到用户级 PATH，一键注册/撤销（撤销带二次确认），并说明
+  "写的是 HKCU\Environment\Path、无需 UAC、写入后广播环境变量变更通知"。
+- **诚实降级**：开发模式下入口**禁用**并写明原因（写进 PATH 的是源码目录，没有意义）；
+  广播失败按 warning 提示"需重开终端/登录"，不谎报成功；主进程**不回传完整 PATH**（只回长度）。
+- **`AppInfo` 增加 `isPackaged`**（`electron/types.ts` + `system:appInfo`）：渲染层据此判断开发模式。
+- **`src/types.ts` 补上 `PathRegistrationResult` 与四个通道的类型声明**。
+- 新增 6 例 `AppSettings.test.tsx` 用例（注册/撤销/广播失败/调用失败/开发模式禁用/服务标记说明）。
+
+### 🔧 修复 / Fixed：质量门禁回归（CI 此前是红的）
+
+`docs/audit/00-backlog.md` §3.5 记载的"终态六门禁逐条 exit 0"已不成立——本轮体检时
+lint / format:check / test 三门同时为红。逐项修复后恢复全绿：
+
+- **lint 红**（唯一 1 条）：`pathRegistration.ts` 的 `\W` 无用转义（见上）。
+- **format:check 红**（11 个文件）：`prettier --write` 一次修正。
+- **test 红**（3 恒红 + 1 负载抖动）：
+  - `pathRegistration.test.ts`「PATH 广播失败降级」用例的 mock **打错了目标**：
+    `mockImplementationOnce` 命中的是第 1 次 void 调用——即 `setUserPath` 写入，而非广播
+    （调用序：读 PATH → 写入 → 广播）。`setUserPath` 没有 try/catch，错误直接冒泡，用例恒红。
+    修正：改为按调用序两段式（第 1 次写入成功、第 2 次广播抛错）。
+  - `nativePaths.test.ts` 断言过严：要求"所有绝对路径候选都在 Sysnative 视图"，
+    但候选③ `%ProgramFiles%\PowerShell\7\pwsh.exe` **按设计**就在该视图之外
+    （Program Files 不经 Sysnative 镜像，且 32 位进程下取的是原生 64 位 PF，本就同位宽）。
+    修正：断言改为"System32/Sysnative 视图内的两个候选走 Sysnative + PF 候选单列"。
+  - `powershellPool.stress.test.ts` 场景 2 的**负载敏感断言抖动**（本次专项根治，见下）。
+- **补 `.NET` 侧 CI 门禁**（此前 CI 只跑 TS，"CI 绿灯"不代表 WPF 侧也绿）：新增独立 job，
+  跑 `dotnet build` + `dotnet test`。
+
+### 🔧 修复 / Fixed：压力测试的负载敏感断言（专项根治，非放宽断言）
+
+`electron/lib/powershellPool.stress.test.ts` 场景 2（100 并发含 10 条卡死命令）在全量跑 +
+覆盖率插桩的负载下会间歇红（`fulfilled` 期望 90 实得 81~87）。**根因已定位**（四组对照实验）：
+
+| 配置 | 快命令误拒数 |
+| --- | --- |
+| 基线：统一 25ms 超时 / 6ms 响应 / 事件循环卡顿 40ms | **18** |
+| 宽裕阈值：统一 1000ms 超时 / 6ms 响应 / 卡顿 40ms | 0 |
+| 零延迟响应：统一 25ms 超时 / 0ms 响应 / 卡顿 40ms | 0 |
+| 无卡顿 | 0 |
+
+即：正常命令的桩响应只要 6ms，统一 25ms 超时只留 19ms 余量；事件循环一卡顿，
+**Node 的 timer 按"时长分桶"管理、每桶 expiry 取桶内最早者，跨桶处理顺序可能先跑 25ms 桶
+再跑 6ms 桶** → 正常命令被误判超时、worker 被多 kill。生产侧 deadline 是 10s 级、PS 实际响应
+百毫秒级，余量 100 倍以上，**这是测试桩的时间参数不贴近生产造成的假红，不是池实现的缺陷**。
+
+修正（不改任何断言、不放宽语义）：场景 2 按"这条命令会不会卡死"给不同超时值——
+卡死的 10 条仍用 25ms（就该被超时 kill，验证中毒重启），正常的 90 条用 2000ms（贴近真实调用方）。
+实测 40ms 与 120ms 卡顿下均为 **0 误拒、0 多余 kill**。
+
+### 🔧 修复 / Fixed：.NET 构建在装有 VS 的 Windows 上直接失败（MSB4126）
+
+装了 Visual Studio 的 Windows 机器普遍带有环境变量 `Platform=x64`，而 `.slnx` 默认只提供
+`Any CPU` 一套配置 → `dotnet build net/WinShare.slnx` 直接以
+**MSB4126「指定的解决方案配置"Debug|x64"无效」**失败。修正：`net/WinShare.slnx` 显式登记
+`Any CPU` 与 `x64` 两个平台；另加 `global.json` 固定 SDK 大版本（10.0.x），
+并补 `pnpm build:dotnet` / `pnpm test:dotnet` 两个入口。
+
+### 🧹 技术债清零 / Debt：工作区残留与构建告警
+
+- **`.gitignore` 补齐**并清理约 **110MB** 未跟踪残留（`.repro/ProbeDisk` 73MB、
+  外部会话产出的 `dsh-boot-animation-*` 38MB、截图目录等）。
+  其中 `.repro/` 曾累积 70MB+ 的 .NET 探针构建产物，一次 `git add -A` 就会把它们带进仓库。
+- **`DiagnoseModal` 静态+动态重复导入告警消除**：`SharesWithOps.tsx` 原为静态 import，
+  而 `pages/Settings.tsx` 用 glob 动态 import → Vite 报
+  "dynamically imported ... but also statically imported"（动态导入被静默失效，
+  模块被拖进首屏主 chunk）。改为 `React.lazy` + 常驻 `Suspense` 边界后真正分包，
+  且**保持"常驻挂载 + open 受控"语义**（关闭动画与 open 转换时的状态重置仍由组件内部负责）。
 
 ### 🔧 修复 / Fixed：另一台机器安装后 PowerShell 失效导致应用不可用
 
@@ -32,8 +134,9 @@
      处理器已就绪）；卸载时由 `un.onUnInst` 删除
   3. **Windows 服务预留标记**（`HKLM\Software\WinSharePanel\ServicePending=1`）：v1.4.0 暂不
      创建服务本体（与 GUI 应用形态冲突：服务跑在会话 0，无法显示窗口；真正做服务需 NSSM/
-     计划任务包装器，留待后续版本），只留个标记让主进程首启自检读取，为"一键注册为系统服务"
-     预留 UI 入口（`system:servicePending` IPC 通道）
+     计划任务包装器，留待后续版本），只留个标记供 UI 查询（`system:servicePending` IPC 通道），
+     为"一键注册为系统服务"预留 UI 入口
+     （v1.4.2 已在「应用设置」页接上该查询入口；标记本体仍只是提示，不触发任何动作）
   4. **系统 PATH 不默认写**（跨权限 + 卸载残留风险）：改由主进程
      `electron/services/pathRegistration.ts` 的"一键注册/撤销"入口写入**用户级**
      `HKCU\Environment\Path`（不需要 UAC 提权，与单用户工具形态匹配），写后广播

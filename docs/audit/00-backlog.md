@@ -67,9 +67,20 @@ R-3 状态如实：`src/hooks/useTickEffect.ts:13` 的 `react-hooks/exhaustive-d
 
 R-8 仍为开放项（按事实拆分，不笼统记）。其**阻塞条件**「复启 set-state-in-effect」已随本批次完成（规则现为 `error`、全库零违例、该规则 suppressions=0）；但 R-8 作为「数据获取模式重构」条目本身**未闭环**——本批次明确不改数据获取范式（属非目标，且规格 §4.1 禁止引入缓存层），挂载取数并未全部改写为 defer/React Query。
 
-其它未完成/已知边界（详见 CHANGELOG「未完成 / 已知边界」）：jsdom 组件测试基建仍未引入；`electron/lib/powershellPool.stress.test.ts`（「场景2：100 并发含 10 条卡死命令」）的既有负载敏感**断言**抖动未根治（本批次零改动，建议另开专项）；本批次证据只到 jsdom + 门禁级（IPC 全为 mock），无真机端到端。
+其它未完成/已知边界（详见 CHANGELOG「未完成 / 已知边界」）：jsdom 组件测试基建仍未引入；本批次证据只到 jsdom + 门禁级（IPC 全为 mock），无真机端到端。
+
+> **2026-10 更新**：`electron/lib/powershellPool.stress.test.ts`（「场景2：100 并发含 10 条卡死命令」）的
+> 负载敏感**断言**抖动**已于后续专项根治** —— 根因是测试桩的 25ms 超时对 6ms 响应余量过紧，
+> 叠加 Node timer "按时长分桶、跨桶处理顺序可能倒置"，负载下正常命令被误判超时；
+> 修正为按命令是否卡死分别给超时值（不改任何断言）。详见 CHANGELOG「压力测试的负载敏感断言」。
 
 质量门（本批次）：独立验证 round 1 **红**（F1 行为回归 + F2 门禁不绿）→ round 2 **红**（F1 已闭环、F2/F3 未闭环）→ round 3 **绿**；此后新发现的 F4 由 t13 修复、复验绿；评审 t5（R-5 抽象）/ t6（modal/drawer 迁移）均 **verdict = pass**、无 findings。终态六门禁逐条 exit 0（typecheck / lint / format:check / test 47 文件 650 用例 / test:coverage / build）。规格自身的 6 处写错与 1 处自相矛盾见 `05-renderer-debt.md` §7.3。
+
+> **2026-10 勘误**：本节记载的"终态六门禁 exit 0"是**该批次当时**的状态，不是持续成立的事实。
+> 后续 v1.4.1 引入了新的代码与用例，**没有同步跑门禁**，导致 lint / format:check / test 三门同时转红
+> （2026-10-24 体检发现），其中还藏着一个"撤销 PATH 必然抛 SyntaxError"的真实缺陷
+> （见 CHANGELOG「一键注册 PATH 的三处真实缺陷」）。本轮已逐项修复并复跑全门禁；
+> **教训：新增用例/新代码后必须重跑全部门禁，"曾经全绿"不等于"现在全绿"**。
 
 ## 4. 执行摘要（给决策者的话）
 

@@ -52,7 +52,7 @@ public partial class App : Application
         Composition.ComposedServices services = Composition.ServicesComposition.Build();
         AppServices.Compose(this, feed: new ContractServicesDataFeed(services.System, services.Disk, services.Smb, services.Security));
 
-        // 导航注册：仪表板（本任务模块）+ 5 占位（TODO T3b/c/d）
+        // 导航注册：仪表板直接注册 + 四个 UI 模块各自注册自己的路由（同路由二次注册即替换）
         RegisterPages();
 
         // 主窗口
@@ -129,7 +129,7 @@ public partial class App : Application
     {
         var reg = AppServices.Registry;
         reg.Register(new AppPage { route = "/", titleKey = "Dash.Title", glyph = "\uE80F", factory = new PageFactory(() => new DashboardPageView()) });
-        // 四 UI 模块接入（同路由覆盖占位页；未接契约服务时各模块走空馈送降级）
+        // 四 UI 模块接入（各自注册自己的路由；契约服务缺席时该模块走空馈送降级）
         Shares.SharesModule.Register(reg);
         Users.UsersModule.Register(reg);
         Sessions.SessionsModule.Register(reg);
@@ -174,7 +174,7 @@ public partial class App : Application
         var svc = AppServices.ResolveSystemService();
         if (svc is null)
         {
-            LogSink.Info("main", "[historySampler] ISystemService 未注册，采样器留待 T3b/c/d 接服务实现后启动");
+            LogSink.Info("main", "[historySampler] ISystemService 未注册（组合根装配未成功），本次不启动采样器");
             return;
         }
         var source = new SystemServiceTrendSource(svc);

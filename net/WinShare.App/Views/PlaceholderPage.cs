@@ -4,9 +4,14 @@ using System.Windows.Controls;
 namespace WinShare.App.Views;
 
 /// <summary>
-/// 占位页工厂（非本任务模块先挂占位，标注 TODO 给后续 T3b/c/d 填）：
-/// T3b/c/d 用 NavigationRegistry.Register(route, new AppPage { factory = ... }) 直接替换，
-/// 占位页不注册第二次即自动失效（见 DOCS.md 占位页替换方式）。
+/// 占位页（**历史脚手架，当前无路由使用**）。
+///
+/// T3 期间用它给未实现的模块先挂一个占位页，后续模块用
+/// `NavigationRegistry.Register(route, new AppPage { factory = ... })` 同路由二次注册覆盖
+/// （同路由二次注册即替换）。T3b/c/d 已于 2026-10 全部交付，六条路由现在都由各自的
+/// `XxxModule.Register(reg)` 直接注册真实页面，本类**不再被任何路由引用**。
+///
+/// 保留它只为将来新增模块时能临时挂载（先占位、后替换）；它不是当前装配流程的一环。
 /// </summary>
 public sealed class PlaceholderPage : UserControl
 {
@@ -22,8 +27,7 @@ public sealed class PlaceholderPage : UserControl
         });
         ((StackPanel)Content).Children.Add(new TextBlock
         {
-            // TODO(T3b/c/d)：替换此占位页为真实模块
-            Text = $"占位页（route={route}）。本模块将由后续任务实现，见 net/WinShare.App/DOCS.md「导航注册 API」与「占位页替换方式」。",
+            Text = $"占位页（route={route}）。该路由尚未接入真实模块；接入后由模块的 Register 同路由覆盖本页，见 net/WinShare.App/DOCS.md「导航注册 API」。",
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
             Foreground = new System.Windows.Media.SolidColorBrush(
