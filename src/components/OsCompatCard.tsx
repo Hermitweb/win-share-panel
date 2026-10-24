@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Card, Descriptions, Space, Tag, Tooltip, Button, Collapse } from 'antd'
-import { DesktopOutlined, WarningOutlined, CheckCircleOutlined, CodeOutlined } from '@ant-design/icons'
+import {
+  DesktopOutlined,
+  WarningOutlined,
+  CheckCircleOutlined,
+  CodeOutlined,
+} from '@ant-design/icons'
 import { api } from '../api'
 import type { PsRuntimeDiagnosis, PsRuntimeStatus } from '../types'
 
@@ -104,7 +109,10 @@ export default function OsCompatCard() {
             children: psOk ? (
               <Space size={4} wrap>
                 <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                <Tag color={ps?.engine === 'powershellCore' ? 'blue' : 'green'} style={{ margin: 0 }}>
+                <Tag
+                  color={ps?.engine === 'powershellCore' ? 'blue' : 'green'}
+                  style={{ margin: 0 }}
+                >
                   {engineLabelOf(ps)}
                 </Tag>
                 <span className="text-xs" style={{ wordBreak: 'break-all' }}>
@@ -212,11 +220,7 @@ export default function OsCompatCard() {
                   items={[
                     {
                       key: 'diag',
-                      label: (
-                        <span className="text-xs">
-                          诊断：{diagnosed.reason}
-                        </span>
-                      ),
+                      label: <span className="text-xs">诊断：{diagnosed.reason}</span>,
                       children: (
                         <ul className="text-xs text-fog m-0" style={{ paddingLeft: 16 }}>
                           {diagnosed.suggestions.map((s, i) => (
@@ -235,28 +239,37 @@ export default function OsCompatCard() {
         />
       )}
       {/* 多引擎候选摘要（v1.4.0）：展示这台机器上实际存在的所有 PowerShell */}
-      {ps?.candidates && ps.candidates.length > 0 && ps.candidates.some((c) => c.exists && /^[A-Za-z]:[\\/]/.test(c.path)) && (
-        <div className="mt-2">
-          <div className="text-xs font-medium mb-1 flex items-center gap-1">
-            <CodeOutlined /> 本机 PowerShell 候选（按优先级）
+      {ps?.candidates &&
+        ps.candidates.length > 0 &&
+        ps.candidates.some((c) => c.exists && /^[A-Za-z]:[\\/]/.test(c.path)) && (
+          <div className="mt-2">
+            <div className="text-xs font-medium mb-1 flex items-center gap-1">
+              <CodeOutlined /> 本机 PowerShell 候选（按优先级）
+            </div>
+            <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              {ps.candidates
+                .filter((c) => c.exists && /^[A-Za-z]:[\\/]/.test(c.path))
+                .map((c) => (
+                  <Space key={c.path} size={4} wrap>
+                    <Tag
+                      color={c.path === ps.resolvedPath ? 'blue' : 'default'}
+                      style={{ margin: 0 }}
+                    >
+                      {c.path === ps.resolvedPath
+                        ? '使用中'
+                        : c.engine === 'windowsPowerShell'
+                          ? '5.1'
+                          : '7+'}
+                    </Tag>
+                    <span className="text-xs text-fog" style={{ wordBreak: 'break-all' }}>
+                      {c.path}
+                    </span>
+                    <span className="text-xs text-fog">（{c.note}）</span>
+                  </Space>
+                ))}
+            </Space>
           </div>
-          <Space direction="vertical" size={2} style={{ width: '100%' }}>
-            {ps.candidates
-              .filter((c) => c.exists && /^[A-Za-z]:[\\/]/.test(c.path))
-              .map((c) => (
-                <Space key={c.path} size={4} wrap>
-                  <Tag color={c.path === ps.resolvedPath ? 'blue' : 'default'} style={{ margin: 0 }}>
-                    {c.path === ps.resolvedPath ? '使用中' : c.engine === 'windowsPowerShell' ? '5.1' : '7+'}
-                  </Tag>
-                  <span className="text-xs text-fog" style={{ wordBreak: 'break-all' }}>
-                    {c.path}
-                  </span>
-                  <span className="text-xs text-fog">（{c.note}）</span>
-                </Space>
-              ))}
-          </Space>
-        </div>
-      )}
+        )}
     </Card>
   )
 }

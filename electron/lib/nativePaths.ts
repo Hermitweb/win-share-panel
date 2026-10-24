@@ -105,9 +105,11 @@ function systemRootOf(deps: NativePathDeps): string {
 function programFilesNativeOf(deps: NativePathDeps): string {
   const is32Bit = (deps.arch ?? process.arch) === 'ia32'
   // 32 位进程下优先 %ProgramW6432%（原生 PF）；64 位进程 %ProgramFiles% 即原生
-  const raw = deps.programFilesNative
-    ?? (is32Bit ? (process.env.ProgramW6432 ?? process.env.ProgramFiles ?? 'C:\\Program Files')
-                : (process.env.ProgramFiles ?? 'C:\\Program Files'))
+  const raw =
+    deps.programFilesNative ??
+    (is32Bit
+      ? (process.env.ProgramW6432 ?? process.env.ProgramFiles ?? 'C:\\Program Files')
+      : (process.env.ProgramFiles ?? 'C:\\Program Files'))
   return raw.replace(/[\\/]+$/, '') || 'C:\\Program Files'
 }
 

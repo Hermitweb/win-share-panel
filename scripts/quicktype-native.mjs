@@ -44,5 +44,7 @@ for (const f of files) {
     console.error(`FAIL ${f}: ${String(e.message).split('\n')[0]}`)
   }
 }
-console.log(`${files.length} files checked, ${fail} syntax errors (vm.compileFunction 粗检，非完整类型检查)`)
+console.log(
+  `${files.length} files checked, ${fail} syntax errors (vm.compileFunction 粗检，非完整类型检查)`,
+)
 process.exit(fail ? 1 : 0)

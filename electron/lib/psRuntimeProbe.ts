@@ -82,30 +82,27 @@ export async function probePsVersionAndLog(): Promise<void> {
   if (!/^[A-Za-z]:[\\/]/.test(exe)) return
 
   // 最小探测命令：纯读 $PSVersionTable，不加载任何模块，5.1 / 7.x 都能跑
-  const info = await probePsVersion(
-    {},
-    async <T>(cmd: string) => {
-      // 经 lib/powershell 的 runPowerShell 会触发池预热，造成循环依赖；
-      // 这里直接 spawn 一次单发进程（仅启动时跑一次，非热路径）
-      const { execFile } = await import('node:child_process')
-      const { promisify } = await import('node:util')
-      const exec = promisify(execFile)
-      const { stdout } = await exec(
-        exe,
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-EncodedCommand',
-          Buffer.from(cmd, 'utf16le').toString('base64'),
-        ],
-        { timeout: 15_000, windowsHide: true },
-      )
-      // cmd 末尾已带 ConvertTo-Json -Compress（见 probePsVersion），直接解析
-      return JSON.parse(String(stdout).trim()) as unknown as T
-    },
-  )
+  const info = await probePsVersion({}, async <T>(cmd: string) => {
+    // 经 lib/powershell 的 runPowerShell 会触发池预热，造成循环依赖；
+    // 这里直接 spawn 一次单发进程（仅启动时跑一次，非热路径）
+    const { execFile } = await import('node:child_process')
+    const { promisify } = await import('node:util')
+    const exec = promisify(execFile)
+    const { stdout } = await exec(
+      exe,
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-EncodedCommand',
+        Buffer.from(cmd, 'utf16le').toString('base64'),
+      ],
+      { timeout: 15_000, windowsHide: true },
+    )
+    // cmd 末尾已带 ConvertTo-Json -Compress（见 probePsVersion），直接解析
+    return JSON.parse(String(stdout).trim()) as unknown as T
+  })
 
   if (info.major === 0 || info.full === 'unknown') {
     log.warn('psRuntime', `[psRuntime] 版本探测失败（${exe}），降级为"未探测"`)

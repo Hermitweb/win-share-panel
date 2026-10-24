@@ -10,7 +10,9 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { stripTypeScriptTypes } from 'node:module'
 
-const ROOT = join(dirname(dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:?\/)/, '$1')))
+const ROOT = join(
+  dirname(dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:?\/)/, '$1')),
+)
 
 function walk(dir, out = []) {
   for (const n of readdirSync(dir)) {
@@ -30,8 +32,12 @@ for (const f of files) {
     stripTypeScriptTypes(src, { mode: 'strip' })
   } catch (e) {
     fail++
-    console.error(`FAIL ${f.replace(ROOT, '').replace(/^\//, '')}: ${String(e.message).split('\n')[0]}`)
+    console.error(
+      `FAIL ${f.replace(ROOT, '').replace(/^\//, '')}: ${String(e.message).split('\n')[0]}`,
+    )
   }
 }
-console.log(`checked ${files.length} files, ${fail} syntax errors（stripTypeScriptTypes 语法级，非完整类型检查）`)
+console.log(
+  `checked ${files.length} files, ${fail} syntax errors（stripTypeScriptTypes 语法级，非完整类型检查）`,
+)
 process.exit(fail ? 1 : 0)

@@ -62,7 +62,12 @@ export function probePowerShell(deps: NativePathDeps = {}, force = false): PsRun
   let realPathFound = false
   if (testOverrides?.candidates) {
     const all = testOverrides.candidates()
-    candidates = all.map((c) => ({ path: c.path, engine: c.engine, exists: c.exists, note: c.note }))
+    candidates = all.map((c) => ({
+      path: c.path,
+      engine: c.engine,
+      exists: c.exists,
+      note: c.note,
+    }))
     const hit = all.find((c) => c.path === resolvedPath)
     engine = hit?.engine ?? 'unknown'
     realPathFound = all.some((c) => c.exists && /^[A-Za-z]:[\\/]/.test(c.path))
@@ -70,7 +75,12 @@ export function probePowerShell(deps: NativePathDeps = {}, force = false): PsRun
     // 生产 / win32 测试路径：用 nativePaths.listPowerShellCandidates 统一 stat
     // （它接受 deps.exists 注入，测试可模拟"只有 5.1 / 只有 7.x / 双引擎 / 全缺"）
     const all = listPowerShellCandidates(deps)
-    candidates = all.map((c) => ({ path: c.path, engine: c.engine, exists: c.exists, note: c.note }))
+    candidates = all.map((c) => ({
+      path: c.path,
+      engine: c.engine,
+      exists: c.exists,
+      note: c.note,
+    }))
     const hit = all.find((c) => c.path === resolvedPath)
     engine = hit?.engine ?? 'unknown'
     realPathFound = all.some((c) => c.exists && /^[A-Za-z]:[\\/]/.test(c.path))
@@ -130,10 +140,7 @@ export function engineLabel(status: Pick<PsRuntimeStatus, 'engine' | 'resolvedPa
  * 部分 IIS cmdlet 行为可能有差异"；若两者都缺，建议"安装 PowerShell 7
  * （winget install Microsoft.PowerShell）或 sfc /scannow 恢复 5.1"。
  */
-export function diagnosePsRuntime(
-  rawError: string,
-  deps: NativePathDeps = {},
-): PsRuntimeDiagnosis {
+export function diagnosePsRuntime(rawError: string, deps: NativePathDeps = {}): PsRuntimeDiagnosis {
   const probe = probePowerShell(deps, true)
   const suggestions: string[] = []
 
@@ -148,9 +155,7 @@ export function diagnosePsRuntime(
       '或安装 PowerShell 7：`winget install Microsoft.PowerShell`（应用会自动识别 pwsh.exe）',
     )
   } else if (!probe.exists) {
-    suggestions.push(
-      `选中的 ${probe.resolvedPath} 不存在，但候选里还有其他 PowerShell，请重启应用`,
-    )
+    suggestions.push(`选中的 ${probe.resolvedPath} 不存在，但候选里还有其他 PowerShell，请重启应用`)
   } else {
     suggestions.push(`已找到 PowerShell：${probe.resolvedPath}（${engineLabel(probe)}）`)
     const msg = rawError.toLowerCase()

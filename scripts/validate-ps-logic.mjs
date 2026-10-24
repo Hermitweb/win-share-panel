@@ -97,7 +97,12 @@ const PWSH_PF = `${PF}\\${PWSH_PF_REL}`
 
 // 机器形态 1：64 位进程，默认系统（只有 5.1）
 {
-  const d = { arch: 'x64', systemRoot: ROOT, programFilesNative: PF, exists: (p) => p === `${SYS}\\${PS_REL}` }
+  const d = {
+    arch: 'x64',
+    systemRoot: ROOT,
+    programFilesNative: PF,
+    exists: (p) => p === `${SYS}\\${PS_REL}`,
+  }
   assert(resolveExe(d) === `${SYS}\\${PS_REL}`, `形态1 应取 System32 的 5.1，实际 ${resolveExe(d)}`)
   const diag = diagnose(d)
   assert(diag.ok === true, '形态1 应 ok=true')
@@ -106,14 +111,30 @@ const PWSH_PF = `${PF}\\${PWSH_PF_REL}`
 
 // 机器形态 2：32 位进程在 64 位系统（Sysnative 命中 5.1）
 {
-  const d = { arch: 'ia32', systemRoot: ROOT, programFilesNative: PF, exists: (p) => p === `${NATIVE}\\${PS_REL}` }
-  assert(resolveExe(d) === `${NATIVE}\\${PS_REL}`, `形态2 应取 Sysnative 的 5.1，实际 ${resolveExe(d)}`)
+  const d = {
+    arch: 'ia32',
+    systemRoot: ROOT,
+    programFilesNative: PF,
+    exists: (p) => p === `${NATIVE}\\${PS_REL}`,
+  }
+  assert(
+    resolveExe(d) === `${NATIVE}\\${PS_REL}`,
+    `形态2 应取 Sysnative 的 5.1，实际 ${resolveExe(d)}`,
+  )
 }
 
 // 机器形态 3：32 位进程 + Sysnative 里 5.1 被删、只剩 Sysnative 的 pwsh（精简系统位宽对齐）
 {
-  const d = { arch: 'ia32', systemRoot: ROOT, programFilesNative: PF, exists: (p) => p === `${NATIVE}\\${PWSH_REL}` }
-  assert(resolveExe(d) === `${NATIVE}\\${PWSH_REL}`, `形态3 应取 Sysnative 的 7.x，实际 ${resolveExe(d)}`)
+  const d = {
+    arch: 'ia32',
+    systemRoot: ROOT,
+    programFilesNative: PF,
+    exists: (p) => p === `${NATIVE}\\${PWSH_REL}`,
+  }
+  assert(
+    resolveExe(d) === `${NATIVE}\\${PWSH_REL}`,
+    `形态3 应取 Sysnative 的 7.x，实际 ${resolveExe(d)}`,
+  )
   const diag = diagnose(d)
   assert(diag.fix.includes('IIS COM 仅 5.1 注册'), '形态3 应提示 IIS COM 差异')
   assert(diag.fix.includes('本机仅有 PowerShell 7'), '形态3 应提示"本机仅有 7"')
@@ -160,7 +181,12 @@ const PWSH_PF = `${PF}\\${PWSH_PF_REL}`
   assert(c[1].path === `${SYS}\\${PWSH_REL}`, '优先级 2 应是 7.x System32')
   assert(c[2].path === PWSH_PF, '优先级 3 应是 7.x PF')
   assert(c[3].path === 'powershell.exe' && c[4].path === 'pwsh.exe', '优先级 4/5 应是裸名')
-  assert(c.every((x) => x.path === 'powershell.exe' || x.path === 'pwsh.exe' || x.exists), '存在性标记一致')
+  assert(
+    c.every((x) => x.path === 'powershell.exe' || x.path === 'pwsh.exe' || x.exists),
+    '存在性标记一致',
+  )
 }
 
-console.log('PASS: PowerShell 多版本兼容逻辑验证通过（nativePaths + psRuntime，含 32/64 位宽 + 全缺兜底）')
+console.log(
+  'PASS: PowerShell 多版本兼容逻辑验证通过（nativePaths + psRuntime，含 32/64 位宽 + 全缺兜底）',
+)
