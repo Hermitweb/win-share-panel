@@ -30,3 +30,20 @@ net/WinShare.App.Tests/scratch/
 WinSharePanel-wpf-*.zip
 net/publish-win-x64/
 release-notes-wpf-*.md
+
+# 复现/探针临时工作区（一次性调试脚本与产物，本机残留，勿入库）
+# 注意：该目录历史上曾累积 70MB+ 的构建产物，一次 `git add -A` 就会把它们带进仓库
+.repro/
+
+# 第三方工具 / 会话落地物（非本项目代码，勿入库）
+# dsh-boot-animation 是外部会话产出的插件包，与本仓库无关
+dsh-boot-animation/
+dsh-boot-animation-*/
+dsh-boot-animation*.tar.gz
+
+# UI 截图快照（本地视觉比对用）
+ui-shot-*.png
+shots/
+
+# 大体积日志转储
+.t2d-logdump.txt

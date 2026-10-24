@@ -1,4 +1,16 @@
 <Solution>
+  <!--
+    显式声明平台配置：装了 Visual Studio 的 Windows 机器普遍带有环境变量 Platform=x64，
+    而 .slnx 默认只提供 "Any CPU" 一套配置 —— dotnet build 会以
+    MSB4126「指定的解决方案配置"Debug|x64"无效」直接失败（Windows 上高发）。
+    这里把 x64 也登记为可用平台，使 `dotnet build net/WinShare.slnx` 在两种环境下都能直接跑通。
+  -->
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
   <Project Path="WinShare.App.Tests/WinShare.App.Tests.csproj" />
   <Project Path="WinShare.App/WinShare.App.csproj" />
   <Project Path="WinShare.Core.Tests/WinShare.Core.Tests.csproj" />

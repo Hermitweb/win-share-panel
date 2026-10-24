@@ -47,3 +47,23 @@ jobs:
 
       - name: Test (with coverage gate)
         run: pnpm run test:coverage
+
+  # .NET / WPF 侧（WPF 重构是当前主线，代码量与用例数都已超过 Electron 版）：
+  # 此前 CI 只跑 TS 门禁，"CI 绿灯"并不代表 WPF 侧也绿 —— 补上独立的 .NET 门禁。
+  dotnet:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        # 项目目标框架：net10.0 / net10.0-windows（见各 csproj 的 TargetFramework）
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build net/WinShare.slnx --nologo
+
+      - name: Test
+        run: dotnet test net/WinShare.slnx --no-build --nologo

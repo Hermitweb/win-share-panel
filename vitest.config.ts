@@ -49,14 +49,17 @@ export default defineConfig({
         'src/types.ts', // 纯 re-export
         'src/vite-env.d.ts',
       ],
-      // 阈值=2026-06 实测水位取整（32.83/19.85/30.79/25.66），作为只升不降的棘轮基线；
+      // 阈值=实测水位取整，作为只升不降的棘轮基线。
+      // 历史：2026-06 取 32.83/19.85/30.79/25.66 → 32/19/30/25；
+      // 2026-10 随渲染层组件测试（dom 组）补齐，实测升到 46.93/32.14/44.70/43.58
+      // → 按同一"取整"规则上调为 46/32/44/43（各项留约 0.1~0.9 个百分点余量）。
       // services/share|smb|user|ftp|webdav|nfs|preset、ipc/index、preload 为零覆盖（逻辑已由
-      // adapters/pool/powershell 测试覆盖，其余为薄封装），补测后应上调本值并更新此注释。
+      // adapters/pool/powershell 测试覆盖，其余为薄封装），补测后应再上调本值并更新此注释。
       thresholds: {
-        lines: 32,
-        statements: 30,
-        functions: 19,
-        branches: 25,
+        lines: 46,
+        statements: 44,
+        functions: 32,
+        branches: 43,
       },
     },
   },

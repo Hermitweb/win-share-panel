@@ -15,6 +15,11 @@ export default tseslint.config(
       'docs/**',
       'coverage/**',
       'scripts/**',
+      // 复现/探针临时工作区（一次性调试脚本，ESLint 不读 .gitignore，必须单独声明）
+      '.repro/**',
+      // .NET 构建产物目录
+      'net/**/bin/**',
+      'net/**/obj/**',
     ],
   },
   js.configs.recommended,

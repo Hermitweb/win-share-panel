@@ -30,6 +30,8 @@
     "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage",
+    "build:dotnet": "dotnet build net/WinShare.slnx --nologo",
+    "test:dotnet": "dotnet test net/WinShare.slnx --nologo",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

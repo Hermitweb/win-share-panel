@@ -7,3 +7,6 @@ coverage/
 docs/
 *.md
 pnpm-lock.yaml
+
+# 复现/探针临时工作区（一次性调试脚本，本机残留）
+.repro/
