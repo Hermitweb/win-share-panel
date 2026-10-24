@@ -106,6 +106,21 @@ lint / format:check / test 三门同时为红。逐项修复后恢复全绿：
   模块被拖进首屏主 chunk）。改为 `React.lazy` + 常驻 `Suspense` 边界后真正分包，
   且**保持"常驻挂载 + open 受控"语义**（关闭动画与 open 转换时的状态重置仍由组件内部负责）。
 
+### 🔧 修复 / Fixed：.NET 门禁首次上 CI 即暴露的机器相关测试缺陷
+
+新增的 `.NET` CI job 第一次运行就红了一例：`WinShare.Core.Tests.Misc.LoggerTests.Info_MultiArgsAndObjectRendering`
+往**写死的绝对路径** `E:\workspace\win-share-panel\.t2d-logdump.txt` 落一份调试转储
+（无断言价值的遗留调试代码）—— CI runner 上该目录不存在 → `DirectoryNotFoundException`。
+本地之所以一直没暴露，只是因为那台机器上恰好存在这个目录。
+
+该行还有一个副作用：它在**每次本地跑 .NET 测试时都会在仓库根目录重新生成**
+`.t2d-logdump.txt`（这也解释了此前工作区里那个 153KB 的未跟踪文件从哪来）。
+现已删除该行——断言本身（`name: a` / `"n":1`）一字未动，测试改用既有的
+`TestTmp.New(...)` 临时目录，不再写任何仓库内路径。
+
+这也印证了「CI 绿灯不代表 .NET 侧也绿」：.NET 侧此前从未进过 CI，
+这处机器相关缺陷就一直藏着，直到补上独立门禁才现形。
+
 ### 🔧 修复 / Fixed：DOM 组负载敏感的间歇红（并发超订）
 
 提交后终验时 `test:coverage` 出现 4 例失败、而同一棵树的普通 `test` 与随后的覆盖率重跑均全绿

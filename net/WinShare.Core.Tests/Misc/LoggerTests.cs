@@ -88,7 +88,6 @@ public class LoggerTests
     {
         Logger.Info("fmt", "name:", "a", new { n = 1 });
         string content = ReadFile();
-        System.IO.File.WriteAllText("E:\\workspace\\win-share-panel\\.t2d-logdump.txt", "LEN=" + content.Length + "\n[\n" + content + "\n]");
         Assert.Contains("name: a", content);
         Assert.Contains("\"n\":1", content); // C# 紧凑 JSON（TS: '{ n: 1 }'）
     }
