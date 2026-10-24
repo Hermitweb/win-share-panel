@@ -2,9 +2,11 @@
 
 本文件记录 WinShare Panel 的版本变更。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]（v1.4.2 开发中）
+## [Unreleased]
 
-### 🐛 修复 / Fixed：一键注册 PATH 的三处真实缺陷（v1.4.1 引入，v1.4.2 修正）
+## [1.5.0] - 2026-10-24
+
+### 🔧 修复 / Fixed：一键注册 PATH 的三处真实缺陷（v1.4.1 引入，v1.5.0 修正）
 
 本轮对全仓做了一次带门禁的体检，发现 v1.4.1（commit `a2497be`）引入的"一键注册/撤销 PATH"
 功能带着三个真实缺陷——其中两个当时只是**静默失效**，一个是**必然抛错**。
@@ -171,6 +173,11 @@ CI（windows-latest 4 核）上默认并发本就是 3~4，本设置对其无影
 UI 重设计**之前**的旧版、以及一张 Chromium 的下载弹窗，没有一张能代表产品，硬贴反而失实。
 故改为可执行规格：整图 ≈1250×860、浅色主题、**必须含真实数据**（共享数/连接数非空、
 共享管理列表非空），素材到位后放 `docs/screenshots/`。
+
+## [1.4.2] - 2026-10-17
+
+> 本节汇总 1.4.0 ~ 1.4.2 三次发布的改动。三者的 Release 说明由 GitHub Actions
+> `generate_release_notes` 按提交自动生成，CHANGELOG 当时未按版本切分，故此处合并留档。
 
 ### 🔧 修复 / Fixed：另一台机器安装后 PowerShell 失效导致应用不可用
 
