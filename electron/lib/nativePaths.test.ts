@@ -48,14 +48,24 @@ describe('nativeSystemPath：32 位进程取 Sysnative，其余取 System32（v1
     // nativeSystemPath 靠 stat Sysnative 判定位宽（Sysnative 只有 32 位进程可见），
     // exists=onlySysnative51 模拟"32 位进程 stat 到 Sysnative"
     expect(
-      nativeSystemPath(PS_REL, { platform: 'win32', systemRoot: ROOT, arch: 'ia32', exists: onlySysnative51 }),
+      nativeSystemPath(PS_REL, {
+        platform: 'win32',
+        systemRoot: ROOT,
+        arch: 'ia32',
+        exists: onlySysnative51,
+      }),
     ).toBe(`${NATIVE}\\${PS_REL}`)
   })
 
   it('64 位进程（Sysnative 不可见）：落回 System32，即本来就是原生路径', () => {
     // exists=sys64_51 只 stat 到 System32 的 5.1，Sysnative 的 stat 返回 false
     expect(
-      nativeSystemPath(PS_REL, { platform: 'win32', systemRoot: ROOT, arch: 'x64', exists: sys64_51 }),
+      nativeSystemPath(PS_REL, {
+        platform: 'win32',
+        systemRoot: ROOT,
+        arch: 'x64',
+        exists: sys64_51,
+      }),
     ).toBe(`${SYS}\\${PS_REL}`)
   })
 
@@ -72,7 +82,12 @@ describe('nativeSystemPath：32 位进程取 Sysnative，其余取 System32（v1
 
   it('非 win32 平台不探测 Sysnative（避免造出不存在的路径）', () => {
     expect(
-      nativeSystemPath(PS_REL, { platform: 'linux', systemRoot: '/x', arch: 'ia32', exists: onlySysnative51 }),
+      nativeSystemPath(PS_REL, {
+        platform: 'linux',
+        systemRoot: '/x',
+        arch: 'ia32',
+        exists: onlySysnative51,
+      }),
     ).toBe('/x\\System32\\WindowsPowerShell\\v1.0\\powershell.exe')
   })
 
@@ -91,44 +106,90 @@ describe('nativeSystemPath：32 位进程取 Sysnative，其余取 System32（v1
 describe('nativePowerShellExe：多版本兼容（v1.4.0，5.1 优先缺失兜底 7.x）', () => {
   // 64 位进程（arch='x64'）：不命中 Sysnative，全部候选走 System32
   it('64 位进程 + 默认系统（只有 5.1）：取 System32 的 powershell.exe（5.1）', () => {
-    const deps: NativePathDeps = { platform: 'win32', arch: 'x64', systemRoot: ROOT, programFilesNative: PF, exists: sys64_51 }
+    const deps: NativePathDeps = {
+      platform: 'win32',
+      arch: 'x64',
+      systemRoot: ROOT,
+      programFilesNative: PF,
+      exists: sys64_51,
+    }
     expect(nativePowerShellExe(deps)).toBe(PS51_SYS)
   })
 
   it('32 位进程在 64 位系统（Sysnative 命中 5.1）：取 Sysnative 的 5.1，行为与 x64 包一致', () => {
-    const deps: NativePathDeps = { platform: 'win32', arch: 'ia32', systemRoot: ROOT, programFilesNative: PF, exists: onlySysnative51 }
+    const deps: NativePathDeps = {
+      platform: 'win32',
+      arch: 'ia32',
+      systemRoot: ROOT,
+      programFilesNative: PF,
+      exists: onlySysnative51,
+    }
     expect(nativePowerShellExe(deps)).toBe(PS51_NATIVE)
   })
 
   it('32 位进程 + Sysnative 里 5.1 被删、只剩 Sysnative 的 pwsh：仍走 Sysnative 位宽对齐（兜底 7.x）', () => {
-    const deps: NativePathDeps = { platform: 'win32', arch: 'ia32', systemRoot: ROOT, programFilesNative: PF, exists: onlySysnativePwsh }
+    const deps: NativePathDeps = {
+      platform: 'win32',
+      arch: 'ia32',
+      systemRoot: ROOT,
+      programFilesNative: PF,
+      exists: onlySysnativePwsh,
+    }
     expect(nativePowerShellExe(deps)).toBe(PWSH_NATIVE)
   })
 
   it('5.1 与 7.x 并存（64 位进程）：优先 5.1（不冒险切引擎——本项目 cmdlet 按 5.1 调试验证）', () => {
     const both = (p: string) => p === PS51_SYS || p === PWSH_SYS
-    const deps: NativePathDeps = { platform: 'win32', arch: 'x64', systemRoot: ROOT, programFilesNative: PF, exists: both }
+    const deps: NativePathDeps = {
+      platform: 'win32',
+      arch: 'x64',
+      systemRoot: ROOT,
+      programFilesNative: PF,
+      exists: both,
+    }
     expect(nativePowerShellExe(deps)).toBe(PS51_SYS)
   })
 
   it('精简系统删了 5.1，只剩 System32 的 pwsh：兜底 7.x', () => {
-    const deps: NativePathDeps = { platform: 'win32', arch: 'x64', systemRoot: ROOT, programFilesNative: PF, exists: sysOnlyPwsh }
+    const deps: NativePathDeps = {
+      platform: 'win32',
+      arch: 'x64',
+      systemRoot: ROOT,
+      programFilesNative: PF,
+      exists: sysOnlyPwsh,
+    }
     expect(nativePowerShellExe(deps)).toBe(PWSH_SYS)
   })
 
   it('精简系统删了 5.1，只剩 winget 装的 pwsh（%ProgramFiles%\\PowerShell\\7）：兜底 7.x', () => {
-    const deps: NativePathDeps = { platform: 'win32', arch: 'x64', systemRoot: ROOT, programFilesNative: PF, exists: pfOnlyPwsh }
+    const deps: NativePathDeps = {
+      platform: 'win32',
+      arch: 'x64',
+      systemRoot: ROOT,
+      programFilesNative: PF,
+      exists: pfOnlyPwsh,
+    }
     expect(nativePowerShellExe(deps)).toBe(PWSH_PF)
   })
 
   it('两个引擎都缺（杀软删干净）：回退裸名 powershell.exe，ENOENT 由诊断层兜底', () => {
-    const deps: NativePathDeps = { platform: 'win32', arch: 'x64', systemRoot: ROOT, programFilesNative: PF, exists: none }
+    const deps: NativePathDeps = {
+      platform: 'win32',
+      arch: 'x64',
+      systemRoot: ROOT,
+      programFilesNative: PF,
+      exists: none,
+    }
     expect(nativePowerShellExe(deps)).toBe('powershell.exe')
   })
 
   it('非 Windows：返回裸名，交给 PATH（跨平台开发/纯逻辑用例不被硬编码路径挡住）', () => {
-    expect(nativePowerShellExe({ platform: 'darwin', arch: 'x64', exists: sys64_51 })).toBe('powershell.exe')
-    expect(nativePowerShellExe({ platform: 'linux', arch: 'x64', exists: sys64_51 })).toBe('powershell.exe')
+    expect(nativePowerShellExe({ platform: 'darwin', arch: 'x64', exists: sys64_51 })).toBe(
+      'powershell.exe',
+    )
+    expect(nativePowerShellExe({ platform: 'linux', arch: 'x64', exists: sys64_51 })).toBe(
+      'powershell.exe',
+    )
   })
 })
 
@@ -145,7 +206,11 @@ describe('listPowerShellCandidates：候选枚举（日志/诊断展示"这台�
     expect(all[0]).toMatchObject({ path: PS51_SYS, engine: 'windowsPowerShell', exists: true })
     expect(all[1]).toMatchObject({ path: PWSH_SYS, engine: 'powershellCore', exists: false })
     expect(all[2]).toMatchObject({ path: PWSH_PF, engine: 'powershellCore', exists: false })
-    expect(all[3]).toMatchObject({ path: 'powershell.exe', engine: 'windowsPowerShell', exists: true })
+    expect(all[3]).toMatchObject({
+      path: 'powershell.exe',
+      engine: 'windowsPowerShell',
+      exists: true,
+    })
     expect(all[4]).toMatchObject({ path: 'pwsh.exe', engine: 'powershellCore', exists: true })
   })
 
@@ -174,7 +239,7 @@ describe('listPowerShellCandidates：候选枚举（日志/诊断展示"这台�
     expect(all[0].exists).toBe(true)
   })
 
-  it('32 位进程 + Sysnative 里 5.1 被删、只剩 Sysnative 的 pwsh：所有绝对路径候选都在 Sysnative 视图（位宽对齐）', () => {
+  it('32 位进程 + Sysnative 里 5.1 被删、只剩 Sysnative 的 pwsh：System32/Sysnative 视图内的候选都走 Sysnative（位宽对齐）', () => {
     const bothNative = (p: string) => p === PS51_NATIVE || p === PWSH_NATIVE
     const all = listPowerShellCandidates({
       platform: 'win32',
@@ -184,9 +249,14 @@ describe('listPowerShellCandidates：候选枚举（日志/诊断展示"这台�
       exists: bothNative,
     })
     const absolute = all.filter((c) => /^[A-Za-z]:[\\/]/.test(c.path))
-    for (const c of absolute) {
-      expect(c.path.startsWith(NATIVE)).toBe(true)
-    }
+    // 位宽对齐只约束 System32/Sysnative 视图内的两个候选（5.1 与 System32 版 pwsh）；
+    // 候选③ %ProgramFiles%\PowerShell\7\pwsh.exe 按设计就在该视图之外 ——
+    // Program Files 不经 Sysnative 镜像（Sysnative 只镜像 System32），且 32 位进程下
+    // 该路径取的是原生 64 位 PF（ProgramW6432），本身就是同位宽，不需要也不应改成 Sysnative。
+    const sysnativeView = absolute.filter((c) => c.path.startsWith(NATIVE))
+    expect(sysnativeView.map((c) => c.path)).toEqual([PS51_NATIVE, PWSH_NATIVE])
+    const pfView = absolute.filter((c) => c.path.startsWith(PF))
+    expect(pfView.map((c) => c.path)).toEqual([PWSH_PF])
     const bare = all.filter((c) => !/^[A-Za-z]:[\\/]/.test(c.path))
     expect(bare.map((c) => c.path)).toEqual(['powershell.exe', 'pwsh.exe'])
   })

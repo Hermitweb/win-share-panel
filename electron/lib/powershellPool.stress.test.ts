@@ -143,8 +143,24 @@ describe('PowerShellPool 压力模拟 - 100 并发', () => {
 
     const commands = Array.from({ length: N }, (_, i) => `c${i}`)
     const t0 = Date.now()
+    // 超时值按"这条命令会不会卡死"区分：
+    //   卡死的 10 条 → 25ms（本就该被超时 kill，验证中毒重启与补 spawn）
+    //   正常的 90 条 → 2000ms（贴近真实调用方的宽松 deadline，见下方说明）
+    //
+    // 为什么不能统一用 25ms：正常命令的桩响应只要 6ms，统一 25ms 只剩 19ms 余量。
+    // 全量跑 + 覆盖率插桩的典型负载会让事件循环卡顿几十毫秒，而 Node 的 timer 是
+    // "按时长分桶"管理的，每个桶的 expiry 取桶内最早者 —— 跨桶处理顺序可能先跑
+    // 25ms 桶再跑 6ms 桶，于是**正常命令被误判超时**（实测误拒 3~18 条，
+    // 且 worker 多 kill 3 个：killedCount 从 10 变 13）。
+    // 这是**测试桩的时间参数不贴近生产**造成的假红，不是池实现的缺陷：
+    // 生产侧 deadline 是 10s 级，而 PS 实际响应在百毫秒级，余量是 100 倍以上。
+    // 按命令区分后实测：40ms 与 120ms 卡顿下均为 0 误拒、0 多余 kill。
     const settled = await Promise.allSettled(
-      commands.map((cmd) => pool.execute(cmd, 'JSON', { timeout: 25 })),
+      commands.map((cmd) => {
+        const idx = Number(cmd.slice(1))
+        const hung = idx % 10 === 9
+        return pool.execute(cmd, 'JSON', { timeout: hung ? 25 : 2000 })
+      }),
     )
     const elapsed = Date.now() - t0
 
