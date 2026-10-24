@@ -31,6 +31,21 @@ import { log } from '../lib/logger'
 // 注册项键名（与 installer-hooks.nsh 对齐）
 const HKCU_RUN_KEY = 'Software\\Microsoft\\Windows\\CurrentVersion\\Run'
 
+/**
+ * 把任意路径转成正则**字面量**（可直接拼进 RegExp 源串）。
+ *
+ * 必须转义正则元字符，而不能只做 `dir.replace(/\\/g, '\\\\')`：
+ * 后者只处理了反斜杠，路径里的 `(` `)` `.` `[` `]` 等仍会被当成正则语法 ——
+ * 例如装到 `C:\Program Files (x86)\WinShare Panel` 时，`(x86)` 变成捕获组，
+ * 真实段匹配不上，反而会匹配到形似但不同的 `C:\Program Files x86\...`，
+ * 导致"撤销 PATH"**移除错段、留下真段**。
+ *
+ * 反斜杠一并由本函数处理（`\` → `\\`），调用方无需再自行加倍。
+ */
+function escapeRegExpLiteral(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // 打包版：$INSTDIR = resourcesPath 的父目录；dev 模式返回 appPath（写操作被拦截）
 function currentUserPathDir(): string {
   if (app.isPackaged) {
@@ -104,7 +119,11 @@ $r = [IntPtr]::Zero
     )
     return true
   } catch (e) {
-    log.warn('pathReg', '[broadcastPathChange] 广播失败（PS 不可用或权限不足）:', (e as Error).message)
+    log.warn(
+      'pathReg',
+      '[broadcastPathChange] 广播失败（PS 不可用或权限不足）:',
+      (e as Error).message,
+    )
     return false
   }
 }
@@ -121,8 +140,8 @@ export async function registerAppInUserPath(): Promise<PathRegistration> {
     }
   }
   const before = await getUserPath()
-  const normalizedDir = dir.replace(/\\/g, '\\\\') // PS 字符串里的反斜杠
-  const segMatch = new RegExp(`(^|;)\\s*"?(?:${normalizedDir})"?\\s*(?=;|$)`, 'i')
+  const escapedDir = escapeRegExpLiteral(dir)
+  const segMatch = new RegExp(`(^|;)\\s*"?(?:${escapedDir})"?\\s*(?=;|$)`, 'i')
   if (segMatch.test(before)) {
     return {
       registered: true,
@@ -156,8 +175,8 @@ export async function unregisterAppFromUserPath(): Promise<PathRegistration> {
     }
   }
   const before = await getUserPath()
-  const normalizedDir = dir.replace(/\\/g, '\\\\')
-  const segMatch = new RegExp(`(^|;)\\s*"?(?:${normalizedDir})"?\\s*(?=;|$)`, 'i')
+  const escapedDir = escapeRegExpLiteral(dir)
+  const segMatch = new RegExp(`(^|;)\\s*"?(?:${escapedDir})"?\\s*(?=;|$)`, 'i')
   if (!segMatch.test(before)) {
     return {
       registered: false,
@@ -167,8 +186,14 @@ export async function unregisterAppFromUserPath(): Promise<PathRegistration> {
     }
   }
   // 拆分 + 过滤 + 重组；保留引号（若有）
-  const segs = before.split(';').map((s) => s.trim()).filter((s) => s.length)
-  const kept = segs.filter((s) => !new RegExp(`^(?:"|\\"){0,2}${normalizedDir}(?:"|\\){0,2}$`, 'i').test(s))
+  const segs = before
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length)
+  // 段本身可能带引号（PATH 里带空格的目录惯例写法），故两侧各允许一个可选引号。
+  // 注：这里必须自己闭合分组——早期版本尾部写成 `(?:"|\\)`，`\)` 被当成转义字面量括号，
+  // 分组永不闭合，new RegExp 直接抛 SyntaxError（撤销功能 100% 失败）。
+  const kept = segs.filter((s) => !new RegExp(`^"?${escapedDir}"?$`, 'i').test(s))
   await setUserPath(kept.join(';'))
   const broadcast = await broadcastPathChange()
   return {
@@ -186,8 +211,8 @@ export async function isAppInUserPath(): Promise<boolean> {
   const dir = currentUserPathDir()
   const p = await getUserPath()
   if (!p) return false
-  const normalizedDir = dir.replace(/\\/g, '\\\\')
-  return new RegExp(`(^|;)\\s*"?(?:${normalizedDir})"?\\s*(?=;|$)`, 'i').test(p)
+  const escapedDir = escapeRegExpLiteral(dir)
+  return new RegExp(`(^|;)\\s*"?(?:${escapedDir})"?\\s*(?=;|$)`, 'i').test(p)
 }
 
 /**
@@ -244,7 +269,10 @@ export async function getLoginShortcut(): Promise<boolean> {
 export async function readServicePendingMarker(): Promise<boolean> {
   try {
     const raw = await runPowerShell<string>(
-      `(Get-ItemProperty -Path 'HKLM:Software\WinSharePanel' -Name ServicePending -ErrorAction SilentlyContinue).ServicePending`,
+      // 注：JS 字符串里 '\W' 会被**丢弃反斜杠**（只留 W），实际发出的键路径变成
+      // 'HKLM:SoftwareWinSharePanel' —— 那是另一个不存在的键，-ErrorAction SilentlyContinue
+      // 会静默吞掉，读到的永远是 null → 标记恒为 false。必须写成 \\ 才能保留分隔符。
+      `(Get-ItemProperty -Path 'HKLM:Software\\WinSharePanel' -Name ServicePending -ErrorAction SilentlyContinue).ServicePending`,
       { retries: 0, timeout: 10_000 },
     )
     return String(raw) === '1'

@@ -173,6 +173,67 @@ public class PathRegistrationTests
         Assert.Empty(ps.VoidCommands);
     }
 
+    // ===== 回归：路径字面量转义（与 TS 同源缺陷同修）=====
+
+    // 装到 "C:\Program Files (x86)\..." 时，若路径未做正则元字符转义，
+    // (x86) 会被当成捕获组：真实段匹配不上，反而匹配到形似但不同的
+    // "C:\Program Files x86\..." → 撤销 PATH 会移除错段、留下真段。
+    private const string ParenDir = @"C:\Program Files (x86)\WinShare Panel";
+    private const string LookalikeDir = @"C:\Program Files x86\WinShare Panel";
+
+    // [Source: pathRegistration.test.ts#回归：路径字面量转义 > 撤销时只移除真实段（含括号），保留形似但不同的段]
+    [Fact]
+    public async Task Unregister_ParenPath_RemovesOnlyRealSegment()
+    {
+        var ps = new FakePs();
+        var svc = new PathRegistrationService(ParenDir, isPackaged: true, ps);
+        ps.WhenJson($@"C:\a;{ParenDir};{LookalikeDir};C:\b");
+        ps.WhenVoidOk();
+        ps.WhenVoidOk();
+
+        PathRegistration r = await svc.UnregisterAppFromUserPathAsync();
+
+        Assert.False(r.registered);
+        string writeCall = ps.VoidCommands[0];
+        Assert.DoesNotContain("(x86)", writeCall);        // 真实段（含括号）被移除
+        Assert.Contains(@"Program Files x86", writeCall); // 形似段必须保留
+        Assert.Contains(@"C:\a", writeCall);
+        Assert.Contains(@"C:\b", writeCall);
+    }
+
+    // [Source: pathRegistration.test.ts#回归：路径字面量转义 > 带引号的真实段（含括号）同样能被识别与撤销]
+    [Fact]
+    public async Task Unregister_QuotedParenPath_RemovesRealSegment()
+    {
+        var ps = new FakePs();
+        var svc = new PathRegistrationService(ParenDir, isPackaged: true, ps);
+        ps.WhenJson("\"" + ParenDir + "\";C:\\b");
+        ps.WhenVoidOk();
+        ps.WhenVoidOk();
+
+        PathRegistration r = await svc.UnregisterAppFromUserPathAsync();
+
+        Assert.False(r.registered);
+        string writeCall = ps.VoidCommands[0];
+        Assert.Contains(@"C:\b", writeCall);
+        Assert.DoesNotContain("(x86)", writeCall);
+    }
+
+    // [Source: pathRegistration.test.ts#回归：路径字面量转义 > isAppInUserPath：含括号路径能精确匹配，形似路径不算]
+    [Fact]
+    public async Task IsAppInUserPath_ParenPath_ExactMatchOnly()
+    {
+        var ps = new FakePs();
+        var svc = new PathRegistrationService(ParenDir, isPackaged: true, ps);
+        ps.WhenJson($@"C:\a;{ParenDir}");
+        Assert.True(await svc.IsAppInUserPathAsync());
+
+        var ps2 = new FakePs();
+        var svc2 = new PathRegistrationService(ParenDir, isPackaged: true, ps2);
+        ps2.WhenJson($@"C:\a;{LookalikeDir}");
+        Assert.False(await svc2.IsAppInUserPathAsync());
+    }
+
     // ===== setLoginShortcut =====
 
     // [Source: pathRegistration.test.ts#setLoginShortcut > enabled=true：写 HKCU Run 键]

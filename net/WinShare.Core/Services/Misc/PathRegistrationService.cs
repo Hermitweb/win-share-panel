@@ -171,8 +171,9 @@ $r = [IntPtr]::Zero
         }
         // 拆分 + 过滤 + 重组；保留引号（若有）
         List<string> segs = before.Split(';').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
-        string norm = NormalizeDirForRegex(dir);
-        var keepPattern = new Regex($"^(?:\"|\\\\){{0,2}}{norm}(?:\"|\\\\){{0,2}}$", RegexOptions.IgnoreCase);
+        string norm = EscapeRegExpLiteral(dir);
+        // 段本身可能带引号（PATH 里带空格的目录惯例写法），故两侧各允许一个可选引号。
+        var keepPattern = new Regex($"^\"?{norm}\"?$", RegexOptions.IgnoreCase);
         var kept = segs.Where(s => !keepPattern.IsMatch(s)).ToList();
         await SetUserPathAsync(string.Join(";", kept));
         bool broadcast = await BroadcastPathChangeAsync();
@@ -268,11 +269,18 @@ $r = [IntPtr]::Zero
     }
 
     /// <summary>
-    /// TS: normalizedDir = dir.replace(/\\/g, '\\\\'); new RegExp(`(^|;)\s*"?{dir}"?\s*(?=;|$)`, 'i')。
-    /// （dir 为本应用目录，非外部输入，不做正则转义——与 TS 逐字对齐。）
+    /// TS: escapeRegExpLiteral()（同字符集同规则）。
+    /// 把路径转成正则**字面量**：反斜杠与正则元字符（. * + ? ^ $ { } ( ) | [ ]）一并转义。
+    /// 不能只做 Replace(@"\", @"\\") —— 那样路径里的 `(x86)` 仍会被当成捕获组，
+    /// 真实段匹配不上，反而匹配到形似但不同的 `C:\Program Files x86\...`，
+    /// 导致"撤销 PATH"移除错段、留下真段。
+    /// </summary>
+    private static string EscapeRegExpLiteral(string s) =>
+        Regex.Replace(s, @"[.*+?^${}()|\[\]\\]", @"\$&");
+
+    /// <summary>
+    /// TS: new RegExp(`(^|;)\s*"?{dir}"?\s*(?=;|$)`, 'i')（dir 先经 escapeRegExpLiteral 转义）。
     /// </summary>
     private static Regex SegmentMatch(string dir) =>
-        new($"(^|;)\\s*\"?(?:{NormalizeDirForRegex(dir)})\"?\\s*(?=;|$)", RegexOptions.IgnoreCase);
-
-    private static string NormalizeDirForRegex(string dir) => dir.Replace(@"\", @"\\");
+        new($"(^|;)\\s*\"?(?:{EscapeRegExpLiteral(dir)})\"?\\s*(?=;|$)", RegexOptions.IgnoreCase);
 }
