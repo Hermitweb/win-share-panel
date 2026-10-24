@@ -115,6 +115,21 @@ const stub = vi.hoisted(() => {
       autoStart: r(true),
       setAutoStart: r(true),
       relaunch: r(null),
+      // v1.4.2：系统注册项卡片（应用设置页）调用了这几个通道 —— 桩里补齐，
+      // 否则每次渲染应用设置页都会产生 3 个查询失败（queryFn 抛 TypeError）。
+      appInfo: r({
+        version: '1.4.2',
+        electron: '31.3.0',
+        chrome: '126.0.0.0',
+        node: '20.15.1',
+        platform: 'win32',
+        arch: 'x64',
+        isPackaged: true,
+      }),
+      pathRegistered: r(false),
+      registerPath: r({ registered: true, pathLength: 0, message: '已注册', broadcast: false }),
+      unregisterPath: r({ registered: false, pathLength: 0, message: '已撤销', broadcast: false }),
+      servicePending: r(false),
       pathForFile: vi.fn((): string => ''),
     },
     log: { write: r(null), tail: r('') },
