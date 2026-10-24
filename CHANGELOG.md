@@ -106,6 +106,57 @@ lint / format:check / test 三门同时为红。逐项修复后恢复全绿：
   模块被拖进首屏主 chunk）。改为 `React.lazy` + 常驻 `Suspense` 边界后真正分包，
   且**保持"常驻挂载 + open 受控"语义**（关闭动画与 open 转换时的状态重置仍由组件内部负责）。
 
+### 🔧 修复 / Fixed：DOM 组负载敏感的间歇红（并发超订）
+
+提交后终验时 `test:coverage` 出现 4 例失败、而同一棵树的普通 `test` 与随后的覆盖率重跑均全绿
+（755/755）—— 属**随负载漂移的间歇红**，与 backlog 里此前登记的"负载敏感断言抖动"同类，
+但根因这次更明确：**并发超订**。
+
+本机 16 逻辑核 / 8 物理核，`vitest` 默认按 CPU 数并发，27 个 DOM 文件（antd + jsdom 重型渲染）
+全并行 → 每个 worker 只分到约半个物理核 → 异步等待预算（RTL `asyncUtilTimeout` 10s /
+`testTimeout` 30s）偶发击穿。
+
+修正（**不改任何用例、断言与等待时长**）：`vitest.config.ts` 给 DOM 组加 `maxWorkers: 4`
+（vitest 4 要求各 project 的 `maxWorkers` 不同时必须给各自的 `sequence.groupOrder`，
+故 node 组补 `groupOrder: 1`、dom 组 `groupOrder: 2`），node 组（纯逻辑、轻量）保持全并行。
+CI（windows-latest 4 核）上默认并发本就是 3~4，本设置对其无影响，只修多核开发机的超订。
+
+**稳定性与耗时实测**：连跑 3 遍 `test:coverage` 全部 755/755 全绿，
+墙钟 **175s / 133s / 135s** —— 反而比加限流前（192~271s）**更快**（减少了并发争抢开销）。
+
+另把 node 组挂着的 `retry: 1` **摘掉**：该 retry 原是给压测用例吸收负载敏感抖动的，
+而那个抖动已在其自身文件里根治（按命令是否卡死分别给超时值）；留着它会让
+"首次失败、重试通过"的用例被记为**通过**，反而可能掩盖新引入的间歇性回归。
+摘掉后连跑 2 遍 `test:coverage` 仍全绿（墙钟 122s / 122s）。
+**合计：修复后连续 5 遍 `test:coverage` 全绿。**
+
+另修一处**桩不完整**导致的隐性开销：`src/pages/Settings.test.tsx`（约 30 处渲染「应用设置」页）
+与 `src/test/renderer-debt.verification.test.tsx` 的 `api.system` 桩没有 `pathRegistered` /
+`registerPath` / `unregisterPath` / `servicePending` / `appInfo`，
+新卡片落地后每次渲染都会产生 5 个查询失败（queryFn 抛 TypeError）→ 错误态 + 额外重渲染。
+现已补齐。
+
+### 📝 文档 / Docs：WPF 侧 `DOCS.md` 从 T3a 老快照更新到实况
+
+`net/WinShare.App/DOCS.md` 停在 T3a 交付时的快照，多处**已被推翻的"事实"**：
+
+| 文档原文 | 实况 |
+| --- | --- |
+| 路由表：`/shares` `/users` `/sessions` `/settings` `/app-settings` 五条都挂 `PlaceholderPage` | T3b/c/d 已全部交付，六条路由都由各自模块的 `Register` 直接注册真实页面 |
+| §4「当前 `AppServices.SystemService` 槽位为 null」「趋势采样器**未启动**」 | 组合根 `Composition/ServicesComposition.cs` 已装配 **15 个 Core 契约服务**并注入 UI 静态槽，仪表板馈送与趋势采样器都是活的 |
+
+已按实况重写 §0（目录结构）、§3（导航注册 API）、§4（契约服务接入），
+并修正 `App.xaml.cs`（「仪表板（本任务模块）+ 5 占位（TODO T3b/c/d）」等过期注释与日志文案）
+与 `Views/PlaceholderPage.cs`（明确标注为历史脚手架、当前无路由引用）。
+
+### 📝 文档 / Docs：README 截图占位改为可执行规格
+
+原为模糊的「📸 截图占位 / Screenshots placeholder（待补充 / TBD）」。
+现有素材逐张看过——本地 `ui-shot-*.png` 全是**空态仪表板**、首屏加载态、
+UI 重设计**之前**的旧版、以及一张 Chromium 的下载弹窗，没有一张能代表产品，硬贴反而失实。
+故改为可执行规格：整图 ≈1250×860、浅色主题、**必须含真实数据**（共享数/连接数非空、
+共享管理列表非空），素材到位后放 `docs/screenshots/`。
+
 ### 🔧 修复 / Fixed：另一台机器安装后 PowerShell 失效导致应用不可用
 
 - **PowerShell 运行时探测 + 失败诊断（`electron/services/psRuntime.ts` 新增）**：
