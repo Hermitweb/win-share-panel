@@ -1,12 +1,21 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Button, Space, Tooltip } from 'antd'
 import { AimOutlined, HistoryOutlined } from '@ant-design/icons'
 import Shares from '../pages/Shares'
 import JournalDrawer from './JournalDrawer'
-import DiagnoseModal from './DiagnoseModal'
 import { useUiStore } from '../stores/uiStore'
 import { useTickEffect } from '../hooks/useTickEffect'
 import type { Share } from '../types'
+
+/**
+ * 诊断向导：懒加载。
+ *
+ * 必须与 pages/Settings.tsx 一样走**动态** import —— 两处都是动态 import 时，Vite 才能把
+ * DiagnoseModal 真正切成独立 chunk。若这里改成静态 import，构建会报
+ * "dynamically imported by Settings.tsx but also statically imported by SharesWithOps.tsx"，
+ * 动态导入被静默失效，模块被拖进首屏主 chunk（实测主 chunk 6.28 MB）。
+ */
+const DiagnoseModal = lazy(() => import('./DiagnoseModal'))
 
 /**
  * 共享页的批1 入口集成层（captain 挂载）。
@@ -73,11 +82,15 @@ export default function SharesWithOps() {
         )}
       />
       <JournalDrawer open={journalOpen} onClose={() => setJournalOpen(false)} />
-      <DiagnoseModal
-        open={diagnoseOpen}
-        onClose={() => setDiagnoseOpen(false)}
-        initialShareName={diagnoseShare}
-      />
+      {/* Suspense 边界常驻：组件保持"常驻挂载 + open 受控"语义（关闭动画、open 转换时的状态
+          重置均由 DiagnoseModal 内部负责），被延迟的只是模块字节本身。 */}
+      <Suspense fallback={null}>
+        <DiagnoseModal
+          open={diagnoseOpen}
+          onClose={() => setDiagnoseOpen(false)}
+          initialShareName={diagnoseShare}
+        />
+      </Suspense>
     </>
   )
 }

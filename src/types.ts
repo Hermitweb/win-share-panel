@@ -143,6 +143,23 @@ export interface CreateGroupOpts {
   description?: string
 }
 
+/**
+ * 用户级 PATH 一键注册/撤销的结果（对应主进程 pathRegistration.ts 的 PathRegistration）。
+ *
+ * pathLength 是**脱敏后的长度**：主进程不回传完整 PATH，避免把用户其他工具的路径
+ * 泄露到渲染层/日志；UI 只需据此显示"当前长度"与操作结果。
+ */
+export interface PathRegistrationResult {
+  /** 是否已存在本应用目录条目 */
+  registered: boolean
+  /** 当前用户级 PATH 的长度（脱敏） */
+  pathLength: number
+  /** 本次操作结果说明（供 UI 直接展示） */
+  message: string
+  /** 是否广播了 WM_SETTINGCHANGE（PS 缺失或权限不足时为 false） */
+  broadcast: boolean
+}
+
 export interface WinShareApi {
   share: {
     list: () => Promise<Share[]>
@@ -225,6 +242,15 @@ export interface WinShareApi {
     openLogFolder: () => Promise<string>
     autoStart: () => Promise<boolean | null>
     setAutoStart: (enabled: boolean) => Promise<boolean>
+    /**
+     * 用户级 PATH 一键注册/撤销（v1.4.0 起后端就绪，v1.4.2 补上 UI 入口）。
+     * pathLength 是**脱敏后的长度**——主进程不回传完整 PATH，避免泄露用户其他工具的路径。
+     */
+    registerPath: () => Promise<PathRegistrationResult>
+    unregisterPath: () => Promise<PathRegistrationResult>
+    pathRegistered: () => Promise<boolean>
+    /** NSIS 安装器预留的服务标记（v1.4.0 暂不创建服务本体，仅提示） */
+    servicePending: () => Promise<boolean>
     /** 升级后重启到新版本；旧进程无此通道，调用方必须先探测存在性 */
     relaunch: () => Promise<void>
     openExternal: (url: string) => Promise<null>

@@ -595,4 +595,6 @@ export interface AppInfo {
   node: string
   platform: string
   arch: string
+  /** 是否为打包版（开发模式下为 false）——渲染层据此对"仅打包版可用"的入口做诚实降级 */
+  isPackaged: boolean
 }

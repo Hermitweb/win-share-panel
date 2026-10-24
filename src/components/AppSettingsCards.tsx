@@ -32,6 +32,7 @@ import {
   PlusOutlined,
   RocketOutlined,
   SafetyCertificateOutlined,
+  LinkOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -634,6 +635,133 @@ export function SecurityCard() {
             </>
           )}
         </>
+      )}
+    </Card>
+  )
+}
+
+/**
+ * ⑥ 系统注册项：用户级 PATH 一键注册 / 撤销。
+ *
+ * 为什么补这张卡：v1.4.0 起主进程就把 `system:registerPath` / `system:unregisterPath` /
+ * `system:pathRegistered` / `system:servicePending` 四个通道与 preload 封装都做完了，
+ * 但渲染层**一个调用点都没有** —— 通道建好却没有任何界面能用，用户无法自助把应用目录
+ * 加进 PATH。v1.4.2 补上这个入口，让"一键注册"真正可用。
+ *
+ * 口径说明：
+ *  - 写的是**用户级** PATH（HKCU\Environment\Path），不需要 UAC，与"单用户工具"形态匹配；
+ *    主进程写完广播 WM_SETTINGCHANGE，本会话已打开的终端立即生效，否则需重开终端/重新登录。
+ *  - 主进程**不回传完整 PATH**（只回长度 + 说明），避免把用户其他工具的路径泄露到渲染层。
+ *  - 与「开机自启」卡是两条独立链路：那条走系统登录项（Electron LoginItemSettings），
+ *    本卡只管 PATH。
+ */
+export function SystemRegistrationCard() {
+  const { message } = App.useApp()
+  const queryClient = useQueryClient()
+  const refreshTick = useUiStore((s) => s.refreshTick)
+  const [busy, setBusy] = useState(false)
+
+  const { data: registered, refetch } = useQuery({
+    queryKey: ['system-path-registered'],
+    queryFn: () => api.system.pathRegistered(),
+    staleTime: 60_000,
+  })
+  const { data: appInfo } = useQuery({
+    queryKey: ['system-app-info'],
+    queryFn: () => api.system.appInfo(),
+    staleTime: 300_000,
+  })
+  const { data: servicePending } = useQuery({
+    queryKey: ['system-service-pending'],
+    queryFn: () => api.system.servicePending(),
+    staleTime: 300_000,
+  })
+  const reload = () => {
+    void refetch().catch(() => undefined)
+  }
+  useTickEffect(refreshTick, reload)
+
+  // 开发模式下主进程会拒绝写入（写进 PATH 的是源码目录，没有意义）——按不可用降级，
+  // 不给用户一个点了只会失败的按钮。appInfo 未就绪时先按可用处理，主进程仍有兜底文案。
+  const packaged = appInfo?.isPackaged !== false
+
+  const run = async (action: 'register' | 'unregister') => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const r = await call(() =>
+        action === 'register' ? api.system.registerPath() : api.system.unregisterPath(),
+      )
+      queryClient.setQueryData(['system-path-registered'], r.registered)
+      if (r.broadcast) {
+        message.success(r.message)
+      } else {
+        // 写入成功但没能广播 —— 已开的终端拿不到新 PATH，必须说清楚
+        message.warning(r.message)
+      }
+    } catch (e) {
+      message.error(`操作失败：${(e as Error).message}`)
+      reload()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card
+      size="small"
+      className="glass-card mb-3"
+      title={
+        <Space size={6}>
+          <LinkOutlined />
+          系统注册项
+        </Space>
+      }
+    >
+      <div className="text-xs text-fog mb-2">
+        把本应用目录加入<b>用户级</b> PATH（HKCU\Environment\Path），无需管理员权限。
+        写入后会广播环境变量变更通知，本会话已打开的终端立即生效；否则需重开终端或重新登录。
+      </div>
+      <Space size={8} wrap>
+        <Tag color={registered ? 'green' : 'default'} style={{ margin: 0 }}>
+          {registered ? '已注册到用户 PATH' : '未注册到用户 PATH'}
+        </Tag>
+        {registered ? (
+          <Popconfirm
+            title="从用户 PATH 移除本应用目录？"
+            description="只移除本应用自己写入的那一段，其他路径不受影响。"
+            okText="移除"
+            cancelText="取消"
+            onConfirm={() => run('unregister')}
+          >
+            <Button size="small" disabled={busy || !packaged}>
+              撤销注册
+            </Button>
+          </Popconfirm>
+        ) : (
+          <Button
+            size="small"
+            type="primary"
+            disabled={busy || !packaged}
+            onClick={() => run('register')}
+          >
+            注册到用户 PATH
+          </Button>
+        )}
+      </Space>
+      {!packaged && (
+        <div className="text-xs text-fog mt-2">
+          开发模式不写入 PATH（写进去的是源码目录，没有意义）——请用打包版验证该入口。
+        </div>
+      )}
+      {servicePending && (
+        <Alert
+          type="info"
+          showIcon
+          className="mt-2"
+          title="此机器的安装器已预留系统服务注册位"
+          description="当前版本仍以桌面应用形态运行，暂未创建服务本体；该标记只用于后续版本启用系统服务时识别这台机器。"
+        />
       )}
     </Card>
   )

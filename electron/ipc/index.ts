@@ -435,9 +435,7 @@ export function registerIpc(): void {
   ipcMain.handle('system:psDiagnose', (_e, rawError: unknown) =>
     wrap(
       async () =>
-        diagnosePsRuntime(
-          typeof rawError === 'string' && rawError ? rawError : '(未知错误)',
-        ),
+        diagnosePsRuntime(typeof rawError === 'string' && rawError ? rawError : '(未知错误)'),
       'psDiagnose',
       typeof rawError === 'string' ? rawError.slice(0, 80) : '(非字符串)',
     ),
@@ -700,6 +698,7 @@ export function registerIpc(): void {
           node: process.versions.node ?? '',
           platform: process.platform,
           arch: process.arch,
+          isPackaged: app.isPackaged,
         }),
       'appInfo',
       'app',

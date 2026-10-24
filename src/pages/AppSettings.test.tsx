@@ -16,6 +16,11 @@ const stub = vi.hoisted(() => {
       auditLog: vi.fn(),
       autoStart: vi.fn(),
       setAutoStart: vi.fn(),
+      // 系统注册项（v1.4.2 补上 UI 入口）：用户级 PATH 一键注册/撤销 + 安装器服务标记
+      pathRegistered: vi.fn(),
+      registerPath: vi.fn(),
+      unregisterPath: vi.fn(),
+      servicePending: vi.fn(),
       // 「侧栏入口」用例渲染的是 Layout → HealthBar，它首帧就并行拉健康态与协议探测。
       // 少一个通道，Promise.all 的数组求值会同步抛错，先建出的 rejected promise 无人接住 →
       // vitest 报 unhandled rejection（用例全绿但运行确实不干净），故三个通道都要在。
@@ -54,6 +59,16 @@ const APP_STATE = {
   journal: [],
 }
 
+const APP_INFO = {
+  version: '9.9.9',
+  electron: '31.3.0',
+  chrome: '126.0.0.0',
+  node: '20.15.1',
+  platform: 'win32',
+  arch: 'x64',
+  isPackaged: true,
+}
+
 function renderPage(ui: React.ReactElement) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: 0, refetchOnWindowFocus: false } },
@@ -73,14 +88,21 @@ beforeEach(() => {
   stub.window.isMaximized.mockReset().mockResolvedValue(false)
   stub.state.get.mockReset().mockResolvedValue(APP_STATE)
   stub.state.patch.mockReset().mockResolvedValue(APP_STATE)
-  stub.system.appInfo.mockReset().mockResolvedValue({
-    version: '9.9.9',
-    electron: '31.3.0',
-    chrome: '126.0.0.0',
-    node: '20.15.1',
-    platform: 'win32',
-    arch: 'x64',
+  stub.system.appInfo.mockReset().mockResolvedValue(APP_INFO)
+  stub.system.pathRegistered.mockReset().mockResolvedValue(false)
+  stub.system.registerPath.mockReset().mockResolvedValue({
+    registered: true,
+    pathLength: 128,
+    message: '已将应用目录追加到用户 PATH，并广播给本会话进程',
+    broadcast: true,
   })
+  stub.system.unregisterPath.mockReset().mockResolvedValue({
+    registered: false,
+    pathLength: 96,
+    message: '已从用户 PATH 移除应用目录，并广播给本会话进程',
+    broadcast: true,
+  })
+  stub.system.servicePending.mockReset().mockResolvedValue(false)
   stub.system.openExternal.mockReset().mockResolvedValue(null)
   stub.system.openLogFolder.mockReset().mockResolvedValue('C:\\logs')
   stub.system.auditLog
@@ -151,5 +173,72 @@ describe('侧栏入口', () => {
     renderPage(<Layout onCommand={() => undefined}>子内容</Layout>)
     const link = screen.getByRole('link', { name: /应用设置/ })
     expect(link).toHaveAttribute('href', '/app-settings')
+  })
+})
+
+/**
+ * 系统注册项卡片（v1.4.2 补 UI 入口）。
+ * 主进程通道 v1.4.0 就绪但渲染层零调用点，这里固化入口的可用性与口径：
+ * 广播失败不能谎报成功、开发模式必须降级禁用、服务标记要有说明。
+ */
+describe('应用设置页 · 系统注册项（用户级 PATH 一键注册/撤销）', () => {
+  it('未注册时展示「注册到用户 PATH」，点击调用 system:registerPath 并刷新状态', async () => {
+    renderPage(<AppSettings />)
+    const btn = await screen.findByRole('button', { name: /注册到用户 PATH/ })
+    expect(screen.getByText('未注册到用户 PATH')).toBeInTheDocument()
+    fireEvent.click(btn)
+    await waitFor(() => expect(stub.system.registerPath).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getByText('已注册到用户 PATH')).toBeInTheDocument())
+  })
+
+  it('已注册时展示「撤销注册」，二次确认后调用 system:unregisterPath', async () => {
+    stub.system.pathRegistered.mockResolvedValue(true)
+    renderPage(<AppSettings />)
+    const btn = await screen.findByRole('button', { name: /撤销注册/ })
+    expect(screen.getByText('已注册到用户 PATH')).toBeInTheDocument()
+    fireEvent.click(btn)
+    // Popconfirm 二次确认（antd 渲染在 body 上的浮层里；v6 的按钮文字包在 span 内，
+    // 按角色/文本查按钮都匹配不到，直接定位 antd 的确认按钮类名）
+    const okBtn = await waitFor(() => {
+      const el = document.querySelector('.ant-popconfirm-buttons .ant-btn-primary')
+      if (!el) throw new Error('Popconfirm 确认按钮未出现')
+      return el as HTMLElement
+    })
+    fireEvent.click(okBtn)
+    await waitFor(() => expect(stub.system.unregisterPath).toHaveBeenCalledTimes(1))
+  })
+
+  it('广播失败时如实提示「需重开终端」，不谎报成功', async () => {
+    stub.system.registerPath.mockResolvedValue({
+      registered: true,
+      pathLength: 128,
+      message: '已将应用目录追加到用户 PATH；广播失败，需重开终端/登录才生效',
+      broadcast: false,
+    })
+    renderPage(<AppSettings />)
+    fireEvent.click(await screen.findByRole('button', { name: /注册到用户 PATH/ }))
+    await waitFor(() => expect(screen.getByText(/需重开终端/)).toBeInTheDocument())
+  })
+
+  it('调用失败时提示原因，不静默吞掉', async () => {
+    stub.system.registerPath.mockRejectedValue(new Error('拒绝访问'))
+    renderPage(<AppSettings />)
+    fireEvent.click(await screen.findByRole('button', { name: /注册到用户 PATH/ }))
+    await waitFor(() => expect(screen.getByText(/操作失败：拒绝访问/)).toBeInTheDocument())
+  })
+
+  it('开发模式（isPackaged=false）下入口禁用并写明原因', async () => {
+    stub.system.appInfo.mockResolvedValue({ ...APP_INFO, isPackaged: false })
+    renderPage(<AppSettings />)
+    // 先等 appInfo 到位（降级提示只在拿到 isPackaged=false 后才渲染），
+    // 再断言按钮禁用 —— 否则会撞上"查询未就绪 ⇒ 暂按可用处理"的中间态。
+    expect(await screen.findByText(/开发模式不写入 PATH/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /注册到用户 PATH/ })).toBeDisabled()
+  })
+
+  it('安装器预留了服务注册位时给出说明', async () => {
+    stub.system.servicePending.mockResolvedValue(true)
+    renderPage(<AppSettings />)
+    expect(await screen.findByText(/已预留系统服务注册位/)).toBeInTheDocument()
   })
 })

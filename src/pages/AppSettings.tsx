@@ -12,6 +12,7 @@ import {
   AutoStartCard,
   FirewallCard,
   SecurityCard,
+  SystemRegistrationCard,
   UsageModeCard,
 } from '../components/AppSettingsCards'
 import { AppLogPanel, AuditLogPanel } from '../components/LogPanels'
@@ -141,6 +142,7 @@ export default function AppSettings() {
       <div className="text-sm font-medium mt-4 mb-2">偏好与运维</div>
       <UsageModeCard />
       <AutoStartCard />
+      <SystemRegistrationCard />
       <AlertRulesCard />
       <FirewallCard />
       <SecurityCard />
