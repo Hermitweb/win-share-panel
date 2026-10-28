@@ -10,7 +10,8 @@
         AllowsTransparency="False"
         Background="Transparent"
         UseLayoutRounding="True"
-        SnapsToDevicePixels="True">
+        SnapsToDevicePixels="True"
+        Icon="Resources/logo.png">
     <!--
       docs/UI_DESIGN.md §9 窗口风格化：无边框 + 磨砂玻璃自定义标题栏（左应用名 + 右最小化/最大化/关闭）。
       整体浅蓝调柔光渐变背板 + 16px 圆角外框；页面区承载各路由视图。
@@ -38,12 +39,10 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- 品牌：渐变圆角方块 + 名称 -->
+                    <!-- 品牌：统一 logo（仓库根 win-share-panel.png 派生）+ 名称 -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Width="26" Height="26" CornerRadius="9" Background="{DynamicResource BrushBrandGradient}">
-                            <TextBlock Text="◈" FontSize="14" Foreground="White"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                        <Image Width="26" Height="26" Source="Resources/logo.png" Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
                         <TextBlock Text="WinShare Panel" Margin="10,0,0,0" FontSize="14" FontWeight="SemiBold"
                                    VerticalAlignment="Center" Foreground="{DynamicResource BrushText}" />
                         <TextBlock x:Name="TitleStatus" Margin="12,0,0,0" FontSize="11.5" VerticalAlignment="Center"

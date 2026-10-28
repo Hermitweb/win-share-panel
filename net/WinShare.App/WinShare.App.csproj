@@ -19,6 +19,18 @@
     <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <AssemblyTitle>WinShare Panel</AssemblyTitle>
+    <!-- 统一图标：exe 图标与 Electron 侧共用仓库根 resources/icon.ico -->
+    <ApplicationIcon>..\..\resources\icon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!-- 统一图标：内嵌仓库根 resources/（窗口标题栏 logo.png + 托盘 icon.ico 同源） -->
+  <ItemGroup>
+    <Resource Include="..\..\resources\logo.png">
+      <Link>Resources\logo.png</Link>
+    </Resource>
+    <EmbeddedResource Include="..\..\resources\icon.ico">
+      <Link>Resources\icon.ico</Link>
+    </EmbeddedResource>
+  </ItemGroup>
 
 </Project>

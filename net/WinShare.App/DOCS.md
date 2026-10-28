@@ -17,7 +17,8 @@ net/WinShare.App/
 ├── Shell/
 │   ├── AppShell.cs            生命周期（关闭=托盘常驻 / 退出清理）
 │   ├── SingleInstanceGuard.cs 单实例 Mutex + 命名管道激活（对齐 requestSingleInstanceLock）
-│   ├── TrayController.cs      WinForms NotifyIcon + ContextMenuStrip（对齐 createTray）
+│   ├── AppIcon.cs            统一图标加载（窗口标题栏 logo.png / 托盘 icon.ico，同源仓库根源图）
+│   ├── TrayController.cs      WinForms NotifyIcon + ContextMenuStrip（对齐 createTray；图标由 AppIcon 提供）
 │   ├── Win11Detector.cs       isWin11 对齐（build≥22000）→ DwmBackdrop 亚克力
 │   ├── CrashReporter.cs       crashReporter 替代（三面包全落 app.log，UI 线程不崩）
 │   └── LogSink.cs             %APPDATA%\WinSharePanel\logs\app.log（对齐 electron logger.logDir）

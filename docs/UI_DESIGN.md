@@ -196,15 +196,18 @@ border: 1px solid rgba(255, 255, 255, 0.6);
 
 | 文件 | 路径 | 用途 |
 |------|------|------|
-| 源图 | `resources/logo.jpg` | 原始 logo，18KB |
-| PNG | `resources/logo.png`（256×256） | 标题栏图标、系统托盘、关于页、UI 内引用 |
-| ICO | `resources/icon.ico` | Windows 应用图标、electron-builder 打包图标 |
+| 源图 | `win-share-panel.png`（仓库根，1632×1504） | 唯一官方 logo 源，所有图标由此生成 |
+| PNG | `resources/logo.png`（256×256） | 标题栏图标、系统托盘、favicon、UI 内引用 |
+| ICO | `resources/icon.ico`（16/24/32/48/64/128/256 多尺寸） | Windows 应用图标、electron-builder 打包图标、WPF 托盘图标 |
+| JPG | `resources/logo.jpg`（250×250） | 由源图派生的兼容副本，非独立设计 |
 
 - 标题栏图标：使用 `logo.png`，显示尺寸 16×16
-- 系统托盘图标：使用 `logo.png`，显示尺寸 16×16（建议额外准备 32×32 用于高 DPI）
+- 系统托盘图标：Electron 侧使用 `logo.png`；WPF 侧使用 `icon.ico`
+  （`System.Drawing.Icon` 不接受 PNG，且 ICO 自带 16×16 帧更适合托盘）
+- favicon：`src/index.html` 指向 `./logo.png`
 - 应用窗口图标：`BrowserWindow({ icon: 'resources/icon.ico' })`
 - 打包图标：`electron-builder` `win.icon` 指向 `resources/icon.ico`
-- 如需更高清或多尺寸，从 `logo.jpg` 重新生成
+- 如需更高清或多尺寸，从 `win-share-panel.png` 重新生成（居中裁切为正方形后缩放）
 
 ---
 

@@ -61,7 +61,7 @@ public partial class App : Application
 
         // 托盘（对齐 createTray：显示主窗口 / 打开日志文件夹 / 退出）
         AppShell.ShowMainWindow = ShowMainWindow;
-        AppShell.CreateTray(OpenLogDir, QuitApp);
+        AppShell.CreateTray(OpenLogDir, QuitApp, AppIcon.TrayIcon());
         // 告警触发事件 → 托盘气泡（对齐 TS alertRules 告警通知面）
         AppShell.OnAlertRaised = evt => AppShell.ShowBalloon("WinShare 告警", evt.text);
 
