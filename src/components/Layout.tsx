@@ -19,7 +19,7 @@ interface MenuItem {
 }
 
 const menus: MenuItem[] = [
-  { path: '/', label: '仪表板', icon: <DashboardOutlined /> },
+  { path: '/', label: '仪表盘', icon: <DashboardOutlined /> },
   { path: '/shares', label: '共享管理', icon: <FolderOpenOutlined /> },
   { path: '/users', label: '用户权限', icon: <TeamOutlined /> },
   { path: '/sessions', label: '会话监控', icon: <ApiOutlined /> },

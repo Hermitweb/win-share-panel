@@ -425,7 +425,7 @@ describe('应用设置 · 使用模式与外观', () => {
     persisted.advancedMode = false
     const view = renderSettings()
     // 两处同名文本（h1 与 Tab 标题）→ 用标题级查询，避免 findByText 多命中报错
-    await screen.findByRole('heading', { name: '服务器配置' })
+    await screen.findByRole('heading', { name: '服务配置' })
     // hydrate 是异步的（读主进程 appState）：等新手态真正生效再断言收起
     await waitFor(() => expect(screen.getByText(/当前为新手模式：高级参数/)).toBeInTheDocument())
     expect(screen.queryByText('高级参数（吞吐/超时/压缩）')).not.toBeInTheDocument()

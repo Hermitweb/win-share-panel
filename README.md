@@ -45,7 +45,7 @@
 
 | 模块 / Module | 说明 / Description |
 |---|---|
-| 📊 仪表板 / Dashboard | 共享总数、活动会话、打开文件、协议分布、Top 5 热门共享、系统状态、PNG/CSV 导出 |
+| 📊 仪表盘 / Dashboard | 共享总数、活动会话、打开文件、协议分布、Top 5 热门共享、系统状态、PNG/CSV 导出 |
 | 📁 共享管理 / Shares | 多协议共享 CRUD、新建向导（高度可自定义）、拖拽创建、批量操作、权限预设模板、配置导入导出（JSON） |
 | 👥 用户权限 / Users | 本地用户/组 CRUD、共享权限（Full/Change/Read/Deny）、NTFS 权限查看、权限矩阵视图 |
 | 🔄 会话监控 / Sessions | 多协议实时会话、打开文件、强制断开、可配置刷新间隔（1s/5s/10s/30s） |
@@ -69,7 +69,7 @@
 
 > 📸 截图 / Screenshots：**待补**。
 > 素材规格：应用窗口整图（≈1250×860）、浅色主题、**必须是有真实数据的画面**
-> （仪表板上共享数/连接数非空、共享管理列表非空）——空态与加载态截图没有展示价值。
+> （仪表盘上共享数/连接数非空、共享管理列表非空）——空态与加载态截图没有展示价值。
 > 素材到位后放 `docs/screenshots/`，在此处引用。
 
 ---
@@ -86,7 +86,7 @@
 | 样式 | TailwindCSS | ^3 | 原子化 CSS，快速布局 |
 | 状态管理 | Zustand | ^5 | 轻量，无样板代码 |
 | 路由 | React Router | ^7 | SPA 路由标准方案 |
-| 图表 | ECharts | ^6 | 仪表板可视化（按需引入 + Tree Shaking） |
+| 图表 | ECharts | ^6 | 仪表盘可视化（按需引入 + Tree Shaking） |
 | 测试 | Vitest | ^4 | 单元测试（注入防护 / 事务回滚 / 进程池） |
 | 打包 | electron-builder | ^25 | Windows NSIS 安装包 + 便携版 |
 
@@ -133,6 +133,11 @@ dotnet test  net/WinShare.slnx
 > `.NET` 侧构建在装有 Visual Studio 的 Windows 上不会踩 `MSB4126`：`net/WinShare.slnx`
 > 已显式登记 `Any CPU` 与 `x64` 两个平台（装 VS 的机器普遍带 `Platform=x64` 环境变量），
 > `global.json` 另把 SDK 固定在 10.0.x。
+
+> **图标**：WPF 版与 Electron 版共用同一套图标（同源 `win-share-panel.png`）——
+> exe 图标走 csproj `ApplicationIcon`（`resources/icon.ico`），窗口标题栏走内嵌的
+> `resources/logo.png`，系统托盘走内嵌的 `resources/icon.ico`
+> （`System.Drawing.Icon` 只接受 ICO，不接受 PNG）。加载逻辑见 `Shell/AppIcon.cs`。
 
 ### 下载哪个安装包 / Which build to download
 
@@ -204,6 +209,15 @@ win-share-panel/
 
 - **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)** — 项目概述、技术架构、多协议适配器、PowerShell 进程池、IPC 通道、数据模型、安全设计、性能优化、测试
 - **[docs/UI_DESIGN.md](./docs/UI_DESIGN.md)** — 浅蓝调磨砂玻璃风格、色彩/造型/光影、组件规范、Electron 窗口风格化
+- **[docs/COMPATIBILITY.md](./docs/COMPATIBILITY.md)** — 兼容性
+- **[docs/powershell-process-pool-design.md](./docs/powershell-process-pool-design.md)** — PowerShell 常驻进程池设计
+- **[docs/multi-protocol-nfs-ftp-webdav-plan.md](./docs/multi-protocol-nfs-ftp-webdav-plan.md)** — 多协议 NFS / FTP / WebDAV 方案
+- **[docs/create-share-customization.md](./docs/create-share-customization.md)** — 共享自定义
+- **[docs/protocol-server-config-customization.md](./docs/protocol-server-config-customization.md)** — 协议服务配置自定义
+- **[docs/user-permission-enhancement.md](./docs/user-permission-enhancement.md)** — 用户权限增强
+- **[docs/winshare-panel-stages-2-6.md](./docs/winshare-panel-stages-2-6.md)** — 阶段 2-6 计划
+- **[docs/DATASOURCE-FINDING.md](./docs/DATASOURCE-FINDING.md)** / **[docs/ROOTCAUSE.md](./docs/ROOTCAUSE.md)** — 根因分析
+- **[docs/audit/](./docs/audit/)** — 审计与待办
 - **[CHANGELOG.md](./CHANGELOG.md)** — 版本变更记录
 
 ---
@@ -221,7 +235,7 @@ pnpm build:win
 
 - **NSIS 安装包**：含 UAC 提权（`requireAdministrator`）、开始菜单/桌面快捷方式
 - **便携版 / Portable**：免安装单 exe，支持 U 盘运行（满足 USB 携带场景）
-- **图标**：`resources/icon.ico`（Windows）/ `resources/logo.png`（UI/托盘）
+- **图标**：统一使用仓库根目录 `win-share-panel.png` —— `resources/icon.ico`（Windows 应用/安装包图标）与 `resources/logo.png`（标题栏/托盘/favicon）均由它生成
 - **资源打包**：`resources/` 通过 `extraResources` 包含进最终产物
 
 ### 自动发布 / Automated Release

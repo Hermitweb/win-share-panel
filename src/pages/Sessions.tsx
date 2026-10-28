@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Table, Tabs, Tag, App, Button, Popconfirm, Select, Space, Empty } from 'antd'
+import { Table, Tabs, Tag, App, Button, Card, Popconfirm, Select, Space, Empty } from 'antd'
 import {
   ReloadOutlined,
   DisconnectOutlined,
@@ -11,6 +11,7 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { api, call } from '../api'
 import type { SmbSession, SmbOpenFile, ProtocolSession } from '../types'
 import { useUiStore } from '../stores/uiStore'
+import PageHeader from '../components/PageHeader'
 import { useTickEffect } from '../hooks/useTickEffect'
 
 const INTERVAL_OPTIONS = [
@@ -52,6 +53,7 @@ export default function Sessions() {
   const selectedSessions = useUiStore((s) => s.selectedSessions)
   const setSelectedSessions = useUiStore((s) => s.setSelectedSessions)
   const sessionCloseTick = useUiStore((s) => s.sessionCloseTick)
+  const route = useUiStore((s) => s.route)
 
   const queryClient = useQueryClient()
   const prevUsersRef = useRef<Set<string>>(new Set())
@@ -106,7 +108,9 @@ export default function Sessions() {
       // FTP/WebDAV 无原生会话 API
       return { sessions: [], files: [] }
     },
-    refetchInterval: paused ? false : intervalSec * 1000,
+    // 保活路由下本页切走只是 display:none，轮询不会自动停；不在本页时暂停，
+    // 免得后台持续打 IPC（对齐"切走即停"的直觉）
+    refetchInterval: paused || route !== '/sessions' ? false : intervalSec * 1000,
     placeholderData: keepPreviousData,
     staleTime: 0,
   })
@@ -267,32 +271,34 @@ export default function Sessions() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <h1 className="text-xl font-semibold">会话监控</h1>
-        <Space wrap>
-          <span className="text-xs text-fog">刷新间隔</span>
-          <Select
-            value={intervalSec}
-            onChange={setIntervalSec}
-            options={INTERVAL_OPTIONS}
-            style={{ width: 80 }}
-          />
-          <Button
-            icon={paused ? <PlayCircleOutlined /> : <PauseOutlined />}
-            onClick={() => setPaused((p) => !p)}
-          >
-            {paused ? '恢复' : '暂停'}
-          </Button>
-          {!paused && (
-            <Tag color="blue" style={{ marginLeft: 4 }}>
-              {countdown}s
-            </Tag>
-          )}
-          <Button icon={<ReloadOutlined />} onClick={refreshNow} loading={isFetching && !paused}>
-            刷新
-          </Button>
-        </Space>
-      </div>
+      <PageHeader
+        title="会话监控"
+        extra={
+          <Space wrap>
+            <span className="text-xs text-fog">刷新间隔</span>
+            <Select
+              value={intervalSec}
+              onChange={setIntervalSec}
+              options={INTERVAL_OPTIONS}
+              style={{ width: 80 }}
+            />
+            <Button
+              icon={paused ? <PlayCircleOutlined /> : <PauseOutlined />}
+              onClick={() => setPaused((p) => !p)}
+            >
+              {paused ? '恢复' : '暂停'}
+            </Button>
+            {!paused && (
+              <Tag color="blue" style={{ marginLeft: 4 }}>
+                {countdown}s
+              </Tag>
+            )}
+            <Button icon={<ReloadOutlined />} onClick={refreshNow} loading={isFetching && !paused}>
+              刷新
+            </Button>
+          </Space>
+        }
+      />
       <Tabs
         activeKey={activeProto}
         onChange={(k) => setActiveProto(k as SessionProto)}
@@ -308,7 +314,7 @@ export default function Sessions() {
                   key: 'sessions',
                   label: `会话 (${sessions.length})`,
                   children: (
-                    <div className="glass-card p-3">
+                    <Card className="glass-card" styles={{ body: { padding: 12 } }}>
                       {selectionBar}
                       <Table
                         dataSource={sessions}
@@ -323,14 +329,14 @@ export default function Sessions() {
                         }}
                         columns={sessionColumns}
                       />
-                    </div>
+                    </Card>
                   ),
                 },
                 {
                   key: 'files',
                   label: `打开文件 (${files.length})`,
                   children: (
-                    <div className="glass-card p-3">
+                    <Card className="glass-card" styles={{ body: { padding: 12 } }}>
                       <Table
                         dataSource={files}
                         rowKey="fileId"
@@ -340,7 +346,7 @@ export default function Sessions() {
                         scroll={{ x: 'max-content' }}
                         columns={fileColumns}
                       />
-                    </div>
+                    </Card>
                   ),
                 },
               ]
@@ -350,7 +356,7 @@ export default function Sessions() {
                     key: 'sessions',
                     label: `NFS 会话 (${sessions.length})`,
                     children: (
-                      <div className="glass-card p-3">
+                      <Card className="glass-card" styles={{ body: { padding: 12 } }}>
                         {selectionBar}
                         <Table
                           dataSource={sessions}
@@ -366,7 +372,7 @@ export default function Sessions() {
                           columns={sessionColumns}
                           locale={{ emptyText: <Empty description="暂无 NFS 客户端会话" /> }}
                         />
-                      </div>
+                      </Card>
                     ),
                   },
                 ]
@@ -375,9 +381,9 @@ export default function Sessions() {
                     key: 'empty',
                     label: '提示',
                     children: (
-                      <div className="glass-card p-3">
+                      <Card className="glass-card" styles={{ body: { padding: 12 } }}>
                         <Empty description="FTP/WebDAV 无原生会话 API。可通过 IIS 日志（%SystemDrive%\inetpub\logs\LogFiles）查看连接记录。" />
-                      </div>
+                      </Card>
                     ),
                   },
                 ]

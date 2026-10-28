@@ -4,6 +4,68 @@
 
 ## [Unreleased]
 
+### 🎨 变更 / Changed：项目图标统一更换
+
+全部图标统一使用仓库根目录的 `win-share-panel.png` 作为唯一官方源图：
+
+- `resources/logo.png`：重新生成为 256×256 RGBA PNG，供标题栏、系统托盘、favicon 使用
+- `resources/icon.ico`：重新生成为 16/24/32/48/64/128/256 多尺寸正方形 ICO，供 Windows 应用图标、窗口图标、electron-builder 安装包/MSI 图标使用
+- `resources/logo.jpg`：由新源图派生（250×250），替换原遗留源图
+- `src/index.html`：favicon 由 `./icon.ico` 改为 `./logo.png`
+
+生成方式：源图（1632×1504）居中裁切为正方形后缩放，避免产生非正方形 ICO 帧。
+
+**WPF 版（`net/WinShare.App`）同步接上图标**（此前完全未接：托盘回退 `SystemIcons.Application`）：
+
+- `WinShare.App.csproj`：新增 `ApplicationIcon`（`resources/icon.ico`）→ exe 图标
+- `WinShare.App.csproj`：内嵌 `resources/logo.png`（WPF Resource）与 `resources/icon.ico`（EmbeddedResource）
+- 新增 `Shell/AppIcon.cs`：窗口标题栏图标读 `logo.png`，托盘图标读 `icon.ico`
+- `MainWindow.xaml`：标题栏品牌块由渐变方块加 `◈` 字形改为 `Image Source="Resources/logo.png"`，并设置 `Window.Icon`
+- `App.xaml.cs`：`AppShell.CreateTray` 传入 `AppIcon.TrayIcon()`
+
+### 🧹 技术债清零 / Debt：工作区结构与本地残留
+
+- **设计稿与根因文档归位 `docs/`**：`.trae/documents/` 下 6 份设计稿
+  （进程池、多协议 NFS/FTP/WebDAV、共享自定义、协议服务配置、用户权限增强、阶段 2-6）
+  与 `.repro/` 下 2 份根因分析（`DATASOURCE-FINDING`、`ROOTCAUSE`）迁入 `docs/`，
+  并用 `git mv` 保留重命名历史；README 文档索引同步补全。
+  `.trae/` 与 `.trae-html-share-packages/` 此前**没有** `.gitignore` 规则（文件已入库），
+  现补上规则，避免 IDE 目录再次混入。
+- **无关产物移出仓库**：删除 `.trae-html-share-packages/src/index.html.zip`。
+- **清理约 5.6 GB 本地残留**（均未入库，可再生）：
+  `release/` 3.7G + `WinSharePanel-wpf-*.zip` 546M、
+  `net/**/bin` 与 `net/**/obj` 1.7G + `out/` + `coverage/` + `net/publish-win-x64/`、
+  20 个 `dev.*.log`、`.dsh-vision-toolkit/` 与 `.agent-teams/` 缓存、`.repro/` 调试残留。
+  仓库工作区体积由约 5.8 GB 降至约 127 MB（不含 `node_modules/` 与 `.git/`）。
+
+### 🎨 变更 / Changed：界面重构与流畅度优化
+
+**改名**：`仪表板` → `仪表盘`（侧栏、页内标题、命令面板、文档）。
+
+**统一页面骨架**（新增 `src/components/PageHeader.tsx`）：六个页面共用
+「页标题 + 可选说明 + 右侧操作区」，并修正导航名与页内标题不一致：
+
+- 侧栏「服务配置」→ 页内原标题「服务器配置」，现统一为「服务配置」
+- 侧栏「用户权限」→ 页内原标题「用户与权限」，现统一为「用户权限」
+- 「应用设置」页补上页标题（原先只有 `h2` 且无统一页头）
+
+**统一卡片容器**：11 处裸 `div.glass-card` 改为 antd `Card` + `glass-card`
+（与仪表盘写法一致），内边距经 `styles.body` 保留原值，视觉密度不变。
+
+**流畅度优化（切导航卡 / 加载卡）**：
+
+- **路由保活**（`App.tsx` 的 `AliveRoutes`）：原先 `<Routes>` 只渲染命中项，
+  切页即卸载旧页 + 挂载新页，仪表盘的 ECharts 实例与 5~6 个 IPC 查询被整份重建。
+  现改为「首访才挂载，之后 `display` 隐藏」，切页不再重建图表与重复取数。
+- **会话页后台暂停**：保活后会话页的轮询不会自动停，现按当前路由暂停，
+  避免切走后仍持续打 IPC。
+- **`staleTime` 3s → 30s**：配合保活，避免切回时几乎必重取。
+
+**「服务配置」→ SMB → 「服务器配置」页签的表单布局**：由横排（一组开关挤在一行、
+自动换行）改为**竖排**——每个开关/输入独占一行，共 4 处字段组
+（基础协议 / 安全 / 性能与功能 / 高级参数）。标签与控件的相对位置不变
+（沿用 antd `layout="vertical"`，标签在上、控件在下），只改字段之间的排列方向。
+
 ## [1.5.0] - 2026-10-24
 
 ### 🔧 修复 / Fixed：一键注册 PATH 的三处真实缺陷（v1.4.1 引入，v1.5.0 修正）

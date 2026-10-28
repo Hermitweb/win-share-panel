@@ -5,6 +5,7 @@ import {
   Tag,
   App,
   Button,
+  Card,
   Space,
   Tooltip,
   Popconfirm,
@@ -33,6 +34,7 @@ import UserDetailDrawer from '../components/UserDetailDrawer'
 import GroupCreateModal from '../components/GroupCreateModal'
 import GroupManageModal from '../components/GroupManageModal'
 import { useUiStore } from '../stores/uiStore'
+import PageHeader from '../components/PageHeader'
 import { useTickEffect } from '../hooks/useTickEffect'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -371,14 +373,16 @@ export default function Users() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <h1 className="text-xl font-semibold">用户与权限</h1>
-        <Space wrap>
-          <Button icon={<ReloadOutlined />} onClick={load}>
-            刷新
-          </Button>
-        </Space>
-      </div>
+      <PageHeader
+        title="用户权限"
+        extra={
+          <Space wrap>
+            <Button icon={<ReloadOutlined />} onClick={load}>
+              刷新
+            </Button>
+          </Space>
+        }
+      />
       <Tabs
         items={[
           {
@@ -389,7 +393,7 @@ export default function Users() {
               </span>
             ),
             children: (
-              <div className="glass-card p-3">
+              <Card className="glass-card" styles={{ body: { padding: 12 } }}>
                 {selectedUsers.length > 0 && (
                   <div className="mb-3 flex items-center gap-2 p-2 rounded bg-blue-50 dark:bg-blue-900/20">
                     <Tag color="blue">已选 {selectedUsers.length} 个用户</Tag>
@@ -468,7 +472,7 @@ export default function Users() {
                     onChange: (keys) => setSelectedUsers(keys as string[]),
                   }}
                 />
-              </div>
+              </Card>
             ),
           },
           {
@@ -479,7 +483,7 @@ export default function Users() {
               </span>
             ),
             children: (
-              <div className="glass-card p-3">
+              <Card className="glass-card" styles={{ body: { padding: 12 } }}>
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-xs text-fog">
                     系统内置组（如 Administrators/Users）不可删除，但可管理成员。
@@ -501,7 +505,7 @@ export default function Users() {
                   scroll={{ x: 'max-content' }}
                   columns={groupColumns}
                 />
-              </div>
+              </Card>
             ),
           },
           {

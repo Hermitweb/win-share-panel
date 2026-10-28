@@ -5,6 +5,7 @@ import {
   Switch,
   InputNumber,
   Button,
+  Card,
   Tag,
   Tabs,
   Table,
@@ -42,6 +43,7 @@ import OsCompatCard from '../components/OsCompatCard'
 import { SMB_CONFIG_PRESETS } from '../utils/configPresets'
 import { useUiStore } from '../stores/uiStore'
 import { useAppStore } from '../stores/appStore'
+import PageHeader from '../components/PageHeader'
 import { useTickEffect } from '../hooks/useTickEffect'
 import NfsSettingsPanel from '../components/NfsSettingsPanel'
 import FtpSettingsPanel from '../components/FtpSettingsPanel'
@@ -339,29 +341,31 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <h1 className="text-xl font-semibold">服务器配置</h1>
-        <Space wrap>
-          {/* 诊断入口放页头而非 Tab 内：排障时第一眼就能看到；未合入时禁用并写明原因 */}
-          <Button
-            type="primary"
-            icon={<AimOutlined />}
-            loading={diagnoseLoading}
-            disabled={!diagnoseLoader}
-            onClick={() => void openDiagnose()}
-          >
-            一键诊断
-          </Button>
-          {!diagnoseLoader && (
-            <span className="text-xs text-fog">
-              诊断面板尚未就绪（src/components/DiagnoseModal.tsx 未合入），合入后此入口自动可用
-            </span>
-          )}
-          <Button icon={<ReloadOutlined />} onClick={load}>
-            刷新
-          </Button>
-        </Space>
-      </div>
+      <PageHeader
+        title="服务配置"
+        extra={
+          <Space wrap>
+            {/* 诊断入口放页头而非 Tab 内：排障时第一眼就能看到；未合入时禁用并写明原因 */}
+            <Button
+              type="primary"
+              icon={<AimOutlined />}
+              loading={diagnoseLoading}
+              disabled={!diagnoseLoader}
+              onClick={() => void openDiagnose()}
+            >
+              一键诊断
+            </Button>
+            {!diagnoseLoader && (
+              <span className="text-xs text-fog">
+                诊断面板尚未就绪（src/components/DiagnoseModal.tsx 未合入），合入后此入口自动可用
+              </span>
+            )}
+            <Button icon={<ReloadOutlined />} onClick={load}>
+              刷新
+            </Button>
+          </Space>
+        }
+      />
       {/* 版本适配环境卡：运行时功能探测（SMB/NFS/IIS/QUIC），配置页按结果降级 */}
       <OsCompatCard />
       <Tabs
@@ -376,7 +380,7 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                     key: 'config',
                     label: '服务器配置',
                     children: (
-                      <div className="glass-card p-4">
+                      <Card className="glass-card" styles={{ body: { padding: 16 } }}>
                         <ConfigPresetBar
                           presets={SMB_CONFIG_PRESETS}
                           onApply={async (p) => {
@@ -388,7 +392,7 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                         />
                         <Form form={form} layout="vertical">
                           <div className="text-sm font-medium mb-2 text-fog">基础协议</div>
-                          <div className="flex flex-wrap gap-6 mb-3">
+                          <div className="flex flex-col gap-3 mb-3">
                             <Form.Item
                               name="enableSMB1Protocol"
                               label="SMB1"
@@ -420,7 +424,7 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                           </div>
 
                           <div className="text-sm font-medium mb-2 text-fog">安全</div>
-                          <div className="flex flex-wrap gap-6 mb-3">
+                          <div className="flex flex-col gap-3 mb-3">
                             <Form.Item
                               name="enableGuestUserAccess"
                               label="访客访问"
@@ -455,7 +459,7 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                           </div>
 
                           <div className="text-sm font-medium mb-2 text-fog">性能与功能</div>
-                          <div className="flex flex-wrap gap-6 mb-3">
+                          <div className="flex flex-col gap-3 mb-3">
                             <Form.Item
                               name="enableMultiChannel"
                               label="多通道"
@@ -529,7 +533,7 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                                   key: 'advanced',
                                   label: '高级参数（吞吐/超时/压缩）',
                                   children: (
-                                    <div className="flex flex-wrap gap-6">
+                                    <div className="flex flex-col gap-3">
                                       <Form.Item
                                         name="unauthenticatedUsersTimeLimit"
                                         label="未认证超时(秒)"
@@ -632,14 +636,14 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                             出于安全考虑默认关闭；建议保持"要求签名"开启以防止中间人攻击。修改高级参数可能影响性能与兼容性，不确定时请点"恢复默认"。
                           </div>
                         </Form>
-                      </div>
+                      </Card>
                     ),
                   },
                   {
                     key: 'presets',
                     label: '权限模板',
                     children: (
-                      <div className="glass-card p-3">
+                      <Card className="glass-card" styles={{ body: { padding: 12 } }}>
                         <div className="mb-3 flex items-center justify-between">
                           <span className="text-xs text-fog">
                             内置模板可查看/复制为自定义；自定义模板可编辑、删除。支持导入导出。
@@ -661,7 +665,7 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                           scroll={{ x: 'max-content' }}
                           columns={presetColumns}
                         />
-                      </div>
+                      </Card>
                     ),
                   },
                   {
@@ -672,7 +676,7 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                       </span>
                     ),
                     children: (
-                      <div className="glass-card p-3">
+                      <Card className="glass-card" styles={{ body: { padding: 12 } }}>
                         <p className="text-xs text-fog mb-3">
                           每次 SMB 配置写入前自动保存当前完整配置为快照（最多 20
                           份）。回滚会覆盖当前配置，且不产生新快照。
@@ -708,7 +712,7 @@ export default function Settings({ diagnoseLoader = defaultDiagnoseLoader }: Set
                             },
                           ]}
                         />
-                      </div>
+                      </Card>
                     ),
                   },
                 ]}

@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
-import { App, Button, Descriptions, Space, Tag } from 'antd'
+import { App, Button, Card, Descriptions, Space, Tag } from 'antd'
 import { CopyOutlined, ExportOutlined, GithubOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api'
+import PageHeader from '../components/PageHeader'
 import { useAppStore } from '../stores/appStore'
 import { ISSUES_URL, PROJECT_URL, RELEASES_URL } from '../utils/appMeta'
 import UpdateChecker from '../components/UpdateChecker'
@@ -65,16 +66,18 @@ export default function AppSettings() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold m-0">应用设置</h2>
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => openUrl(RELEASES_URL)}>
-            查看 releases
-          </Button>
-        </Space>
-      </div>
+      <PageHeader
+        title="应用设置"
+        extra={
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={() => openUrl(RELEASES_URL)}>
+              查看 releases
+            </Button>
+          </Space>
+        }
+      />
 
-      <div className="glass-card p-4 mb-3" data-testid="about-card">
+      <Card className="glass-card mb-3" data-testid="about-card" styles={{ body: { padding: 16 } }}>
         <div className="text-sm font-medium mb-3">关于</div>
         <Descriptions size="small" column={1} bordered>
           <Descriptions.Item label="版本号">
@@ -134,7 +137,7 @@ export default function AppSettings() {
         <div className="mt-2 text-xs text-fog">
           本项目为 Windows 文件夹共享控制面板，需以管理员身份运行；不会自动下载或安装更新。
         </div>
-      </div>
+      </Card>
 
       <UpdateChecker />
       <SettingsTransferCard />

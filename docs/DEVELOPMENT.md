@@ -38,7 +38,7 @@
 │  │  Ant Design 6+ Tailwind│IPC│  ├─ 共享/用户/组服务    │  │
 │  │                       │   │  ├─ 会话监控服务        │  │
 │  │  Pages:               │   │  ├─ 协议适配器层        │  │
-│  │  · 仪表板              │   │  │  (SMB/NFS/FTP/WebDAV)│  │
+│  │  · 仪表盘              │   │  │  (SMB/NFS/FTP/WebDAV)│  │
 │  │  · 共享管理            │   │  ├─ 协议配置/探测服务   │  │
 │  │  · 用户权限            │   │  └─ PowerShell 执行器   │  │
 │  │  · 会话监控            │   │     └─ 常驻进程池 ◄     │  │
@@ -75,7 +75,7 @@
 | 样式方案 | TailwindCSS | ^3 | 原子化 CSS，快速布局 |
 | 状态管理 | Zustand | ^5 | 轻量，无样板代码 |
 | 路由 | React Router | ^7 | SPA 路由标准方案 |
-| 图表 | ECharts | ^6 | 仪表板数据可视化（按需引入 + Tree Shaking） |
+| 图表 | ECharts | ^6 | 仪表盘数据可视化（按需引入 + Tree Shaking） |
 | 进程调用 | child_process + 常驻进程池 | 内置 | spawn 长期存活 PowerShell worker，stdin/stdout 复用 |
 | 打包工具 | electron-builder | ^25 | Windows 安装包（NSIS）+ 便携版 |
 | 测试 | Vitest | ^4 | 单元测试（注入防护 / 事务回滚 / 进程池排队/超时/压测） |
@@ -88,7 +88,7 @@
 
 ```
 WinShare Panel
-├── 1. 仪表板 (Dashboard)           ← 总览、统计、快捷操作
+├── 1. 仪表盘 (Dashboard)           ← 总览、统计、快捷操作
 ├── 2. 共享文件夹管理 (Shares)       ← 核心：增删改查共享
 ├── 3. 用户与权限管理 (Users)        ← 用户/组、共享权限、NTFS 权限
 ├── 4. 会话与连接监控 (Sessions)     ← 实时会话、打开文件、强制断开
@@ -98,7 +98,7 @@ WinShare Panel
 
 ### 3.2 模块详细设计
 
-#### 模块 1：仪表板
+#### 模块 1：仪表盘
 - 共享总数、活动会话数、打开文件数、今日访问量
 - 共享访问趋势图（折线图，近 7 天）
 - Top 5 热门共享（柱状图）
@@ -283,7 +283,7 @@ interface WinShareApi {
 - **窗口控制 IPC**：`window:minimize` / `window:toggleMaximize` / `window:close` / `window:isMaximized`，由 `preload.ts` 暴露
 - **窗口状态联动**：监听 `maximize` / `unmaximize` 事件，渲染进程同步切换圆角与阴影类名；最大化时去圆角
 - **白屏防御**：`show: false` + `ready-to-show` 后再显示
-- **图标统一**：窗口图标 `icon: 'resources/icon.ico'`，标题栏/系统托盘图标用 `resources/logo.png`（16×16），官方 logo 见 UI_DESIGN.md 6.5 节
+- **图标统一**：全部图标由仓库根 `win-share-panel.png` 生成 —— 窗口/安装包图标 `icon: 'resources/icon.ico'`（16–256 多尺寸），标题栏/系统托盘/favicon 用 `resources/logo.png`（256×256），官方 logo 见 UI_DESIGN.md 6.5 节
 - 主进程 BrowserWindow 配置示例与标题栏组件要点见 UI_DESIGN.md 9.5 / 9.6 节
 
 ### 4.6 数据模型
@@ -423,7 +423,7 @@ interface ProtocolSession {
 
 ### 4.8 PowerShell 常驻进程池
 
-> 详细设计见 [.trae/documents/powershell-process-pool-design.md](../.trae/documents/powershell-process-pool-design.md)
+> 详细设计见 [powershell-process-pool-design.md](powershell-process-pool-design.md)
 
 **背景**：原 `runPowerShell` 每次 `execFile` 拉起新 `powershell.exe`，每条命令承担 ~300–500ms 的 CLR+引擎+模块启动开销。常驻进程池将命令执行降至 ~30–80ms/条。
 
@@ -472,10 +472,19 @@ interface ProtocolSession {
 win-share-panel/
 ├── docs/
 │   ├── DEVELOPMENT.md              # 本开发文档
-│   └── UI_DESIGN.md                # UI 设计规范
+│   ├── UI_DESIGN.md                # UI 设计规范
+│   ├── COMPATIBILITY.md            # 兼容性
+│   ├── powershell-process-pool-design.md        # 设计稿：PowerShell 进程池
+│   ├── multi-protocol-nfs-ftp-webdav-plan.md    # 设计稿：多协议 NFS/FTP/WebDAV
+│   ├── create-share-customization.md            # 设计稿：共享自定义
+│   ├── protocol-server-config-customization.md  # 设计稿：协议服务配置
+│   ├── user-permission-enhancement.md           # 设计稿：用户权限增强
+│   ├── winshare-panel-stages-2-6.md             # 设计稿：阶段 2-6
+│   ├── DATASOURCE-FINDING.md                     # 根因分析：数据源
+│   ├── ROOTCAUSE.md                              # 根因分析：UniformGrid 零尺寸
+│   └── audit/                                    # 审计与待办
 ├── .github/workflows/
 │   └── release.yml                 # tag 触发自动构建并发布 Release
-├── .trae/documents/                # 设计稿（进程池/共享自定义/协议配置/用户权限）
 ├── electron/                       # 主进程
 │   ├── main.ts                     # 入口（窗口/UAC/单实例锁/IPC/托盘/进程池生命周期）
 │   ├── preload.ts                  # contextBridge 安全 API（多协议路由）
@@ -506,7 +515,7 @@ win-share-panel/
 │   ├── utils/                      # 工具函数
 │   ├── api.ts                      # preload API 封装
 │   └── types.ts
-├── resources/                      # 静态资源：logo.png(标题栏·托盘)/icon.ico(打包图标)
+├── resources/                      # 静态资源：logo.png(标题栏·托盘·favicon)/icon.ico(应用·安装包图标)，源图见仓库根 win-share-panel.png
 ├── vitest.config.ts                # 单元测试配置
 ├── package.json
 ├── electron.vite.config.ts
@@ -564,15 +573,15 @@ win-share-panel/
 - **会话异常托盘气泡告警**（新连接/可疑暴力破解）
 - **交付**：实时监控面板 + 托盘常驻告警
 
-### 阶段 5：SMB 配置与仪表板
+### 阶段 5：SMB 配置与仪表盘
 - 实现 SMB 服务器配置读写（Get/Set-SmbServerConfiguration）
 - 实现服务状态查看与重启
-- 实现仪表板（统计卡片、趋势图、Top 共享、活动会话）
+- 实现仪表盘（统计卡片、趋势图、Top 共享、活动会话）
 - 集成 ECharts（按需引入）
 - **SMB 配置快照/回滚**：改配置前自动存带时间戳快照，一键回退（S7/P4）
 - **健康检查**：SMB 服务异常时面板顶栏告警
-- **仪表板报表导出**（PNG/CSV）
-- **交付**：完整仪表板与配置 + 快照回滚 + 健康检查
+- **仪表盘报表导出**（PNG/CSV）
+- **交付**：完整仪表盘与配置 + 快照回滚 + 健康检查
 
 ### 阶段 6：测试、优化与打包
 - 单元测试（Vitest）：服务层、解析器
@@ -674,11 +683,11 @@ win-share-panel/
 |---|---|---|---|
 | 一键诊断 | `services/diagnose.ts` + `diagnose:run/applyFix` | 共享页工具栏 / 行内「诊断此共享」/ 服务配置页 / 命令面板 | 修复动作需管理员；路径一律服务端重解析后走 `validatePath` |
 | 操作回收站 | `lib/stateStore.ts` journal + `services/journal.ts` | 共享页「操作回收站」抽屉 / 命令面板 | 仅 SMB 的删除/禁用/权限变更可撤销；create 与非 SMB 删除只留档 |
-| 磁盘水位 | `services/disk.ts`（`Get-PSDrive`） | 共享页行内标 + 仪表板概览 | UNC 无盘符不显示水位（未知即未知） |
+| 磁盘水位 | `services/disk.ts`（`Get-PSDrive`） | 共享页行内标 + 仪表盘概览 | UNC 无盘符不显示水位（未知即未知） |
 | 防火墙组内规则 | `services/firewall.ts`（`WinShare Panel` 组） | 应用设置页防火墙卡 + 诊断修复按钮 | 只增删本应用组内规则，不动系统/第三方规则 |
 | 首启向导 | `disk:suggestRoot` + `appstate.json` | `components/FirstRunGuide`（`App.tsx` 的 FirstRunMount） | 空共享 + 未标记 + 新手模式才弹；「以后再说」只关本次会话 |
 | 双模式 | `appState.advancedMode` | 应用设置页开关，全站读取 | 新手模式只收敛展示，不改变已保存的配置值 |
-| 趋势/告警 | 主进程 5min 采样 + `appState.alertRules` | 仪表板趋势卡与「需要关注」 | 服务未起跳过采样（不写假点）；字段缺失的检查项如实省略 |
+| 趋势/告警 | 主进程 5min 采样 + `appState.alertRules` | 仪表盘趋势卡与「需要关注」 | 服务未起跳过采样（不写假点）；字段缺失的检查项如实省略 |
 | 权限报告 | —（复用既有权限矩阵数据） | 权限矩阵「导出报告(HTML)」 | 仅共享权限，未含 NTFS 有效权限 |
 
 约定：跨层类型集中在 `electron/types.ts` 且该文件保持**零 import**——渲染层 `tsconfig.json`
@@ -711,7 +720,7 @@ win-share-panel/
 
 ### 10.4 轻量化与低依赖
 - **移除 Express**：纯 IPC 通信，不引入 HTTP 服务
-- **ECharts 按需引入**：仅引入仪表板用到的图表模块 + Tree Shaking
+- **ECharts 按需引入**：仅引入仪表盘用到的图表模块 + Tree Shaking
 - **Ant Design 按需加载 + Tree Shaking**
 - **Electron 语言包收敛**：`electronLanguages: [zh-CN, en-US]`，每架构省 37.4 MB（实测，见 11.6）
 - **更新策略（如实）**：**未集成 electron-updater**（它需要 electron-builder `publish` 配置、代码签名与线上 `latest.yml` 三件套）；应用内「检查更新」查 GitHub Releases 最新版并提示，**不自动下载安装**，由用户手动取新包
@@ -847,7 +856,7 @@ win:
     - { target: nsis,     arch: [x64, ia32, arm64] }
     - { target: portable, arch: [x64, ia32, arm64] }
     - { target: msi,      arch: [x64, ia32] }   # arm64 无 MSI（见 11.6）
-  icon: resources/icon.ico                       # 应用图标
+  icon: resources/icon.ico                       # 应用图标（由 win-share-panel.png 生成，16-256 多尺寸）
   requestedExecutionLevel: requireAdministrator   # 强制管理员权限
 nsis:
   oneClick: false

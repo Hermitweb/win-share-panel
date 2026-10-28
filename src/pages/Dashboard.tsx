@@ -27,6 +27,7 @@ import { api } from '../api'
 import type { DiskUsage, HistoryPoint, Protocol } from '../types'
 import { useUiStore } from '../stores/uiStore'
 import { useAppStore } from '../stores/appStore'
+import PageHeader from '../components/PageHeader'
 import { useTickEffect } from '../hooks/useTickEffect'
 import { useEnsureProtocolCaps } from '../hooks/useEnsureProtocolCaps'
 import { diskLevel } from '../utils/shareDefaults'
@@ -142,7 +143,7 @@ export const DISK_LEVEL_META: Record<
 }
 
 // ===== 「需要关注」聚合 =====
-// 只呈现仪表板上下文里真实可判定的四类：SMB1、访客/不安全来宾登录、空口令/永不过期账户、
+// 只呈现仪表盘上下文里真实可判定的四类：SMB1、访客/不安全来宾登录、空口令/永不过期账户、
 // 磁盘低于阈值。映射到 alertRules 的对应开关：
 //   smb1Alert        → SMB1
 //   weakPasswordAlert→ 访客/不安全来宾登录 + 空口令/永不过期账户（凭据弱化族告警）
@@ -275,7 +276,7 @@ export default function Dashboard() {
   // 仪表盘需用 installed 字段判断"已安装/未安装"，而非用共享数判断
   useEnsureProtocolCaps()
 
-  // dashboardHistory 是 appState 的镜像：进入仪表板时重新水合一次，
+  // dashboardHistory 是 appState 的镜像：进入仪表盘时重新水合一次，
   // 让主进程新写入的采样点可见（state:get 命中主进程内存缓存，代价极低）
   useEffect(() => {
     void hydrate()
@@ -416,20 +417,22 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <h1 className="text-xl font-semibold">仪表板</h1>
-        <Space wrap>
-          <Button icon={<FileImageOutlined />} onClick={exportPng} disabled={!stats}>
-            导出 PNG
-          </Button>
-          <Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={!stats}>
-            导出 CSV
-          </Button>
-          <Button icon={<ReloadOutlined />} onClick={refresh}>
-            刷新
-          </Button>
-        </Space>
-      </div>
+      <PageHeader
+        title="仪表盘"
+        extra={
+          <Space wrap>
+            <Button icon={<FileImageOutlined />} onClick={exportPng} disabled={!stats}>
+              导出 PNG
+            </Button>
+            <Button icon={<DownloadOutlined />} onClick={exportCsv} disabled={!stats}>
+              导出 CSV
+            </Button>
+            <Button icon={<ReloadOutlined />} onClick={refresh}>
+              刷新
+            </Button>
+          </Space>
+        }
+      />
       <Spin spinning={loading}>
         <Row gutter={16}>
           <Col span={6}>

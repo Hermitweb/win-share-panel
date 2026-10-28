@@ -15,7 +15,7 @@ interface Command {
 }
 
 const STATIC_NAV: Command[] = [
-  { key: '/', label: '前往：仪表板', hint: '概览共享与会话', group: 'nav', action: () => {} },
+  { key: '/', label: '前往：仪表盘', hint: '概览共享与会话', group: 'nav', action: () => {} },
   {
     key: '/shares',
     label: '前往：共享管理',

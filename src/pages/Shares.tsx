@@ -9,6 +9,7 @@ import {
   InputNumber,
   Select,
   Switch,
+  Card,
   Tag,
   Space,
   Popconfirm,
@@ -39,6 +40,7 @@ import {
   StarOutlined,
 } from '@ant-design/icons'
 import type { FormInstance, UploadProps } from 'antd'
+import PageHeader from '../components/PageHeader'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   Share,
@@ -970,33 +972,30 @@ export default function Shares({ toolbarSlots, rowActions }: SharesProps = {}) {
 
   return (
     <div onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold">共享管理</h1>
-          <p className="text-xs text-fog mt-1">
-            提示：拖拽文件夹到本页可快速创建共享 · Ctrl+N 新建 · Del 批量删除 · Space 批量启停 · F5
-            刷新
-          </p>
-        </div>
-        <Space wrap>
-          <Button icon={<ReloadOutlined />} onClick={load}>
-            刷新
-          </Button>
-          <Button icon={<ExportOutlined />} onClick={handleExport}>
-            导出
-          </Button>
-          <Upload {...importProps}>
-            <Button icon={<ImportOutlined />}>导入</Button>
-          </Upload>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setShareCreateOpen(true)}>
-            新建共享
-          </Button>
-          {/* 集成挂载位：操作回收站 / 一键诊断入口由批1 组件注入，本页只提供插槽不实现其能力 */}
-          {toolbarSlots}
-        </Space>
-      </div>
+      <PageHeader
+        title="共享管理"
+        description="提示：拖拽文件夹到本页可快速创建共享 · Ctrl+N 新建 · Del 批量删除 · Space 批量启停 · F5 刷新"
+        extra={
+          <Space wrap>
+            <Button icon={<ReloadOutlined />} onClick={load}>
+              刷新
+            </Button>
+            <Button icon={<ExportOutlined />} onClick={handleExport}>
+              导出
+            </Button>
+            <Upload {...importProps}>
+              <Button icon={<ImportOutlined />}>导入</Button>
+            </Upload>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setShareCreateOpen(true)}>
+              新建共享
+            </Button>
+            {/* 集成挂载位：操作回收站 / 一键诊断入口由批1 组件注入，本页只提供插槽不实现其能力 */}
+            {toolbarSlots}
+          </Space>
+        }
+      />
       <ProtocolCapabilityBanner />
-      <div className="glass-card p-3">
+      <Card className="glass-card" styles={{ body: { padding: 12 } }}>
         <Tabs
           activeKey={activeProtocol}
           onChange={(k) => setActiveProtocol(k as Protocol | 'all')}
@@ -1099,7 +1098,7 @@ export default function Shares({ toolbarSlots, rowActions }: SharesProps = {}) {
             }
           />
         )}
-      </div>
+      </Card>
       <Modal
         open={shareCreateOpen}
         title="新建共享"

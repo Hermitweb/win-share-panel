@@ -5,7 +5,7 @@ import zhCN from 'antd/locale/zh_CN'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 
-// t7：仪表板 24h 连接趋势 / 磁盘水位 / 「需要关注」聚合的行为测试。
+// t7：仪表盘 24h 连接趋势 / 磁盘水位 / 「需要关注」聚合的行为测试。
 // echarts-for-react 用 DOM 桩件替身：把 option 序列化进 data-option，断言真实配置
 // （type:'time'、断点 null、双系列）而不是断言 canvas 像素。
 const stub = vi.hoisted(() => {
@@ -242,7 +242,7 @@ describe('磁盘分级纯函数', () => {
   })
 })
 
-describe('仪表板：空数据分支', () => {
+describe('仪表盘：空数据分支', () => {
   it('无采样点→解释性空态（不画 0 线）；无风险→需要关注空态；不臆造会话空闲告警', async () => {
     renderPage()
     expect(
@@ -254,7 +254,7 @@ describe('仪表板：空数据分支', () => {
     // 空态下没有任何趋势图；热门共享仍渲染既有 category 图
     expect(trendChart()).toBeUndefined()
     expect(chartOptions().some((o) => o.xAxis?.type === 'category')).toBe(true)
-    // 会话空闲时长在仪表板数据里不存在 → 不得出现该告警
+    // 会话空闲时长在仪表盘数据里不存在 → 不得出现该告警
     expect(screen.queryByText(/空闲/)).not.toBeInTheDocument()
   })
 
@@ -270,7 +270,7 @@ describe('仪表板：空数据分支', () => {
   })
 })
 
-describe('仪表板：有数据分支', () => {
+describe('仪表盘：有数据分支', () => {
   const withData = (rules: Partial<AppState['alertRules']> = {}) => {
     stub.state.get.mockResolvedValue(
       makeAppState({ dashboardHistory: gapHistory(Date.now()) }, rules),
@@ -366,7 +366,7 @@ describe('仪表板：有数据分支', () => {
   })
 })
 
-describe('仪表板：告警跳转携带上下文', () => {
+describe('仪表盘：告警跳转携带上下文', () => {
   it('SMB1 告警跳转到 /settings 并携带 attention 状态', async () => {
     stub.smb.getConfig.mockResolvedValue(makeSmbConfig({ enableSMB1Protocol: true }))
     renderPage()
@@ -409,7 +409,7 @@ describe('buildAttentionItems 纯函数（开关与数据门）', () => {
     ).toEqual([])
   })
 
-  it('空闲规则（idleAlertMinutes）不产生任何仪表板告警——没有对应数据就不臆造', () => {
+  it('空闲规则（idleAlertMinutes）不产生任何仪表盘告警——没有对应数据就不臆造', () => {
     const items = buildAttentionItems({
       alertRules: { smb1Alert: false, weakPasswordAlert: false, diskLowGb: 20 },
       smbConfig: makeSmbConfig({ enableSMB1Protocol: true, enableGuestUserAccess: true }),
