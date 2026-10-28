@@ -148,7 +148,7 @@
             <!-- 协议分布（对齐 4 列：Tag + 共享数 + 会话；未装提示留 T3b 接 protocolCaps） -->
             <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
                 <!-- 纵向流：标题 → 空态 → 内容。禁用 DockPanel（LastChildFill 会把末位的空态提示当填充子，
-                     把 UniformGrid 挤到零尺寸 → 「静态可见/动态不可见」的真实根因），见 .repro\ROOTCAUSE.md -->
+                     把 UniformGrid 挤到零尺寸 → 「静态可见/动态不可见」的真实根因），见 docs/ROOTCAUSE.md -->
                 <StackPanel>
                     <TextBlock Text="{DynamicResource Dash.Protocols}"
                                FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />

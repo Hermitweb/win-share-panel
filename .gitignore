@@ -41,6 +41,10 @@ dsh-boot-animation/
 dsh-boot-animation-*/
 dsh-boot-animation*.tar.gz
 
+# Trae IDE 目录（设计稿已迁到 docs/，IDE 自身状态勿入库）
+.trae/
+.trae-html-share-packages/
+
 # UI 截图快照（本地视觉比对用）
 ui-shot-*.png
 shots/
