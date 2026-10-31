@@ -13,6 +13,16 @@
 - WPF「打开日志文件夹」四处同构 `Process.Start` 复制统一收口为 `AppShell.OpenLogDirectory()`：
   目录不存在先创建、参数列表（ArgumentList）启动不经 shell 拼接、失败静默语义不变
 
+### 🎨 变更 / Changed：深色主题微调 + tools/ 调试脚本入库
+
+- **深浅主题自洽补齐**（隐式样式，全走 token）：滚动条（雾色细条，hover 加深/拖动转主色，
+  竖横双模板）、上下文菜单与菜单项/分隔线（标题栏「更多」菜单此前深色下是系统浅色件）、
+  进度条（磁盘水位轨道走 `BrushBgMist`）；无边框主窗口外辉光 token 化
+  （`ShadowWindowGlow`：浅色品牌蓝柔光 / 深色夜色投影）
+- **tools/ 调试脚本入库**：UIA 冒烟/截图/性能脚本原先散落本地未跟踪且写死 `E:/workspace`
+  绝对路径——路径改为 git 仓库根推导（`start-app.ps1` 支持 `-Configuration`），新增 `tools/README.md`
+  （含 PowerShell 5.1 无 BOM UTF-8 乱码的运行注意事项与火绒已知环境事实）
+
 ### ⚡ 性能 / Performance：WPF 框架重构 + 性能优化 + UI 样式补齐
 
 三线并行的一轮整固（不动 PowerShell out-of-process 生产通道、不重试页面缓存、不引入 DI 容器——均为既有既定决策）：

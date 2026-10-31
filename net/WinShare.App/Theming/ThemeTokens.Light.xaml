@@ -90,6 +90,8 @@
     <DropShadowEffect x:Key="ShadowCard" Color="#7EC8F0" Opacity="0.12" BlurRadius="16" ShadowDepth="4" Direction="270" />
     <DropShadowEffect x:Key="ShadowHover" Color="#7EC8F0" Opacity="0.20" BlurRadius="28" ShadowDepth="8" Direction="270" />
     <DropShadowEffect x:Key="ShadowSoft" Color="#3A4A5C" Opacity="0.04" BlurRadius="3" ShadowDepth="1" Direction="270" />
+    <!-- 无边框主窗口外辉光（浅色=品牌蓝柔光；深色字典给夜色投影） -->
+    <DropShadowEffect x:Key="ShadowWindowGlow" Color="#7EC8F0" Opacity="0.18" BlurRadius="24" ShadowDepth="0" />
 
     <!-- ===== 间距 / 字号（规范 3.3 / 5.x） ===== -->
     <sys:Double x:Key="SpacingSm">12</sys:Double>

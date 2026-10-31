@@ -21,10 +21,8 @@
     </WindowChrome.WindowChrome>
 
     <Border x:Name="WindowFrame" CornerRadius="16" Background="{DynamicResource BrushAppBackdrop}"
-            BorderBrush="{DynamicResource BrushGlassStroke}" BorderThickness="1">
-        <Border.Effect>
-            <DropShadowEffect Color="#7EC8F0" Opacity="0.18" BlurRadius="24" ShadowDepth="0" />
-        </Border.Effect>
+            BorderBrush="{DynamicResource BrushGlassStroke}" BorderThickness="1"
+            Effect="{DynamicResource ShadowWindowGlow}">
 
         <DockPanel>
             <!-- ===== 自定义标题栏（磨砂玻璃；可拖拽） ===== -->

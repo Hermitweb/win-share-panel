@@ -82,6 +82,8 @@
     <DropShadowEffect x:Key="ShadowCard" Color="#000000" Opacity="0.35" BlurRadius="18" ShadowDepth="4" Direction="270" />
     <DropShadowEffect x:Key="ShadowHover" Color="#000000" Opacity="0.45" BlurRadius="30" ShadowDepth="8" Direction="270" />
     <DropShadowEffect x:Key="ShadowSoft" Color="#000000" Opacity="0.25" BlurRadius="4" ShadowDepth="1" Direction="270" />
+    <!-- 无边框主窗口外辉光（深色=夜色投影，与浅色同键） -->
+    <DropShadowEffect x:Key="ShadowWindowGlow" Color="#000000" Opacity="0.5" BlurRadius="24" ShadowDepth="0" />
 
     <sys:Double x:Key="SpacingSm">12</sys:Double>
     <sys:Double x:Key="SpacingMd">16</sys:Double>
