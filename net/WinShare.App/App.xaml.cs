@@ -162,12 +162,7 @@ public partial class App : Application
 
     void OpenLogDir()
     {
-        try
-        {
-            System.IO.Directory.CreateDirectory(LogSink.LogDir());
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(LogSink.LogDir()) { UseShellExecute = true });
-        }
-        catch { }
+        AppShell.OpenLogDirectory();
     }
 
     void QuitApp()

@@ -217,12 +217,7 @@ public partial class MainWindow : Window
 
     void OnMenuOpenLogDir(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            System.IO.Directory.CreateDirectory(LogSink.LogDir());
-            Process.Start(new ProcessStartInfo(LogSink.LogDir()) { UseShellExecute = true });
-        }
-        catch { }
+        AppShell.OpenLogDirectory();
     }
 
     void OnMenuQuit(object sender, RoutedEventArgs e)

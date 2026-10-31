@@ -70,16 +70,7 @@ public partial class CommandPaletteWindow : Window
 
     static void OpenLogFolder()
     {
-        try
-        {
-            System.IO.Directory.CreateDirectory(LogSink.LogDir());
-            System.Diagnostics.Process.Start(
-                new System.Diagnostics.ProcessStartInfo(LogSink.LogDir()) { UseShellExecute = true });
-        }
-        catch
-        {
-            // 打开失败静默（TS 同语义：catch 不提示）
-        }
+        AppShell.OpenLogDirectory();
     }
 
     List<Command> Filtered

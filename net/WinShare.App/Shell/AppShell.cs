@@ -49,6 +49,33 @@ public static class AppShell
         if (_tray is { } t) t.ShowBalloon(title, body);
     }
 
+    /// <summary>
+    /// 在资源管理器中打开应用日志目录。原 App/MainWindow/CommandPalette/AppSettings 四处
+    /// 各持一份同构 Process.Start 复制，现统一收口；目录不存在则先创建。
+    /// 进程经参数列表（ArgumentList）启动，不经 shell 拼接；打开失败静默（对齐 TS catch 语义）。
+    /// </summary>
+    public static void OpenLogDirectory()
+    {
+        try
+        {
+            var dir = LogSink.LogDir();
+            System.IO.Directory.CreateDirectory(dir);
+            if (!System.IO.Directory.Exists(dir)) return;
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            psi.ArgumentList.Add(dir);
+            System.Diagnostics.Process.Start(psi);
+        }
+        catch
+        {
+            // 打开失败静默（对齐 TS：catch 不提示）
+        }
+    }
+
     /// <summary>退出（对齐 main.ts before-quit：停采样、销毁托盘、关管道、放行 close）。</summary>
     public static void Quit()
     {

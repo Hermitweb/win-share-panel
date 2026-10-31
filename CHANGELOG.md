@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### 🔒 安全 / Security：外链与进程探测防御性加固
+
+- `electron/lib/psRuntimeProbe.ts`：版本探测前校验解析出的宿主可执行文件名（仅放行
+  `powershell.exe`/`pwsh.exe`）——`execFile` 本不经 shell，此处防路径解析回归误 spawn 任意二进制
+- WPF `OpenExternal`：只放行 http(s) 绝对 URI（`UseShellExecute` 会把任意 scheme 交给
+  系统处理器接管，这里只服务「打开 releases 主页」语义）
+- WPF「打开日志文件夹」四处同构 `Process.Start` 复制统一收口为 `AppShell.OpenLogDirectory()`：
+  目录不存在先创建、参数列表（ArgumentList）启动不经 shell 拼接、失败静默语义不变
+
 ### ⚡ 性能 / Performance：WPF 框架重构 + 性能优化 + UI 样式补齐
 
 三线并行的一轮整固（不动 PowerShell out-of-process 生产通道、不重试页面缓存、不引入 DI 容器——均为既有既定决策）：

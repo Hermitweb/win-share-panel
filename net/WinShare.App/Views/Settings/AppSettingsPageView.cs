@@ -64,6 +64,14 @@ public sealed class AppSettingsPageView : UserControl
 
     static void OpenExternal(string url)
     {
+        // 只放行 http(s) 绝对 URI：UseShellExecute 会把字符串交给 ShellExecuteEx 处理，
+        // 任意 scheme（file: 等）都会被系统处理器接管——这里只服务「打开 releases 主页」语义。
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            || (uri.Scheme != "http" && uri.Scheme != "https"))
+        {
+            return;
+        }
+        url = uri.AbsoluteUri;
         try
         {
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
