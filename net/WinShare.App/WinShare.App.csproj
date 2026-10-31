@@ -25,7 +25,7 @@
     <!-- WPF 独立版本线（wpf-v{version} tag 发版，自 wpf-1.3.0 跳 2.0.0；与 Electron 的
          package.json 1.5.x 解耦）：关于卡/UpdateChecker 读宿主程序集版本；
          Release 产物名 WinShare.Panel-{version}-win-x64.zip 取自此值 -->
-    <Version>2.0.0</Version>
+    <Version>2.0.1</Version>
     <!-- 统一图标：exe 图标与 Electron 侧共用仓库根 resources/icon.ico -->
     <ApplicationIcon>..\..\resources\icon.ico</ApplicationIcon>
     <!-- 应用清单：兼容性声明 + 长路径 + 显式 PerMonitorV2 DPI + asInvoker（见 app.manifest） -->

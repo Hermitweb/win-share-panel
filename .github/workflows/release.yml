@@ -121,11 +121,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   wpf-release:
-    # WPF .NET 10 壳独立发版（wpf-v* tag 专属；v* tag 走 Electron job）：
-    # self-contained（免装运行时，兼容面 = 打包面）+ ReadyToRun 启动提速。版本线 2.x 起，
-    # 与 Electron（package.json 1.5.x）解耦；产物命名 项目名-版本-平台-架构-格式（无 wpf 标注）。
+    # WPF .NET 10 壳独立发版（wpf-v* tag 专属；v* tag 走 Electron job）：三架构全矩阵。
+    # 版本线 2.x 起，与 Electron（package.json 1.5.x）解耦；产物命名对齐 Electron 惯例：
+    #   WinShare.Panel-{version}-win-{label}.zip          自包含目录 zip（解压即用）
+    #   WinShare.Panel-{version}-portable-{label}.exe     单文件 portable（双击即用）
+    #   WinShare.Panel-{version}-Setup-{label}.exe        Inno Setup 安装包
+    # 版本取自 csproj <Version>（wpf-v* tag 发版时手动 bump）。
     if: ${{ startsWith(github.ref, 'refs/tags/wpf-') }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: x64, rid: win-x64, inno64: x64 }
+          - { label: x86, rid: win-x86, inno64: none }
+          - { label: arm64, rid: win-arm64, inno64: arm64 }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -135,11 +145,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Publish WPF (self-contained win-x64 + ReadyToRun)
-        id: pack
-        # 直接 publish csproj（不经 slnx）：规避 MSB4126（环境变量 Platform=x64 时
-        # slnx 的显式 Any CPU/x64 平台声明会构建失败——见 WinShare.slnx 注释）
-        run: dotnet publish net/WinShare.App/WinShare.App.csproj -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true -o net/WinShare.App/publish
+      - name: Install Inno Setup
+        # 安装包工具链：runner 不预装，走 chocolatey（ISCC 在 Program Files (x86)\Inno Setup 6）
+        run: choco install innosetup --yes --no-progress
 
       - name: Read WPF version
         id: version
@@ -149,27 +157,64 @@ jobs:
                      Select-Object -First 1
           if (-not $version) { Write-Host 'ERROR: csproj <Version> 未声明'; exit 1 }
           "version=$version" >> $env:GITHUB_OUTPUT
-          Write-Host "WPF version=$version"
+          Write-Host "WPF ${{ matrix.label }} version=$version"
 
-      - name: Zip WPF artifacts
+      - name: Publish self-contained folder (${{ matrix.label }})
+        # 直接 publish csproj（不经 slnx）：规避 MSB4126（环境变量 Platform=x64 时
+        # slnx 的显式 Any CPU/x64 平台声明会构建失败——见 WinShare.slnx 注释）
+        run: dotnet publish net/WinShare.App/WinShare.App.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:Platform=AnyCPU -p:PublishReadyToRun=true -o publish/${{ matrix.label }}
+
+      - name: Publish single-file portable (${{ matrix.label }})
+        run: dotnet publish net/WinShare.App/WinShare.App.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:Platform=AnyCPU -p:PublishReadyToRun=true -o publish-single/${{ matrix.label }}
+
+      - name: Package (${{ matrix.label }})
         shell: pwsh
         run: |
-          # wpf-release 与 Electron release 是两个独立 runner：本机没有 electron-builder
-          # 建好的 release/ 目录，必须先建（v1.5.1 首跑即因此失败）
+          $ErrorActionPreference = 'Stop'
+          # wpf-release 是独立 runner：release/ 目录必须先建（v1.5.1 首跑即因此失败）
           New-Item -ItemType Directory -Path release -Force | Out-Null
-          $zip = "release/WinShare.Panel-${{ steps.version.outputs.version }}-win-x64.zip"
-          Compress-Archive -Path 'net/WinShare.App/publish/*' -DestinationPath $zip -Force
-          $sum = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-          "$sum  $(Split-Path $zip -Leaf)" | Out-File -FilePath release/SHA256SUMS.txt -Encoding utf8NoBOM
-          Get-Item $zip, release/SHA256SUMS.txt | Select-Object Name, Length | Format-Table -AutoSize
+          $v = '${{ steps.version.outputs.version }}'
+          $label = '${{ matrix.label }}'
 
-      - name: Upload WPF artifact to GitHub Release
+          # ① 自包含 zip（解压即用）
+          $zip = "release/WinShare.Panel-$v-win-$label.zip"
+          Compress-Archive -Path "publish/$label/*" -DestinationPath $zip -Force
+
+          # ② 单文件 portable（双击即用）
+          $portable = "release/WinShare.Panel-$v-portable-$label.exe"
+          Copy-Item "publish-single/$label/WinShare.App.exe" $portable -Force
+
+          # ③ Inno Setup 安装包
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { Write-Host "ERROR: ISCC 不存在: $iscc"; exit 1 }
+          $isccArgs = @(
+            "/DAppVersion=$v",
+            "/DArch=${{ matrix.inno64 }}",
+            "/DArchLabel=$label",
+            "/DPublishDir=$PWD/publish/$label",
+            "/DOutputDir=$PWD/release",
+            'net/WinShare.App/installer/wpf.iss'
+          )
+          & $iscc @isccArgs
+          if ($LASTEXITCODE -ne 0) { Write-Host 'ERROR: ISCC 编译失败'; exit 1 }
+
+          # ④ 本架构 SHA256SUMS（对齐 Electron 的 sums 惯例；矩阵并行上传故按架构命名）
+          $sums = "release/SHA256SUMS-$label.txt"
+          Get-Item $zip, $portable, "release/WinShare.Panel-$v-Setup-$label.exe" | ForEach-Object {
+            "$((Get-FileHash $_ -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Out-File -FilePath $sums -Encoding utf8NoBOM
+
+          Get-ChildItem release -Filter "*$label*" | Select-Object Name, Length | Format-Table -AutoSize
+
+      - name: Upload WPF artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: WinShare Panel WPF ${{ steps.version.outputs.version }}
           files: |
-            release/WinShare.Panel-${{ steps.version.outputs.version }}-win-x64.zip
-            release/SHA256SUMS.txt
+            release/WinShare.Panel-${{ steps.version.outputs.version }}-win-${{ matrix.label }}.zip
+            release/WinShare.Panel-${{ steps.version.outputs.version }}-portable-${{ matrix.label }}.exe
+            release/WinShare.Panel-${{ steps.version.outputs.version }}-Setup-${{ matrix.label }}.exe
+            release/SHA256SUMS-${{ matrix.label }}.txt
           generate_release_notes: true
           draft: false
           prerelease: false
