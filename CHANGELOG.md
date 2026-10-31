@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [WPF 2.0.0] - 2026-10-31
+
+WPF 版本线独立发版：`wpf-v*` tag 触发专属流水线，版本自 wpf-1.3.0 跳 **2.0.0**（与 Electron
+的 1.5.x 解耦，两条线互不干扰）。内容集与 [1.5.1] 相同（WPF 三线整固 + 发布链路 + 兼容度声明），
+另含：
+
+- **双版本线更新检查**：两侧「检查更新」从 `/releases/latest` 改为 releases 列表 + tag 前缀过滤
+  （Electron 只认 `v*`、WPF 只认 `wpf-v*`），否则两个版本号并存会互相误报升级
+- Release 产物 `WinShare.Panel-2.0.0-win-x64.zip` + 自算 SHA256SUMS；Release 标题沿用
+  「WinShare Panel WPF x.y.z」惯例
+
 ## [1.5.1] - 2026-10-31
 
 ### 📦 打包 / Packaging：WPF 发布流水线 + 兼容度声明补齐

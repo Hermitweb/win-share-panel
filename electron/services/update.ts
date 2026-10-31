@@ -18,7 +18,9 @@
 export const UPDATE_REPO = 'Hermitweb/win-share-panel'
 /** 给用户点的下载页（无论检查成功与否都可打开） */
 export const RELEASES_PAGE = `https://github.com/${UPDATE_REPO}/releases/latest`
-const API_LATEST = `https://api.github.com/repos/${UPDATE_REPO}/releases/latest`
+/** 双版本线（2026-10-31 起）：Electron 走 v* tag、WPF 走 wpf-v* tag，同一 releases 列表按前缀各取
+ *  最新——/releases/latest 不分前缀会互相误报升级，故用列表端点 + 前缀过滤。 */
+const API_RELEASES = `https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=30`
 
 export interface UpdateCheckResult {
   /** 当前运行版本（来自 app.getVersion()） */
@@ -109,7 +111,7 @@ export async function checkForUpdate(
   try {
     let res: MinimalResponse
     try {
-      res = await fetchImpl(API_LATEST, { signal: controller.signal })
+      res = await fetchImpl(API_RELEASES, { signal: controller.signal })
     } catch (e) {
       if (controller.signal.aborted) {
         return unavailable(currentVersion, `检查更新超时（超过 ${timeoutMs} 毫秒未响应）`)
@@ -134,11 +136,21 @@ export async function checkForUpdate(
     } catch {
       return unavailable(currentVersion, '更新源响应不是合法 JSON')
     }
-    const obj = (body ?? {}) as Record<string, unknown>
-    const tag = typeof obj.tag_name === 'string' ? obj.tag_name.trim() : ''
-    if (!tag) {
-      return unavailable(currentVersion, '更新源响应里没有版本号（tag_name），无法判断是否有新版本')
+    if (!Array.isArray(body)) {
+      return unavailable(currentVersion, '更新源响应不是 Release 列表')
     }
+    // 按发布时间新→旧排序：取第一个 v* tag（wpf-v* 是 WPF 版本线，必须排除）
+    const obj = body.find(
+      (item): item is Record<string, unknown> =>
+        !!item &&
+        typeof item === 'object' &&
+        typeof (item as Record<string, unknown>).tag_name === 'string' &&
+        /^v\d/i.test(String((item as Record<string, unknown>).tag_name)),
+    )
+    if (!obj) {
+      return unavailable(currentVersion, '更新源上还没有 Electron 版 Release（v* tag）')
+    }
+    const tag = String(obj.tag_name).trim()
 
     const latest = tag.replace(/^v/i, '')
     return {

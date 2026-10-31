@@ -56,24 +56,33 @@ public class UpdateTests
     // ===== checkForUpdate（不抛错：失败收敛为 unavailable + reason）=====
 
     // [Source: update.test.ts#checkForUpdate > 有新版本：latest > current → hasUpdate 为真]
+    // 2026-10-31 双版本线改造：响应是 Release 列表，WPF 只认 wpf-v* tag（混入的 v* 必须被忽略）
     [Fact]
     public async Task Check_NewerVersionHasUpdate()
     {
         UpdateService svc = Svc();
-        svc.Fetcher = (url, ct) => Task.FromResult(Res(200, new
+        svc.Fetcher = (url, ct) => Task.FromResult(Res(200, new object[]
         {
-            tag_name = "v1.2.0",
-            html_url = "https://github.com/Hermitweb/win-share-panel/releases/tag/v1.2.0",
-            published_at = "2026-10-01T00:00:00Z",
+            new
+            {
+                tag_name = "v1.5.1",
+                html_url = "https://github.com/Hermitweb/win-share-panel/releases/tag/v1.5.1",
+            },
+            new
+            {
+                tag_name = "wpf-v2.0.0",
+                html_url = "https://github.com/Hermitweb/win-share-panel/releases/tag/wpf-v2.0.0",
+                published_at = "2026-10-01T00:00:00Z",
+            },
         }));
-        UpdateCheckResult r = await svc.CheckForUpdateAsync("1.1.0");
-        Assert.Equal("1.1.0", r.current);
-        Assert.Equal("1.2.0", r.latest);
+        UpdateCheckResult r = await svc.CheckForUpdateAsync("1.3.0");
+        Assert.Equal("1.3.0", r.current);
+        Assert.Equal("2.0.0", r.latest);
         Assert.True(r.hasUpdate);
         Assert.False(r.unavailable);
         Assert.Null(r.reason);
         Assert.Equal("2026-10-01T00:00:00Z", r.publishedAt);
-        Assert.Contains("/releases/tag/v1.2.0", r.releaseUrl);
+        Assert.Contains("/releases/tag/wpf-v2.0.0", r.releaseUrl);
     }
 
     // [Source: update.test.ts#checkForUpdate > 已是最新：相同版本 → hasUpdate 为假且非 unavailable]
@@ -81,7 +90,7 @@ public class UpdateTests
     public async Task Check_UpToDate()
     {
         UpdateService svc = Svc();
-        svc.Fetcher = (url, ct) => Task.FromResult(Res(200, new { tag_name = "v1.1.0" }));
+        svc.Fetcher = (url, ct) => Task.FromResult(Res(200, new object[] { new { tag_name = "wpf-v1.1.0" } }));
         UpdateCheckResult r = await svc.CheckForUpdateAsync("1.1.0");
         Assert.False(r.hasUpdate);
         Assert.False(r.unavailable);
@@ -94,7 +103,7 @@ public class UpdateTests
     public async Task Check_LocalNewerNoUpdate()
     {
         UpdateService svc = Svc();
-        svc.Fetcher = (url, ct) => Task.FromResult(Res(200, new { tag_name = "v1.0.0" }));
+        svc.Fetcher = (url, ct) => Task.FromResult(Res(200, new object[] { new { tag_name = "wpf-v1.0.0" } }));
         UpdateCheckResult r = await svc.CheckForUpdateAsync("1.1.0");
         Assert.False(r.hasUpdate);
     }
@@ -138,6 +147,7 @@ public class UpdateTests
 
     // [Source: update.test.ts#checkForUpdate > 响应不是合法 JSON / 缺 tag_name：分别给不同原因]
     // 说明：TS 的 json() 抛错在 C# 以 Body == null 承载（急切解析，非法 JSON → null）。
+    // 双版本线改造：非数组 / 数组内无 wpf-v* 条目 → 分别给出对应原因。
     [Fact]
     public async Task Check_BadJsonOrMissingTag()
     {
@@ -145,9 +155,13 @@ public class UpdateTests
         badJson.Fetcher = (url, ct) => Task.FromResult(new MinimalUpdateResponse { Ok = true, Status = 200, Body = null });
         Assert.Contains("不是合法 JSON", (await badJson.CheckForUpdateAsync("1.1.0")).reason);
 
-        UpdateService noTag = Svc();
-        noTag.Fetcher = (url, ct) => Task.FromResult(Res(200, new { name = "no tag here" }));
-        Assert.Contains("没有版本号", (await noTag.CheckForUpdateAsync("1.1.0")).reason);
+        UpdateService notList = Svc();
+        notList.Fetcher = (url, ct) => Task.FromResult(Res(200, new { tag_name = "v1.5.1" }));
+        Assert.Contains("不是 Release 列表", (await notList.CheckForUpdateAsync("1.1.0")).reason);
+
+        UpdateService noWpf = Svc();
+        noWpf.Fetcher = (url, ct) => Task.FromResult(Res(200, new object[] { new { tag_name = "v1.5.1" } }));
+        Assert.Contains("还没有 WPF 版 Release", (await noWpf.CheckForUpdateAsync("1.1.0")).reason);
     }
 
     // [Source: update.test.ts#checkForUpdate > 超时：abort 后报超时而不是网络错误]

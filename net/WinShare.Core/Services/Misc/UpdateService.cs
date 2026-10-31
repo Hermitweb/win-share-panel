@@ -31,7 +31,7 @@ public sealed class UpdateService : IUpdateService
 
     private const string RepoConst = "Hermitweb/win-share-panel";
     private const string ReleasesPageConst = $"https://github.com/{RepoConst}/releases/latest";
-    private const string ApiLatestConst = $"https://api.github.com/repos/{RepoConst}/releases/latest";
+    private const string ApiReleasesConst = $"https://api.github.com/repos/{RepoConst}/releases?per_page=30";
 
     /// <summary>TS: UPDATE_REPO（更新源：与 git remote / release workflow 指向的仓库一致）。</summary>
     public string UpdateRepo => RepoConst;
@@ -39,8 +39,15 @@ public sealed class UpdateService : IUpdateService
     /// <summary>TS: RELEASES_PAGE（给用户点的下载页，无论检查成功与否都可打开）。</summary>
     public string ReleasesPage => ReleasesPageConst;
 
-    /// <summary>TS: API_LATEST。</summary>
-    public string ApiLatest => ApiLatestConst;
+    /// <summary>WPF 更新源 API：releases 列表（非 /releases/latest——仓库现并存两条版本线：
+    /// Electron 走 v* tag、WPF 走 wpf-v* tag，必须按前缀过滤，否则互相误报升级）。</summary>
+    public string ApiReleases => ApiReleasesConst;
+
+    /// <summary>WPF Release 的 tag 前缀（wpf-v2.0.0 → 2.0.0）。</summary>
+    public static System.Text.RegularExpressions.Regex WpfTagPattern { get; } =
+        new("^wpf-v\\d",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+            System.Text.RegularExpressions.Regex.InfiniteMatchTimeout);
 
     /// <summary>测试注入点：自定义 fetch 实现；null 时走默认 HttpClient fetch。</summary>
     public UpdateFetchLike? Fetcher { get; set; }
@@ -85,7 +92,7 @@ public sealed class UpdateService : IUpdateService
             try
             {
                 res = Fetcher is { } fetcher
-                    ? await fetcher(ApiLatest, cts.Token)
+                    ? await fetcher(ApiReleases, cts.Token)
                     : await DefaultFetch(cts.Token);
             }
             catch (Exception) when (cts.IsCancellationRequested)
@@ -117,34 +124,49 @@ public sealed class UpdateService : IUpdateService
                 return Unavailable(currentVersion, "更新源响应不是合法 JSON");
             }
 
-            // TS: const obj = (body ?? {}) —— JSON null 当空对象 → 无 tag_name 分支
-            var obj = body.ValueKind == JsonValueKind.Object ? body : default;
-            string tag = obj.ValueKind == JsonValueKind.Object
-                && obj.TryGetProperty("tag_name", out var tn)
-                && tn.ValueKind == JsonValueKind.String
-                ? tn.GetString()!.Trim()
-                : "";
-            if (tag.Length == 0)
+            // 双版本线（2026-10-31 起）：Electron 走 v* tag、WPF 走 wpf-v* tag，同一 releases
+            // 列表按前缀各取最新——/releases/latest 不分前缀，会互相误报升级，故弃用。
+            // GitHub 列表按发布时间新→旧排序：取第一个匹配 wpf-v* 的条目即 WPF 最新 Release。
+            if (body.ValueKind != JsonValueKind.Array)
             {
-                return Unavailable(currentVersion, "更新源响应里没有版本号（tag_name），无法判断是否有新版本");
+                return Unavailable(currentVersion, "更新源响应不是 Release 列表");
+            }
+            JsonElement obj = default;
+            foreach (var item in body.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.Object
+                    && item.TryGetProperty("tag_name", out var tn)
+                    && tn.ValueKind == JsonValueKind.String
+                    && WpfTagPattern.IsMatch(tn.GetString()!))
+                {
+                    obj = item;
+                    break;
+                }
+            }
+            if (obj.ValueKind != JsonValueKind.Object)
+            {
+                return Unavailable(currentVersion, "更新源上还没有 WPF 版 Release（wpf-v* tag）");
             }
 
-            // TS: tag.replace(/^v/i, '')
-            string latest = System.Text.RegularExpressions.Regex.Replace(tag, "^v", "",
+            string tag = obj.TryGetProperty("tag_name", out var tagEl)
+                && tagEl.ValueKind == JsonValueKind.String
+                ? tagEl.GetString()!.Trim()
+                : "";
+
+            // wpf-v2.0.0 → 2.0.0
+            string latest = System.Text.RegularExpressions.Regex.Replace(tag, "^wpf-v", "",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             return new UpdateCheckResult
             {
                 current = currentVersion,
                 latest = latest,
                 hasUpdate = CompareVersions(latest, currentVersion) > 0,
-                releaseUrl = obj.ValueKind == JsonValueKind.Object
-                    && obj.TryGetProperty("html_url", out var hu)
+                releaseUrl = obj.TryGetProperty("html_url", out var hu)
                     && hu.ValueKind == JsonValueKind.String
                     && hu.GetString() is { Length: > 0 }
                     ? hu.GetString()!
                     : ReleasesPage,
-                publishedAt = obj.ValueKind == JsonValueKind.Object
-                    && obj.TryGetProperty("published_at", out var pa)
+                publishedAt = obj.TryGetProperty("published_at", out var pa)
                     && pa.ValueKind == JsonValueKind.String
                     ? pa.GetString()
                     : null,
@@ -172,7 +194,7 @@ public sealed class UpdateService : IUpdateService
     /// <summary>TS: defaultFetch — User-Agent WinSharePanel + GitHub API Accept 头。</summary>
     private async Task<MinimalUpdateResponse> DefaultFetch(CancellationToken ct)
     {
-        var req = new HttpRequestMessage(HttpMethod.Get, ApiLatest);
+        var req = new HttpRequestMessage(HttpMethod.Get, ApiReleases);
         req.Headers.Add("User-Agent", "WinSharePanel");
         req.Headers.Add("Accept", "application/vnd.github+json");
         HttpResponseMessage resp = await _http.SendAsync(req, ct);

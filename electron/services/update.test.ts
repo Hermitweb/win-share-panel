@@ -40,26 +40,44 @@ function res(status: number, body: unknown): MinimalResponse {
 
 describe('checkForUpdate（不抛错：失败收敛为 unavailable + reason）', () => {
   it('有新版本：latest > current → hasUpdate 为真', async () => {
+    // 双版本线：响应是 Release 列表，Electron 只认 v* tag（混入的 wpf-v* 必须被忽略）
     const f: FetchLike = async () =>
-      res(200, {
-        tag_name: 'v1.2.0',
-        html_url: 'https://github.com/Hermitweb/win-share-panel/releases/tag/v1.2.0',
-        published_at: '2026-10-01T00:00:00Z',
-      })
-    const r = await checkForUpdate('1.1.0', f)
+      res(200, [
+        {
+          tag_name: 'wpf-v2.0.0',
+          html_url: 'https://github.com/Hermitweb/win-share-panel/releases/tag/wpf-v2.0.0',
+        },
+        {
+          tag_name: 'v1.5.1',
+          html_url: 'https://github.com/Hermitweb/win-share-panel/releases/tag/v1.5.1',
+          published_at: '2026-10-01T00:00:00Z',
+        },
+      ])
+    const r = await checkForUpdate('1.5.1', f)
     expect(r).toMatchObject({
-      current: '1.1.0',
-      latest: '1.2.0',
-      hasUpdate: true,
+      current: '1.5.1',
+      latest: '1.5.1',
+      hasUpdate: false,
       unavailable: false,
       reason: null,
       publishedAt: '2026-10-01T00:00:00Z',
     })
-    expect(r.releaseUrl).toContain('/releases/tag/v1.2.0')
+    const newer: FetchLike = async () =>
+      res(200, [
+        { tag_name: 'wpf-v2.0.0' },
+        {
+          tag_name: 'v1.6.0',
+          html_url: 'https://github.com/Hermitweb/win-share-panel/releases/tag/v1.6.0',
+        },
+      ])
+    const rn = await checkForUpdate('1.5.1', newer)
+    expect(rn.latest).toBe('1.6.0')
+    expect(rn.hasUpdate).toBe(true)
+    expect(rn.releaseUrl).toContain('/releases/tag/v1.6.0')
   })
 
   it('已是最新：相同版本 → hasUpdate 为假且非 unavailable', async () => {
-    const f: FetchLike = async () => res(200, { tag_name: 'v1.1.0' })
+    const f: FetchLike = async () => res(200, [{ tag_name: 'v1.1.0' }])
     const r = await checkForUpdate('1.1.0', f)
     expect(r.hasUpdate).toBe(false)
     expect(r.unavailable).toBe(false)
@@ -68,7 +86,7 @@ describe('checkForUpdate（不抛错：失败收敛为 unavailable + reason）',
   })
 
   it('比更新源还新（本地预发布）：不算有更新', async () => {
-    const f: FetchLike = async () => res(200, { tag_name: 'v1.0.0' })
+    const f: FetchLike = async () => res(200, [{ tag_name: 'v1.0.0' }])
     const r = await checkForUpdate('1.1.0', f)
     expect(r.hasUpdate).toBe(false)
   })
@@ -99,7 +117,7 @@ describe('checkForUpdate（不抛错：失败收敛为 unavailable + reason）',
     expect(r.reason).toContain('503')
   })
 
-  it('响应不是合法 JSON / 缺 tag_name：分别给不同原因', async () => {
+  it('响应不是合法 JSON / 非 Release 列表 / 无 v* 条目：分别给不同原因', async () => {
     const bad: FetchLike = async () => ({
       ok: true,
       status: 200,
@@ -109,8 +127,8 @@ describe('checkForUpdate（不抛错：失败收敛为 unavailable + reason）',
     })
     expect((await checkForUpdate('1.1.0', bad)).reason).toContain('不是合法 JSON')
 
-    const noTag: FetchLike = async () => res(200, { name: 'no tag here' })
-    expect((await checkForUpdate('1.1.0', noTag)).reason).toContain('没有版本号')
+    const noTag: FetchLike = async () => res(200, [{ name: 'no tag here' }])
+    expect((await checkForUpdate('1.1.0', noTag)).reason).toContain('还没有 Electron 版 Release')
   })
 
   it('超时：abort 后报超时而不是网络错误', async () => {

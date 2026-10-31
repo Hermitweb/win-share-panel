@@ -55,3 +55,4 @@ shots/
 # ZCode 会话/插件产物（本机状态，永不入库）
 .mimosa/
 .zcode/
+net/WinShare.App/publish/
