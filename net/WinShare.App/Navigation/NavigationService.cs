@@ -24,6 +24,10 @@ public sealed class NavigationService(NavigationRegistry registry) : INavigation
     string? _attention;
     UserControl? _currentView;
 
+    // 页面缓存（对齐 Electron 的路由保活）三次实现均已回退，不再走这条路：
+    // 缓存 + ContentControl 重挂载会让页面在快速切换时大面积失败（30 次切换 19 次失败）。
+    // 现实方案=每次 Navigate factory.Create() 重建 + 各页 Loaded 走 PageRefreshThrottle 节流。
+
     public string CurrentRoute => _route;
     public UserControl? CurrentView => _currentView;
 
@@ -40,7 +44,11 @@ public sealed class NavigationService(NavigationRegistry registry) : INavigation
             return;
         }
         _route = route;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        // 【第三次回退缓存】缓存 + ContentControl 重挂载会让页面在快速切换时大面积失败
+        // （30 次切换 19 次失败）。三次尝试均失败，不再走这条路。
         _currentView = registry.Find(route)!.factory.Create();
+        WinShare.Core.Lib.Logger.Info("main", $"[nav] 构造 {route} {sw.Elapsed.TotalMilliseconds:F1}ms");
         RouteChanged?.Invoke(route);
     }
 

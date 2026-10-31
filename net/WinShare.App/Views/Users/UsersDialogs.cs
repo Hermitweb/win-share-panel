@@ -25,10 +25,10 @@ public sealed class BatchAssignDialog : Window
         Width = 420;
         SizeToContent = SizeToContent.Height;
 
-        var okBtn = new Button { Content = "分配", IsDefault = true, IsEnabled = false, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0) };
-        var cancelBtn = new Button { Content = "取消", IsCancel = true, MinWidth = 80 };
+        var okBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "分配", IsDefault = true, IsEnabled = false, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0) };
+        var cancelBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "取消", IsCancel = true, MinWidth = 80 };
 
-        var combo = new ComboBox { FontSize = 13 };
+        var combo = new ComboBox { Style = (Style?)TryFindResource("ComboBoxSoft"), FontSize = 13 };
         foreach (var g in groups)
             combo.Items.Add(new ComboBoxItem
             {
@@ -55,7 +55,7 @@ public sealed class BatchAssignDialog : Window
             var tag = new Border
             {
                 BorderThickness = new Thickness(1),
-                BorderBrush = Brushes.Gray,
+                BorderBrush = (Brush?)TryFindResource("BrushBorder"),
                 Padding = new Thickness(6, 1, 6, 1),
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Margin = new Thickness(0, 0, 0, 4),
@@ -104,7 +104,7 @@ public sealed class GroupCreateDialog : Window
         Width = 420;
         SizeToContent = SizeToContent.Height;
 
-        var nameBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 8), ToolTip = "如 ProjectEditors" };
+        var nameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 8), ToolTip = "如 ProjectEditors" };
         var descBox = new TextBox
         {
             FontSize = 13,
@@ -119,12 +119,12 @@ public sealed class GroupCreateDialog : Window
         var err = new TextBlock
         {
             FontSize = 12,
-            Foreground = Brushes.Red,
+            Foreground = (Brush?)TryFindResource("BrushDangerStrong"),
             Visibility = Visibility.Collapsed,
             Margin = new Thickness(0, 0, 0, 8),
         };
-        var okBtn = new Button { Content = "创建", MinWidth = 80 };
-        var cancelBtn = new Button { Content = "取消", IsCancel = true, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0) };
+        var okBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "创建", MinWidth = 80 };
+        var cancelBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "取消", IsCancel = true, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0) };
 
         okBtn.Click += async (_, _) =>
         {
@@ -192,13 +192,13 @@ public sealed class UserCreateDialog : Window
         Width = 520;
         SizeToContent = SizeToContent.Height;
 
-        var nameBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "如 john.doe" };
-        var pwdBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
+        var nameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "如 john.doe" };
+        var pwdBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
         var pwdStrength = new TextBlock { FontSize = 12, Margin = new Thickness(0, 2, 0, 8) };
         // 1 列纵向流：生成按钮独立一行（原在密码框右侧）
-        var genBtn = new Button { Content = "⚡ 生成密码", Padding = new Thickness(8, 2, 8, 2), FontSize = 12, Margin = new Thickness(0, 4, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, ToolTip = "生成 12 位随机强密码" };
-        var confirmBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
-        var fullNameBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "用户显示名（可选）" };
+        var genBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "⚡ 生成密码", Padding = new Thickness(8, 2, 8, 2), FontSize = 12, Margin = new Thickness(0, 4, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, ToolTip = "生成 12 位随机强密码" };
+        var confirmBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
+        var fullNameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "用户显示名（可选）" };
         var descBox = new TextBox
         {
             FontSize = 13,
@@ -209,9 +209,9 @@ public sealed class UserCreateDialog : Window
             ToolTip = "账号用途描述（可选）",
         };
         // 1 列纵向流：开关项自上而下堆叠
-        var enabledChk = new CheckBox { Content = "启用账号", IsChecked = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
-        var mayChangeChk = new CheckBox { Content = "允许用户修改密码", IsChecked = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
-        var neverExpChk = new CheckBox { Content = "密码永不过期", IsChecked = true, FontSize = 13 };
+        var enabledChk = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "启用账号", IsChecked = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
+        var mayChangeChk = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "允许用户修改密码", IsChecked = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
+        var neverExpChk = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "密码永不过期", IsChecked = true, FontSize = 13 };
 
         // 分配到组（多选 checkbox；对齐 TS 多选 Select；1 列纵向流）
         var groupChks = new StackPanel { Margin = new Thickness(0, 4, 0, 8) };
@@ -227,12 +227,12 @@ public sealed class UserCreateDialog : Window
         var err = new TextBlock
         {
             FontSize = 12,
-            Foreground = Brushes.Red,
+            Foreground = (Brush?)TryFindResource("BrushDangerStrong"),
             Visibility = Visibility.Collapsed,
             Margin = new Thickness(0, 0, 0, 8),
             TextWrapping = TextWrapping.Wrap,
         };
-        var okBtn = new Button { Content = "创建", MinWidth = 80, IsDefault = true };
+        var okBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "创建", MinWidth = 80, IsDefault = true };
         var cancelBtn = new Button { Content = "取消", IsCancel = true, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0) };
         okBtn.Click += async (_, _) =>
         {
@@ -280,10 +280,10 @@ public sealed class UserCreateDialog : Window
             };
             pwdStrength.Foreground = s switch
             {
-                "weak" => Brushes.Red,
-                "medium" => Brushes.Orange,
-                "strong" => Brushes.Green,
-                _ => Brushes.Gray,
+                "weak" => (Brush?)TryFindResource("BrushDangerStrong"),
+                "medium" => (Brush?)TryFindResource("BrushWarnDot"),
+                "strong" => (Brush?)TryFindResource("BrushSuccess"),
+                _ => (Brush?)TryFindResource("BrushFog"),
             };
         }
         pwdBox.TextChanged += (_, _) => UpdateStrength();
@@ -371,15 +371,15 @@ public sealed class GroupManageDialog : Window
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
         // 1 列纵向流：按钮左对齐独占一行
-        var saveDescBtn = new Button { Content = "保存描述", MinWidth = 90, HorizontalAlignment = HorizontalAlignment.Left };
+        var saveDescBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "保存描述", MinWidth = 90, HorizontalAlignment = HorizontalAlignment.Left };
         saveDescBtn.Click += async (_, _) =>
         {
             if (await _vm.UpdateGroupDescriptionAsync(_groupName, _descBox.Text.Trim()) is { ok: true })
                 Operated = true;
         };
 
-        _renameBox = new TextBox { Text = group.name, FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 4) };
-        var renameBtn = new Button { Content = "重命名", MinWidth = 90, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
+        _renameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), Text = group.name, FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 4) };
+        var renameBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "重命名", MinWidth = 90, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
         renameBtn.Click += async (_, _) =>
         {
             var (ok, _) = await _vm.RenameGroupAsync(_groupName, _renameBox.Text);
@@ -392,8 +392,8 @@ public sealed class GroupManageDialog : Window
             }
         };
 
-        _addBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 4), ToolTip = "手动输入用户名或组名（兼容域账号）" };
-        var addBtn = new Button { Content = "添加", MinWidth = 70, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
+        _addBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 4), ToolTip = "手动输入用户名或组名（兼容域账号）" };
+        var addBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "添加", MinWidth = 70, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
         _addBox.KeyDown += (_, e) =>
         {
             if (e.Key == System.Windows.Input.Key.Enter) _ = AddMemberAsync();
@@ -413,7 +413,7 @@ public sealed class GroupManageDialog : Window
         _batchGrid.Columns.Add(new DataGridCheckBoxColumn { Header = "添加", Binding = new Binding("Pick") });
         _batchGrid.Columns.Add(new DataGridTextColumn { Header = "用户名", Binding = new Binding("Name"), IsReadOnly = true });
         _batchGrid.Columns.Add(new DataGridTextColumn { Header = "全名", Binding = new Binding("FullName"), IsReadOnly = true });
-        var batchBtn = new Button { Content = "批量添加", MinWidth = 90 };
+        var batchBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "批量添加", MinWidth = 90 };
         batchBtn.Click += async (_, _) =>
         {
             var picked = _batchGrid.Items.Cast<object>()
@@ -428,8 +428,8 @@ public sealed class GroupManageDialog : Window
         };
 
         _membersList = new ListBox { FontSize = 12, Height = 120 };
-        _removeCombo = new ComboBox { FontSize = 13, Width = 220, Margin = new Thickness(0, 0, 0, 4) };
-        var removeBtn = new Button { Content = "移除", MinWidth = 60, HorizontalAlignment = HorizontalAlignment.Left };
+        _removeCombo = new ComboBox { Style = (Style?)TryFindResource("ComboBoxSoft"), FontSize = 13, Width = 220, Margin = new Thickness(0, 0, 0, 4) };
+        var removeBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "移除", MinWidth = 60, HorizontalAlignment = HorizontalAlignment.Left };
         removeBtn.Click += async (_, _) =>
         {
             var m = _removeCombo.SelectedItem as string;
@@ -563,8 +563,8 @@ public sealed class UserEditDialog : Window
         Height = 620;
 
         // ===== 属性 Tab =====
-        _nameBox = new TextBox { Text = user.name, FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
-        _hint = new TextBlock { FontSize = 12, Foreground = Brushes.OrangeRed, Margin = new Thickness(0, 2, 0, 4), Visibility = Visibility.Collapsed };
+        _nameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), Text = user.name, FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
+        _hint = new TextBlock { FontSize = 12, Foreground = (Brush?)TryFindResource("BrushWarnDot"), Margin = new Thickness(0, 2, 0, 4), Visibility = Visibility.Collapsed };
         _nameBox.TextChanged += (_, _) =>
         {
             var v = _nameBox.Text;
@@ -575,10 +575,10 @@ public sealed class UserEditDialog : Window
             }
             var problem = UsersValidators.ValidateUserName(v);
             _hint.Text = problem ?? "用户名已修改，保存时将执行重命名";
-            _hint.Foreground = problem is null ? Brushes.OrangeRed : Brushes.Red;
+            _hint.Foreground = (Brush?)TryFindResource(problem is null ? "BrushWarnDot" : "BrushDangerStrong");
             _hint.Visibility = Visibility.Visible;
         };
-        _fullNameBox = new TextBox { Text = user.fullName, FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "用户显示名" };
+        _fullNameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), Text = user.fullName, FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "用户显示名" };
         _descBox = new TextBox
         {
             Text = user.description,
@@ -590,11 +590,11 @@ public sealed class UserEditDialog : Window
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
         // 1 列纵向流：各开关项独立一行（原横排 16px 间距改底部 4px）
-        _enabledChk = new CheckBox { Content = "启用账号", IsChecked = user.enabled, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
-        _mayChangeChk = new CheckBox { Content = "允许修改密码", IsChecked = user.userMayChangePassword, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
-        _neverExpiresChk = new CheckBox { Content = "密码永不过期", IsChecked = !user.passwordExpires, FontSize = 13 };
-        _newPwdBox = new TextBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Width = 220, Margin = new Thickness(0, 4, 0, 4), Visibility = Visibility.Collapsed };
-        _pwdSwitch = new CheckBox { Content = "重设密码", FontSize = 12, IsChecked = false, Margin = new Thickness(0, 4, 0, 0) };
+        _enabledChk = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "启用账号", IsChecked = user.enabled, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
+        _mayChangeChk = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "允许修改密码", IsChecked = user.userMayChangePassword, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
+        _neverExpiresChk = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "密码永不过期", IsChecked = !user.passwordExpires, FontSize = 13 };
+        _newPwdBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Width = 220, Margin = new Thickness(0, 4, 0, 4), Visibility = Visibility.Collapsed };
+        _pwdSwitch = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "重设密码", FontSize = 12, IsChecked = false, Margin = new Thickness(0, 4, 0, 0) };
         _pwdSwitch.Checked += (_, _) =>
         {
             _newPwdBox.Visibility = Visibility.Visible;
@@ -603,7 +603,7 @@ public sealed class UserEditDialog : Window
         _pwdSwitch.Unchecked += (_, _) => _newPwdBox.Visibility = Visibility.Collapsed;
         _newPwdBox.TextChanged += (_, _) => UpdateStrength();
         _pwdStrength = new TextBlock { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
-        var genPwdBtn = new Button { Content = "生成", MinWidth = 56, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0) };
+        var genPwdBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "生成", MinWidth = 56, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0) };
         genPwdBtn.ToolTip = "生成 12 位随机强密码";
         genPwdBtn.Click += (_, _) =>
         {
@@ -611,7 +611,7 @@ public sealed class UserEditDialog : Window
             UpdateStrength();
         };
 
-        var saveBtn = new Button { Content = "保存", MinWidth = 90, IsDefault = true, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 12, 0, 0) };
+        var saveBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "保存", MinWidth = 90, IsDefault = true, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 12, 0, 0) };
         saveBtn.Click += async (_, _) =>
         {
             var problem = UsersValidators.ValidateUserName(_nameBox.Text.Trim());
@@ -641,7 +641,7 @@ public sealed class UserEditDialog : Window
         var detail = new TextBlock
         {
             FontSize = 12,
-            Foreground = Brushes.Gray,
+            Foreground = (Brush?)TryFindResource("BrushFog"),
             Margin = new Thickness(0, 8, 0, 0),
             TextWrapping = TextWrapping.Wrap,
             Text =
@@ -672,8 +672,8 @@ public sealed class UserEditDialog : Window
 
         // ===== 所属组 Tab =====
         _currentGroups = new ListBox { FontSize = 12, Height = 90 };
-        _addGroupCombo = new ComboBox { FontSize = 13, Width = 300, Margin = new Thickness(0, 0, 0, 4) };
-        var addGrpBtn = new Button { Content = "添加", MinWidth = 60, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
+        _addGroupCombo = new ComboBox { Style = (Style?)TryFindResource("ComboBoxSoft"), FontSize = 13, Width = 300, Margin = new Thickness(0, 0, 0, 4) };
+        var addGrpBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "添加", MinWidth = 60, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
         addGrpBtn.Click += async (_, _) =>
         {
             var g = (_addGroupCombo.SelectedItem as ComboBoxItem)?.Tag as string;
@@ -685,7 +685,7 @@ public sealed class UserEditDialog : Window
                 ReloadGroupViews();
             }
         };
-        _removeCombo = new ComboBox { FontSize = 13, Width = 220, Margin = new Thickness(0, 0, 0, 4) };
+        _removeCombo = new ComboBox { Style = (Style?)TryFindResource("ComboBoxSoft"), FontSize = 13, Width = 220, Margin = new Thickness(0, 0, 0, 4) };
         var removeBtn = new Button { Content = "移除", MinWidth = 60, HorizontalAlignment = HorizontalAlignment.Left };
         removeBtn.Click += async (_, _) =>
         {
@@ -721,7 +721,7 @@ public sealed class UserEditDialog : Window
         _permGrid.Columns.Add(new DataGridTextColumn { Header = "共享名", Binding = new Binding("perm.shareName"), Width = 180 });
         _permGrid.Columns.Add(new DataGridTextColumn { Header = "访问级别", Binding = new Binding("AccessText"), Width = 100 });
         _permGrid.Columns.Add(new DataGridTextColumn { Header = "类型", Binding = new Binding("TypeText"), Width = 80 });
-        var permRefresh = new Button { Content = "刷新", MinWidth = 60 };
+        var permRefresh = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "刷新", MinWidth = 60 };
         permRefresh.Click += async (_, _) =>
             _permGrid.ItemsSource = await _vm.LoadUserSharePermsAsync(_userName);
         var permsPanel = new StackPanel();
@@ -740,7 +740,7 @@ public sealed class UserEditDialog : Window
         {
             Text = "权限来源为 SMB 共享级别授权。NTFS 级别权限请在「共享管理」页对单个共享编辑。",
             FontSize = 12,
-            Foreground = Brushes.Gray,
+            Foreground = (Brush?)TryFindResource("BrushFog"),
             Margin = new Thickness(0, 4, 0, 0),
             TextWrapping = TextWrapping.Wrap,
         });
@@ -806,10 +806,10 @@ public sealed class UserEditDialog : Window
         };
         _pwdStrength.Foreground = s switch
         {
-            "weak" => Brushes.Red,
-            "medium" => Brushes.Orange,
-            "strong" => Brushes.Green,
-            _ => Brushes.Gray,
+            "weak" => (Brush?)TryFindResource("BrushDangerStrong"),
+            "medium" => (Brush?)TryFindResource("BrushWarnDot"),
+            "strong" => (Brush?)TryFindResource("BrushSuccess"),
+            _ => (Brush?)TryFindResource("BrushFog"),
         };
     }
 }

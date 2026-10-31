@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 
 namespace WinShare.App.Settings;
 
@@ -36,6 +37,22 @@ public abstract class SettingsCardBase : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// 触发属性变更通知。
+    /// 绑定目标多为 UI 元素：卡片 VM 常被 Task.Run 包着（AutoStart / Firewall / UsageMode），
+    /// 其延续在后台线程跑，从那里触发 PropertyChanged 会让 WPF 绑定抛
+    /// InvalidOperationException「调用线程无法访问此对象」——表现为页面卡死/提示不更新。
+    /// 统一回到 UI 线程再通知；无 Application（xUnit 直测）时同步触发。
+    /// </summary>
     protected void Raise([CallerMemberName] string? name = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke((Action)(() =>
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name))));
+            return;
+        }
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
 }

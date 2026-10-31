@@ -155,23 +155,24 @@ public class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void RefreshInterval_DefaultsTo10_AndPersists()
+    public void RefreshInterval_DefaultsTo60_AndPersists()
     {
         var store = new AppSettingsStore(_dir);
-        Assert.Equal(10, store.GetRefreshInterval());
+        // 默认 60s：单次刷新实测 ~5s，更密间隔会让 PowerShell 轮次堆叠、CPU 常驻过高
+        Assert.Equal(60, store.GetRefreshInterval());
 
-        store.SaveRefreshInterval(30);
+        store.SaveRefreshInterval(10);
         var store2 = new AppSettingsStore(_dir);
-        Assert.Equal(30, store2.GetRefreshInterval());
+        Assert.Equal(10, store2.GetRefreshInterval());
     }
 
     [Fact]
-    public void RefreshInterval_InvalidValue_ClampsTo10()
+    public void RefreshInterval_InvalidValue_ClampsTo60()
     {
         var store = new AppSettingsStore(_dir);
-        store.SaveRefreshInterval(7); // 非 1|5|10|30
+        store.SaveRefreshInterval(7); // 非 1|5|10|30|60
         var store2 = new AppSettingsStore(_dir);
-        Assert.Equal(10, store2.GetRefreshInterval());
+        Assert.Equal(60, store2.GetRefreshInterval());
     }
 
     [Fact]

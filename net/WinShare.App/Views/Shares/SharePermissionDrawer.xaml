@@ -20,9 +20,9 @@
         <!-- TS Tabs：共享权限 / NTFS 权限；1 列纵向流：区块选择器纵向堆叠，正文区纵向全展开、选中区块可见 -->
         <StackPanel x:Name="Tabs" Grid.Row="1" Margin="0,0,0,12">
             <RadioButton x:Name="RbShare" GroupName="PermTab" Content="共享权限" IsChecked="True"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
+                         Checked="OnTabChanged" Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
             <RadioButton x:Name="RbNtfs" GroupName="PermTab" Content="NTFS 权限"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
+                         Checked="OnTabChanged" Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
         </StackPanel>
 
         <StackPanel x:Name="TabContent" Grid.Row="2">
@@ -32,10 +32,11 @@
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBlock Text="修改后点击「保存」生效。Deny 优先于其他权限。" FontSize="12"
                                    Foreground="{DynamicResource BrushFog}" />
-                        <Button Content="重新加载" Click="OnReload" Padding="8,2" FontSize="12"
+                        <Button Content="重新加载" Style="{DynamicResource RowActionButton}" Click="OnReload"
                                 HorizontalAlignment="Right" Margin="0,4,0,0" />
                     </StackPanel>
-                    <DataGrid x:Name="RowsGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                    <DataGrid x:Name="RowsGrid" Style="{DynamicResource SoftDataGrid}"
+                              AutoGenerateColumns="False" CanUserAddRows="False"
                               IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                               FontSize="12" RowHeaderWidth="0" Margin="0,0,0,12">
                         <DataGrid.Columns>
@@ -45,44 +46,45 @@
                             <DataGridTemplateColumn Header="" Width="50">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Button Content="删除" Click="OnRemoveRow" FontSize="11"
-                                                Padding="6,1" Foreground="#A8071A" />
+                                        <Button Content="删除" Style="{DynamicResource RowActionButtonDanger}"
+                                                Click="OnRemoveRow" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <Border DockPanel.Dock="Bottom" Margin="0,12,0,0" Background="#11000000"
-                             Padding="8" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                    <Border DockPanel.Dock="Bottom" Margin="0,12,0,0" Background="{DynamicResource BrushBgMist}"
+                             Padding="8" CornerRadius="{DynamicResource RadiusInput}"
+                             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                         <StackPanel>
                         <TextBlock Text="添加账号" FontSize="12" Foreground="{DynamicResource BrushFog}"
                                    Margin="0,0,0,6" />
                         <!-- 1 列纵向流：账号/类型/权限/添加各自独占一行（每行控件靠左，宽度收敛） -->
                         <StackPanel>
-                            <TextBox x:Name="TxtNewAccount" Width="220" HorizontalAlignment="Left" FontSize="13" Padding="4"
-                                     Margin="0,0,0,6" />
+                            <TextBox x:Name="TxtNewAccount" Width="220" HorizontalAlignment="Left"
+                                     Style="{DynamicResource InputBoxSoft}" Margin="0,0,0,6" />
                             <ComboBox x:Name="CmbNewType" Width="90" HorizontalAlignment="Left" FontSize="13"
-                                      SelectedIndex="0" Margin="0,0,0,6">
+                                      Style="{DynamicResource ComboBoxSoft}" SelectedIndex="0" Margin="0,0,0,6">
                                 <ComboBoxItem Content="用户" Tag="User" />
                                 <ComboBoxItem Content="组" Tag="Group" />
                             </ComboBox>
                             <ComboBox x:Name="CmbNewAccess" Width="110" HorizontalAlignment="Left" FontSize="13"
-                                      SelectedIndex="2" Margin="0,0,0,6">
+                                      Style="{DynamicResource ComboBoxSoft}" SelectedIndex="2" Margin="0,0,0,6">
                                 <ComboBoxItem Content="完全控制" Tag="Full" />
                                 <ComboBoxItem Content="更改" Tag="Change" />
                                 <ComboBoxItem Content="只读" Tag="Read" />
                                 <ComboBoxItem Content="拒绝" Tag="Deny" />
                             </ComboBox>
-                            <Button Content="添加" Click="OnAddRow" Padding="8,2" FontSize="12"
+                            <Button Content="添加" Style="{DynamicResource RowActionButton}" Click="OnAddRow"
                                     HorizontalAlignment="Left" />
                         </StackPanel>
                         <TextBlock x:Name="CandTip" FontSize="11" Foreground="{DynamicResource BrushFog}"
                                    Margin="0,6,0,0" TextWrapping="Wrap" />
-                        <TextBlock x:Name="RowMsg" FontSize="12" Foreground="#D4380D"
+                        <TextBlock x:Name="RowMsg" FontSize="12" Foreground="{DynamicResource BrushDangerStrong}"
                                    Margin="0,4,0,0" Visibility="Collapsed" />
                         <!-- 按钮区（页脚操作行）：横向右对齐保持 -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                            <Button Content="保存" Click="OnSave" Padding="14,4" FontSize="13" />
+                            <Button Content="保存" Style="{DynamicResource DashButton}" Click="OnSave" />
                             <TextBlock x:Name="SaveMsg" FontSize="12" VerticalAlignment="Center"
                                        Margin="8,0,0,0" Foreground="{DynamicResource BrushFog}" />
                         </StackPanel>
@@ -96,11 +98,12 @@
                 <StackPanel Margin="0,0,0,8">
                     <TextBlock x:Name="NtfsPathText" FontSize="12" Foreground="{DynamicResource BrushFog}"
                                TextWrapping="Wrap" />
-                    <Button Content="加载" Click="OnLoadNtfs" Padding="8,2" FontSize="12"
+                    <Button Content="加载" Style="{DynamicResource RowActionButton}" Click="OnLoadNtfs"
                             HorizontalAlignment="Right" Margin="0,4,0,0" />
                 </StackPanel>
                     <Grid>
-                        <DataGrid x:Name="NtfsGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                        <DataGrid x:Name="NtfsGrid" Style="{DynamicResource SoftDataGrid}"
+                                  AutoGenerateColumns="False" CanUserAddRows="False"
                                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                   FontSize="12" RowHeaderWidth="0">
                             <DataGrid.Columns>

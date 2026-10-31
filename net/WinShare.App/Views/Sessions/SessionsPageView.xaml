@@ -16,14 +16,14 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- 页头：标题 + 刷新间隔/暂停/倒计时/刷新（对齐 TS header Space） -->
-        <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="False">
-            <TextBlock DockPanel.Dock="Left" Text="会话监控" FontSize="20" FontWeight="SemiBold"
-                       VerticalAlignment="Center" />
+        <!-- 页头：标题 + 刷新间隔/暂停/倒计时/刷新（对齐 TS header Space；标题统一 PageTitle + Nav.* 键） -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,16" LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Nav.Sessions}"
+                       Style="{DynamicResource PageTitle}" VerticalAlignment="Center" />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <TextBlock Text="刷新间隔" FontSize="12" Foreground="{DynamicResource BrushFog}"
                            VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox x:Name="IntervalCombo" Width="80" FontSize="13"
+                <ComboBox x:Name="IntervalCombo" Width="80" Style="{DynamicResource ComboBoxSoft}"
                           SelectionChanged="OnIntervalChanged">
                     <ComboBoxItem Content="1s" Tag="1" />
                     <ComboBoxItem Content="5s" Tag="5" IsSelected="True" />
@@ -32,42 +32,43 @@
                 </ComboBox>
                 <Button x:Name="BtnPause" Content="暂停" Style="{DynamicResource DashButton}"
                         Margin="8,0,0,0" Click="OnPauseToggle" />
-                <Border x:Name="CountdownTag" CornerRadius="4" Padding="8,2" Margin="8,0,0,0"
-                        Background="#E6F4FF" VerticalAlignment="Center">
-                    <TextBlock x:Name="CountdownText" Text="5s" FontSize="12" Foreground="#1677FF" />
+                <Border x:Name="CountdownTag" CornerRadius="{DynamicResource RadiusTag}" Padding="8,2" Margin="8,0,0,0"
+                        Background="{DynamicResource BrushInfoBg}" VerticalAlignment="Center">
+                    <TextBlock x:Name="CountdownText" Text="5s" FontSize="12" Foreground="{DynamicResource BrushInfoFg}" />
                 </Border>
                 <Button x:Name="BtnRefresh" Content="刷新" Style="{DynamicResource DashButton}"
                         Margin="8,0,0,0" Click="OnRefresh" />
             </StackPanel>
         </DockPanel>
 
-        <!-- 协议 Tab（对齐 protoTabs：SMB/NFS 有会话；FTP/WebDAV 无原生会话 API → 空态引导；1 列纵向流） -->
-        <StackPanel Grid.Row="1" Margin="0,0,0,8">
-            <RadioButton x:Name="ProtoSmb" GroupName="Proto" Content="SMB" IsChecked="True"
-                         Checked="OnProto" FontSize="13" Margin="0,0,0,6" />
-            <RadioButton x:Name="ProtoNfs" GroupName="Proto" Content="NFS"
-                         Checked="OnProto" FontSize="13" Margin="0,0,0,6" />
-            <RadioButton x:Name="ProtoFtp" GroupName="Proto" Content="FTP"
-                         Checked="OnProto" FontSize="13" Margin="0,0,0,6" />
-            <RadioButton x:Name="ProtoWebdav" GroupName="Proto" Content="WebDAV"
-                         Checked="OnProto" FontSize="13" />
-        </StackPanel>
+        <!-- 协议 Tab（对齐 Electron antd Tabs：横向；SMB/NFS 有会话，FTP/WebDAV 走空态引导） -->
+        <Border Grid.Row="1" Margin="0,0,0,8" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource BrushBorder}">
+            <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="ProtoSmb" GroupName="Proto" Content="SMB" IsChecked="True"
+                             Checked="OnProto" Style="{DynamicResource TabRadio}" />
+                <RadioButton x:Name="ProtoNfs" GroupName="Proto" Content="NFS"
+                             Checked="OnProto" Style="{DynamicResource TabRadio}" />
+                <RadioButton x:Name="ProtoFtp" GroupName="Proto" Content="FTP"
+                             Checked="OnProto" Style="{DynamicResource TabRadio}" />
+                <RadioButton x:Name="ProtoWebdav" GroupName="Proto" Content="WebDAV"
+                             Checked="OnProto" Style="{DynamicResource TabRadio}" />
+            </StackPanel>
+        </Border>
 
-        <!-- 选中操作条（对齐 selectionBar：已选 N / 清空 / 批量断开；1 列纵向流，按钮行横向右对齐） -->
+        <!-- 选中操作条（对齐 Electron 横向：计数在左、按钮在右） -->
         <Border x:Name="SelectionBar" Grid.Row="2" Style="{DynamicResource CardStyle}" Padding="8"
                 Margin="0,0,0,8" Visibility="Collapsed">
-            <StackPanel>
-                <TextBlock x:Name="SelectedCount" Text="已选 0" FontSize="12"
-                           Foreground="{DynamicResource BrushFog}"
-                           Margin="4,0,0,8" />
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="BtnClearSelection" Content="清空" Style="{DynamicResource DashButton}"
-                             Padding="8,2" FontSize="12" Click="OnClearSelection" />
-                    <Button x:Name="BtnBatchClose" Content="批量断开" Style="{DynamicResource DashButton}"
-                             Padding="8,2" FontSize="12" Margin="8,0,0,0" Foreground="#FF4D4F"
-                             Click="OnBatchClose" />
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button x:Name="BtnClearSelection" Content="清空" Style="{DynamicResource RowActionButton}"
+                            Click="OnClearSelection" />
+                    <Button x:Name="BtnBatchClose" Content="批量断开" Style="{DynamicResource RowActionButtonDanger}"
+                            Margin="8,0,0,0" Click="OnBatchClose" />
                 </StackPanel>
-            </StackPanel>
+                <TextBlock x:Name="SelectedCount" Text="已选 0" FontSize="12"
+                           Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
+            </DockPanel>
         </Border>
 
         <TextBlock x:Name="NoticeBar" Grid.Row="3" FontSize="12" Foreground="{DynamicResource BrushDanger}"
@@ -78,15 +79,19 @@
             <!-- ===== SMB：会话 + 打开文件 子 Tab ===== -->
             <Border x:Name="SmbPanel" Style="{DynamicResource CardStyle}">
                 <DockPanel>
-                    <!-- SMB 子 Tab（会话/打开文件；1 列纵向流，两表上下堆叠） -->
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <RadioButton x:Name="SmbSessionsTab" GroupName="SmbSub" Content="会话 (0)"
-                                     IsChecked="True" Checked="OnSmbSub" FontSize="13" Margin="0,0,0,6" />
-                        <RadioButton x:Name="SmbFilesTab" GroupName="SmbSub" Content="打开文件 (0)"
-                                     Checked="OnSmbSub" FontSize="13" />
-                    </StackPanel>
+                    <!-- SMB 子 Tab（会话/打开文件；对齐 Electron 二级 Tabs：横向） -->
+                    <Border DockPanel.Dock="Top" Margin="0,0,0,8" BorderThickness="0,0,0,1"
+                            BorderBrush="{DynamicResource BrushBorder}">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="SmbSessionsTab" GroupName="SmbSub" Content="会话 (0)"
+                                         IsChecked="True" Checked="OnSmbSub"
+                                         Style="{DynamicResource TabRadio}" />
+                            <RadioButton x:Name="SmbFilesTab" GroupName="SmbSub" Content="打开文件 (0)"
+                                         Checked="OnSmbSub" Style="{DynamicResource TabRadio}" />
+                        </StackPanel>
+                    </Border>
                     <Grid>
-                        <DataGrid x:Name="SessionGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                        <DataGrid x:Name="SessionGrid" Style="{DynamicResource SoftDataGrid}" AutoGenerateColumns="False" IsReadOnly="True"
                                   SelectionUnit="FullRow" CanUserAddRows="False"
                                   GridLinesVisibility="Horizontal" FontSize="13"
                                   SelectionChanged="OnSessionSelectionChanged">
@@ -99,14 +104,15 @@
                                 <DataGridTemplateColumn Header="操作" Width="100">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button Content="断开" FontSize="12" Padding="6,1"
-                                                    Foreground="#FF4D4F" Click="OnCloseSession" Tag="{Binding}" />
+                                            <Button Content="断开" Style="{DynamicResource RowActionButtonDanger}"
+                                                    HorizontalAlignment="Left" Click="OnCloseSession" Tag="{Binding}" />
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-                        <DataGrid x:Name="FileGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                        <DataGrid x:Name="FileGrid" Style="{DynamicResource SoftDataGrid}"
+                                  AutoGenerateColumns="False" IsReadOnly="True"
                                   CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="13"
                                   Visibility="Collapsed">
                             <DataGrid.Columns>
@@ -130,7 +136,8 @@
 
             <!-- ===== NFS：会话表（同 sessionColumns；无文件表） ===== -->
             <Border x:Name="NfsPanel" Style="{DynamicResource CardStyle}" Visibility="Collapsed">
-                <DataGrid x:Name="NfsSessionGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                <DataGrid x:Name="NfsSessionGrid" Style="{DynamicResource SoftDataGrid}"
+                          AutoGenerateColumns="False" IsReadOnly="True"
                           SelectionUnit="FullRow" CanUserAddRows="False"
                           GridLinesVisibility="Horizontal" FontSize="13"
                           SelectionChanged="OnSessionSelectionChanged">
@@ -143,8 +150,8 @@
                         <DataGridTemplateColumn Header="操作" Width="100">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button Content="断开" FontSize="12" Padding="6,1"
-                                            Foreground="#FF4D4F" Click="OnCloseSession" Tag="{Binding}" />
+                                    <Button Content="断开" Style="{DynamicResource RowActionButtonDanger}"
+                                            HorizontalAlignment="Left" Click="OnCloseSession" Tag="{Binding}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

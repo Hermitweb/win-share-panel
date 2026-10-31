@@ -33,8 +33,12 @@ public sealed class NavigationRegistry
     /// <summary>注册/替换某路由的页面（同路由二次注册=替换，T3b/c/d 接入即覆盖占位）。</summary>
     public void Register(AppPage page) => _pages[page.route] = page;
 
-    public IReadOnlyCollection<AppPage> Pages => _pages.Values.OrderBy(p => p.route == "/" ? 0 : 1)
-        .ThenBy(p => p.titleKey).ToList();
+    // 侧栏顺序对齐 Electron 版 Layout.tsx 的 menus 数组（原先按 titleKey 字母序排，与 Electron 不一致）
+    static readonly string[] RouteOrder = { "/", "/shares", "/users", "/sessions", "/settings", "/app-settings" };
+
+    public IReadOnlyCollection<AppPage> Pages => _pages.Values
+        .OrderBy(p => Array.IndexOf(RouteOrder, p.route) is var idx && idx >= 0 ? idx : int.MaxValue)
+        .ToList();
 
     /// <summary>路由 → 标题 i18n key（框架层找页面用）。</summary>
     public AppPage? Find(string route) => _pages.TryGetValue(route, out var p) ? p : null;

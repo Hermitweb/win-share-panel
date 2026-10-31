@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
+using WinShare.App.Events;
 using WinShare.Core.Contracts;
 
 namespace WinShare.App.Views.Charts;
@@ -11,17 +12,42 @@ namespace WinShare.App.Views.Charts;
 /// - x 轴 type:'time'（真实时间戳，稀疏段按真实时间拉开）
 /// - 缺口 null 断点不连线（connectNulls:false）
 /// - showSymbol = points.length < 12
-/// - 双系列色 #1677FF / #FA8C16（对齐 TS TREND_COLOR_*）
+/// - 双系列色 #1677FF / #FA8C16（对齐 TS TREND_COLOR_*；数据可视化色，不随主题变）
 /// 渲染器可替换：本控件是「WpfDrawing」实现，T3b+ 接 LiveCharts2(SkiaSharpWPF) 时
 /// 保持本控件属性面（Points/Mode/Height）不变，仅换 OnRender 后端（见 DOCS.md 图表渲染器扩展点）。
 /// </summary>
 public class TrendChartControl : System.Windows.Controls.Control
 {
-    static readonly Brush BrushSessions = (Brush)BrushConverterInstance().ConvertFrom("#1677FF")!;
-    static readonly Brush BrushOpenFiles = (Brush)BrushConverterInstance().ConvertFrom("#FA8C16")!;
-    static readonly Pen AxisPen = new(new SolidColorBrush(Color.FromRgb(200, 206, 214)), 1);
+    // 画笔全部缓存复用（原 OnRender 每帧 new Pen/SolidColorBrush）；系列色冻结（主题无关），
+    // 坐标轴/网格取主题 token（BrushBorder）——原先写死浅色值，深色主题下刺眼。
+    static readonly Brush BrushSessions = Freeze("#1677FF");
+    static readonly Brush BrushOpenFiles = Freeze("#FA8C16");
+    static readonly Pen SessionsPen = FrozenPen(BrushSessions, 2);
+    static readonly Pen OpenFilesPen = FrozenPen(BrushOpenFiles, 2);
+    static Pen _axisPen = MakeAxisPen();
+    static Pen _gridPen = MakeGridPen();
 
-    static System.Windows.Media.BrushConverter BrushConverterInstance() => new();
+    static Brush Freeze(string hex)
+    {
+        var b = (Brush)new BrushConverter().ConvertFrom(hex)!;
+        b.Freeze();
+        return b;
+    }
+
+    static Pen FrozenPen(Brush brush, double thickness, DashStyle? dash = null)
+    {
+        var clone = brush.Clone();
+        clone.Freeze();
+        var p = new Pen(clone, thickness);
+        if (dash is not null) p.DashStyle = dash;
+        p.Freeze();
+        return p;
+    }
+
+    static Pen MakeAxisPen() => FrozenPen(Resolve("BrushBorder", "#C8CED6"), 1);
+    static Pen MakeGridPen() => FrozenPen(Resolve("BrushBorder", "#E8EDF4"), 1, DashStyles.Dash);
+
+    IUnsubscribe? _themeSub;
 
     public static readonly DependencyProperty PointsProperty =
         DependencyProperty.Register(nameof(Points), typeof(IReadOnlyList<HistoryPoint>), typeof(TrendChartControl),
@@ -53,6 +79,17 @@ public class TrendChartControl : System.Windows.Controls.Control
         Background = System.Windows.Media.Brushes.Transparent;
         Height = 260; // 对齐 TS ReactECharts style height:260
         SnapsToDevicePixels = true;
+        // 主题热切换 → 重建坐标轴画笔并重绘。控件随页面每次导航重建，Unloaded 必须退订。
+        if (AppServices.Bus is { } bus)
+        {
+            _themeSub = bus.Subscribe<ThemeChanged>(_ =>
+            {
+                _axisPen = MakeAxisPen();
+                _gridPen = MakeGridPen();
+                InvalidateVisual();
+            });
+        }
+        Unloaded += (_, _) => _themeSub?.Unsubscribe();
     }
 
     protected override void OnRender(System.Windows.Media.DrawingContext dc)
@@ -92,7 +129,7 @@ public class TrendChartControl : System.Windows.Controls.Control
         Func<long, double, double> yOf = (_, v) => top + plotH - v * plotH / yMax;
 
         // 网格 + y 轴刻度（3 段）
-        var gridPen = new Pen(new SolidColorBrush(Color.FromRgb(232, 237, 244)), 1) { DashStyle = DashStyles.Dash };
+        var gridPen = _gridPen;
         for (var i = 0; i <= 3; i++)
         {
             var v = yMax * i / 3.0;
@@ -107,13 +144,13 @@ public class TrendChartControl : System.Windows.Controls.Control
             var x = xOf(ts);
             DrawText(dc, FormatTime(ts), x - 14, h - bottom + 6, 11, Brushes.Fog);
         }
-        dc.DrawLine(AxisPen, new Point(left, h - bottom), new Point(w - right, h - bottom));
+        dc.DrawLine(_axisPen, new Point(left, h - bottom), new Point(w - right, h - bottom));
 
         // 折线（null 断点 = 线段断开；showSymbol = 点数 < 12）
         var showSymbol = pts.Count < 12;
-        foreach (var (series, brush, _) in seriesAll)
+        foreach (var (series, brush, pen) in seriesAll)
         {
-            DrawLineSeries(dc, series, brush, xOf, yOf, showSymbol);
+            DrawLineSeries(dc, series, brush, pen, xOf, yOf, showSymbol);
         }
 
         // 图例（双模式顶部；对齐 ECharts legend top:0）
@@ -125,20 +162,19 @@ public class TrendChartControl : System.Windows.Controls.Control
         }
     }
 
-    List<(Dashboard.TrendSeries.TrendValue[], Brush, string)> BuildSeries(IReadOnlyList<HistoryPoint> pts)
+    List<(Dashboard.TrendSeries.TrendValue[], Brush, Pen)> BuildSeries(IReadOnlyList<HistoryPoint> pts)
     {
-        var list = new List<(Dashboard.TrendSeries.TrendValue[], Brush, string)>();
+        var list = new List<(Dashboard.TrendSeries.TrendValue[], Brush, Pen)>();
         if (Mode is "both" or "sessions")
-            list.Add((Dashboard.TrendSeries.SessionsSeries(pts).ToArray(), BrushSessions, "sessions"));
+            list.Add((Dashboard.TrendSeries.SessionsSeries(pts).ToArray(), BrushSessions, SessionsPen));
         if (Mode is "both" or "openFiles")
-            list.Add((Dashboard.TrendSeries.OpenFilesSeries(pts).ToArray(), BrushOpenFiles, "openFiles"));
+            list.Add((Dashboard.TrendSeries.OpenFilesSeries(pts).ToArray(), BrushOpenFiles, OpenFilesPen));
         return list;
     }
 
-    void DrawLineSeries(DrawingContext dc, Dashboard.TrendSeries.TrendValue[] series, Brush brush,
+    void DrawLineSeries(DrawingContext dc, Dashboard.TrendSeries.TrendValue[] series, Brush brush, Pen pen,
         Func<long, double> xOf, Func<long, double, double> yOf, bool showSymbol)
     {
-        var pen = new Pen(brush, 2);
         Point? last = null;
         foreach (var v in series)
         {

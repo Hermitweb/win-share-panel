@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
+using WinShare.App.Common;
 using WinShare.App.Dashboard;
 using WinShare.App.Events;
 using WinShare.App.State;
@@ -953,51 +954,5 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
-    }
-}
-
-
-/// <summary>
-/// 参数化命令（强类型参数；DataGrid 行按钮绑定，Parameter=行 VM 或协议枚举）。
-/// CanExecute 恒真——能力门控（CanToggle/SupportsPermissions）由行属性驱动视图显隐 +
-/// 命令处理器内再查一次（双重保险，对齐 TS 能力位语义）。
-/// </summary>
-public sealed class RelayCommand<T> : System.Windows.Input.ICommand
-{
-    readonly Action<T>? _sync;
-    readonly Func<T, Task>? _async;
-
-    public RelayCommand(Action<T> action)
-    {
-        _sync = action ?? throw new ArgumentNullException(nameof(action));
-    }
-
-    public RelayCommand(Func<T, Task> action)
-    {
-        _async = action ?? throw new ArgumentNullException(nameof(action));
-    }
-
-    public event EventHandler? CanExecuteChanged { add { } remove { } }
-
-    public bool CanExecute(object? parameter) => true;
-
-    public void Execute(object? parameter)
-    {
-        if (parameter is not T t) return;
-        if (_async is not null)
-        {
-            Task result;
-            try
-            {
-                result = _async(t);
-            }
-            catch
-            {
-                // 同步段异常（VM 状态校验类）：界面文案语义由各命令自管
-                return;
-            }
-            return; // fire-and-forget；异步错误经 VM StatusMsg 语义回报
-        }
-        _sync!(t);
     }
 }

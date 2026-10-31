@@ -8,7 +8,7 @@
          分组=页面导航 + 操作；动态跨域搜索（共享/用户/会话）需对应数据源，服务层未接，
          故只实现静态面，不臆造动态结果）。 -->
     <Border Background="{DynamicResource BrushCard}" BorderBrush="{DynamicResource BrushBorder}"
-            BorderThickness="1" CornerRadius="6">
+            BorderThickness="1" CornerRadius="{DynamicResource RadiusInput}">
         <Border.Effect>
             <DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.25" />
         </Border.Effect>

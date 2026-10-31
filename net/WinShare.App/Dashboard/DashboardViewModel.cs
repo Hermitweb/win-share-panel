@@ -2,58 +2,17 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Input;
+using WinShare.App.Common;
 using WinShare.App.Events;
 using WinShare.App.State;
 using WinShare.Core.Contracts;
 
 namespace WinShare.App.Dashboard;
 
-/// <summary>可复命命令（纯 .NET，不依赖 WPF 类型；界面侧直接绑定）。</summary>
-public sealed class RelayCommand : ICommand
-{
-    readonly Action _sync;
-    readonly Func<Task>? _async;
-
-    public RelayCommand(Action action)
-    {
-        _sync = action ?? throw new ArgumentNullException(nameof(action));
-    }
-
-    public RelayCommand(Func<Task> action)
-    {
-        _async = action ?? throw new ArgumentNullException(nameof(action));
-        _sync = () => { };
-    }
-
-    public event EventHandler? CanExecuteChanged;
-
-    public bool CanExecute(object? parameter) => true;
-
-    public void Execute(object? parameter)
-    {
-        if (_async is not null)
-        {
-            _async().GetAwaiter().GetResult();
-        }
-        else
-        {
-            _sync();
-        }
-    }
-
-    public async Task ExecuteAsync()
-    {
-        if (_async is not null) await _async();
-        else _sync();
-    }
-
-    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-}
-
 /// <summary>
 /// 仪表板 ViewModel（对齐 src/pages/Dashboard.tsx 全量界面逻辑）：
 /// 统计卡 / 需要关注（告警规则评估 → 事件总线发布 AlertRaised）/ 24h 趋势 /
-/// 协议分布 / 磁盘水位 / PNG+CSV 导出 / 自动刷新间隔（1|5|10|30s，持久化 appstate）。
+/// 协议分布 / 磁盘水位 / PNG+CSV 导出 / 自动刷新间隔（1|5|10|30|60s，持久化 appstate）。
 /// 不引用任何 WPF 控件类型，xUnit 直测。
 /// 命令：RefreshCommand / ExportPngCommand / ExportCsvCommand。
 /// </summary>
@@ -93,7 +52,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
 
         RefreshCommand = new RelayCommand(() => RefreshAsync());
         ExportPngCommand = new RelayCommand(() => ExportPngAsync());
-        ExportCsvCommand = new RelayCommand(() => ExportCsv());
+        ExportCsvCommand = new RelayCommand(ExportCsvAsync);
         _refreshInterval = NormalizeInterval(store.GetRefreshInterval());
     }
 
@@ -102,7 +61,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public RelayCommand ExportPngCommand { get; }
     public RelayCommand ExportCsvCommand { get; }
 
-    static int NormalizeInterval(int? v) => v is 1 or 5 or 10 or 30 ? v!.Value : 10;
+    // 默认 60s：单次刷新实测 ~5s（多轮 powershell 串并），更密间隔会让轮次堆叠、CPU 常驻过高。
+    static int NormalizeInterval(int? v) => v is 1 or 5 or 10 or 30 or 60 ? v!.Value : 60;
 
     // ===== 统计卡（Stats 缺失时保持 0 + 未知；对齐 TS stats ?? 0） =====
     int _shareCount, _activeSessions, _openFiles;
@@ -141,7 +101,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public bool Hydrated { get => _hydrated; private set => Set(ref _hydrated, value); }
     public string ErrorText { get => _errorText; private set => Set(ref _errorText, value); }
 
-    // ===== 自动刷新间隔（1|5|10|30s；持久化到 appstate 扩展字段 refreshInterval） =====
+    // ===== 自动刷新间隔（1|5|10|30|60s；持久化到 appstate 扩展字段 refreshInterval） =====
     int _refreshInterval;
     public int RefreshIntervalSeconds
     {
@@ -178,7 +138,24 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     }
 
     // ===== 刷新（对齐 TS 4 源 + hydrate + skippedSources + 告警评估） =====
+
+    // 上一轮已发布的告警签名（key|text）：告警去重基准，见 RefreshAsyncCore
+    HashSet<string> _lastAlertKeys = new(StringComparer.Ordinal);
+
+    // 【回退记录】并发合并保护会导致启动即卡死（原因待查），不再做合并。
+    // 重入保护（skip 型）：刷新间隔最小可选 1s，单轮 ≥4 次 powershell 调用（~5s+），
+    // 上一轮未结束又起下一轮会堆叠 spawn 进程、互相拖慢。skip 语义 = 运行中直接跳过本轮
+    // （不排队不合并，最坏情形只是这轮数据晚到，下一轮照常）——比合并方案少一条等待队列。
+    int _refreshInFlight;
+
     public async Task RefreshAsync()
+    {
+        if (System.Threading.Interlocked.CompareExchange(ref _refreshInFlight, 1, 0) != 0) return;
+        try { await RefreshAsyncCore(); }
+        finally { System.Threading.Interlocked.Exchange(ref _refreshInFlight, 0); }
+    }
+
+    async Task RefreshAsyncCore()
     {
         Loading = true;
         var bundle = await _feed.GetAsync();
@@ -210,7 +187,9 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
             ProtocolRows = ProtocolPalette.Order.Select(p => new ProtocolRow(p, default!)).ToList();
         }
 
-        // 需要关注：告警规则评估 → 命中项经事件总线发布（alert 触发事件面）
+        // 需要关注：告警规则评估 → 新增命中的项经事件总线发布（alert 触发事件面）。
+        // 自动刷新每轮都重新评估同一批规则：未恢复的命中若每轮都 Publish，
+        // 托盘气泡会按刷新间隔反复弹。只对「本轮新增」（签名 = key|text，对比上一轮）发布。
         var settings = _store.Load();
         AttentionItems = AlertEvaluator.Evaluate(new AlertEvaluator.AttentionInput
         {
@@ -219,10 +198,14 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
             security = bundle.Security,
             disks = bundle.Disks ?? new List<DiskUsage>(),
         });
+        var currentAlertKeys = new HashSet<string>(
+            AttentionItems.Select(i => $"{i.key}|{i.text}"), StringComparer.Ordinal);
         foreach (var item in AttentionItems)
         {
+            if (_lastAlertKeys.Contains($"{item.key}|{item.text}")) continue;
             _bus.Publish(new AlertRaised { kind = item.key, level = item.level, text = item.text });
         }
+        _lastAlertKeys = currentAlertKeys;
 
         // skippedSources（对齐 TS：SMB 配置探测 / 账户安全体检 / 磁盘水位读取，逐源如实）
         var skipped = new List<string>();
@@ -276,8 +259,9 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         ErrorText = "已导出 PNG";
     }
 
-    /// <summary>CSV：逐字段对齐 TS exportCsv（BOM + 指标/值两列 + 全格引号）。</summary>
-    public void ExportCsv()
+    /// <summary>CSV：逐字段对齐 TS exportCsv（BOM + 指标/值两列 + 全格引号）。
+    /// 异步落盘：原实现 GetAwaiter().GetResult() 在 UI 线程同步阻塞异步任务，属死锁隐患。</summary>
+    public async Task ExportCsvAsync()
     {
         if (_stats is null)
         {
@@ -285,7 +269,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
             return;
         }
         var csv = CsvExporter.BuildCsv(_stats);
-        _fileSaver($"dashboard-{_nowMs()}.csv", Encoding.UTF8.GetBytes(csv)).GetAwaiter().GetResult();
+        await _fileSaver($"dashboard-{_nowMs()}.csv", Encoding.UTF8.GetBytes(csv));
         ErrorText = "已导出 CSV";
     }
 

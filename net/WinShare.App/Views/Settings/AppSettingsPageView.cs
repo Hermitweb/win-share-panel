@@ -4,7 +4,9 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Win32;
 using WinShare.App;
+using WinShare.App.Events;
 using WinShare.App.Settings;
+using WinShare.App.Shell;
 using WinShare.Core.Contracts;
 
 namespace WinShare.App.Views.Settings;
@@ -19,6 +21,7 @@ namespace WinShare.App.Views.Settings;
 public sealed class AppSettingsPageView : UserControl
 {
     readonly AppSettingsViewModel _vm;
+    IUnsubscribe? _refreshSub;
     StackPanel? _usageRadios;
     StackPanel? _autostartRow;
     TextBlock? _diskHint;
@@ -43,10 +46,20 @@ public sealed class AppSettingsPageView : UserControl
         };
         _vm = new AppSettingsViewModel(deps, openExternal: OpenExternal);
         DataContext = _vm;
+        WinShare.Core.Lib.Logger.Info("main", "[perf] AppSettingsPageView 构造开始");
         Content = BuildRoot();
-        Loaded += async (_, _) => await _vm.RefreshAsync();
+        WinShare.Core.Lib.Logger.Info("main", "[perf] AppSettingsPageView 构造完成");
+        Loaded += async (_, _) =>
+        {
+            if (!PageRefreshThrottle.ShouldRefresh("app-settings")) return;
+            WinShare.Core.Lib.Logger.Info("main", "[perf] AppSettingsPageView Loaded → RefreshAsync 开始");
+            await _vm.RefreshAsync();
+            WinShare.Core.Lib.Logger.Info("main", "[perf] AppSettingsPageView RefreshAsync 完成");
+        };
         // 全局刷新透传（F5 / 菜单 / 托盘 → 事件总线；对齐 TS refreshTick）
-        AppServices.Bus?.Subscribe<WinShare.App.Events.RefreshRequested>(evt => { _ = _vm.RefreshAsync(); });
+        _refreshSub = AppServices.Bus?.Subscribe<WinShare.App.Events.RefreshRequested>(evt => { _ = _vm.RefreshAsync(); });
+        // 页面卸载必须退订：否则切走后这个实例仍在响应全局刷新 → 攒下「幽灵页面」拖慢 UI
+        Unloaded += (_, _) => _refreshSub?.Unsubscribe();
     }
 
     static void OpenExternal(string url)
@@ -63,33 +76,47 @@ public sealed class AppSettingsPageView : UserControl
 
     FrameworkElement BuildRoot()
     {
-        var p = new StackPanel { Margin = new Thickness(16) };
-        p.Children.Add(new TextBlock
+        var outer = new DockPanel { Margin = new Thickness(20) };
+        // 页头：标题 + 操作区（对齐 Electron PageHeader：标题与侧栏导航名一致，操作在右侧一行）
+        var header = new DockPanel { Margin = new Thickness(0, 0, 0, 16), LastChildFill = false };
+        var title = SettingsUi.PageTitle("Nav.AppSettings");
+        DockPanel.SetDock(title, Dock.Left);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        actions.Children.Add(SettingsUi.Button("查看 releases", (_, _) => OpenExternal(_vm.ReleasesUrl)));
+        DockPanel.SetDock(actions, Dock.Right);
+        header.Children.Add(title);
+        header.Children.Add(actions);
+        DockPanel.SetDock(header, Dock.Top);
+        outer.Children.Add(header);
+
+        // 三页签分组：原先 10 张卡纵向堆叠（实测 92% 控件在折叠线以下，用户看到「只有标题」）。
+        // 页签后同一时刻只有当前页签内容进入视觉树。
+        var tabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
+        var tabItemStyle = SettingsUi.Style("GlassTabItem");
+        TabItem MakeTab(string headerText, params UIElement[] cards)
         {
-            Text = "应用设置",
-            FontSize = 16,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-            Margin = new Thickness(0, 0, 0, 8),
-        });
-        p.Children.Add(BuildAboutCard());
-        p.Children.Add(BuildUpdateCard());
-        p.Children.Add(BuildTransferCard());
+            var inner = new StackPanel();
+            foreach (var c in cards) inner.Children.Add(c);
+            var t = new TabItem
+            {
+                Header = headerText,
+                Content = new ScrollViewer
+                {
+                    Content = inner,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                },
+            };
+            if (tabItemStyle is not null) t.Style = tabItemStyle;
+            return t;
+        }
 
-        p.Children.Add(SectionHeader("偏好与运维"));
-        p.Children.Add(BuildUsageModeCard());
-        p.Children.Add(BuildAutoStartCard());
-        p.Children.Add(BuildAlertRulesCard());
-        p.Children.Add(BuildFirewallCard());
-        p.Children.Add(BuildSecurityCard());
-
-        p.Children.Add(SectionHeader("操作回收站"));
-        p.Children.Add(BuildJournalCard());
-
-        p.Children.Add(SectionHeader("日志"));
-        p.Children.Add(BuildAuditCard());
-        p.Children.Add(BuildAppLogCard());
-        return new ScrollViewer { Content = p };
+        tabs.Items.Add(MakeTab("关于与更新", BuildAboutCard(), BuildUpdateCard(), BuildTransferCard()));
+        tabs.Items.Add(MakeTab("偏好与运维", BuildUsageModeCard(), BuildAutoStartCard(),
+            BuildAlertRulesCard(), BuildFirewallCard(), BuildSecurityCard()));
+        tabs.Items.Add(MakeTab("日志与回收站", BuildJournalCard(), BuildAuditCard(), BuildAppLogCard()));
+        outer.Children.Add(tabs); // 最后一个子元素填满剩余空间
+        return outer;
     }
 
     static TextBlock SectionHeader(string text)
@@ -109,8 +136,8 @@ public sealed class AppSettingsPageView : UserControl
     Border BuildAboutCard()
     {
         var p = new StackPanel();
-        p.Children.Add(SettingsUi.HeaderRow("关于",
-            SettingsUi.Button("查看 releases", (_, _) => OpenExternal(_vm.ReleasesUrl))));
+        // 「查看 releases」已上移到页头操作区（对齐 Electron PageHeader 的 extra）
+        p.Children.Add(SettingsUi.HeaderRow("关于"));
         var rows = new StackPanel();
         p.Children.Add(rows);
         RebuildAboutRows(rows);

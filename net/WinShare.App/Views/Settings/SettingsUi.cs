@@ -35,30 +35,65 @@ public static class SettingsUi
         return Token(key, fb);
     }
 
+    /// <summary>取 App.xaml 里的样式（缺 Application/资源时返回 null，调用方跳过设置）。</summary>
+    public static Style? Style(string key)
+    {
+        var app = Application.Current;
+        if (app is null) return null;
+        try
+        {
+            if (app.Resources.Contains(key) && app.Resources[key] is Style s) return s;
+        }
+        catch { /* 资源缺失 */ }
+        return null;
+    }
+
     public static Border Card(System.Windows.UIElement content, double padding = 16)
     {
+        // 优先套 App.xaml 的 CardStyle（磨砂玻璃 + 大圆角 + 柔光阴影）；缺资源时回退到手绘边框。
+        // 之前这里硬编码了 #FFFFFF 底 + 6px 圆角，在浅色页面上几乎看不出卡片边界 → 整页像裸控件堆砌。
+        // 手绘卡片（不用 CardStyle）：CardStyle 的 DropShadowEffect 在这两页 14 张卡上反复离屏渲染，
+        // 且实测套上后应用设置页整页未测量（控件 BoundingRectangle=Empty、文字节点消失）。
+        // 用玻璃底 + 大圆角 + 边框达到同样的层次感，零 Effect 开销。
         return new Border
         {
-            Background = Token("BrushCard", "#FFFFFF"),
+            Child = content,
+            Background = Token("BrushBgMist", "#F4FAFD"),
             BorderBrush = Token("BrushBorder", "#E4E9F0"),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
+            CornerRadius = new CornerRadius(16),
             Padding = new Thickness(padding),
-            Margin = new Thickness(0, 0, 0, 12),
-            Child = content,
+            Margin = new Thickness(0, 0, 0, 16),
         };
+    }
+
+    /// <summary>页头标题（i18n 键 → PageTitle 样式；六页统一 22 号 token 字号）。</summary>
+    public static TextBlock PageTitle(string resourceKey)
+    {
+        var tb = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+        if (Style("PageTitle") is { } s) tb.Style = s;
+        else
+        {
+            tb.FontSize = 22;
+            tb.FontWeight = FontWeights.SemiBold;
+            tb.Foreground = Token("BrushText", "#1F2733");
+        }
+        // 走 DynamicResource 语义（SetResourceReference）：语言/键热替换时标题跟随
+        tb.SetResourceReference(System.Windows.Controls.TextBlock.TextProperty, resourceKey);
+        return tb;
     }
 
     public static TextBlock CardTitle(string text)
     {
-        return new TextBlock
+        var tb = new TextBlock { Text = text, Margin = new Thickness(0, 0, 0, 12) };
+        if (Style("SectionTitle") is { } s) tb.Style = s;
+        else
         {
-            Text = text,
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = Token("BrushText", "#1F2733"),
-            Margin = new Thickness(0, 0, 0, 10),
-        };
+            tb.FontSize = 14;
+            tb.FontWeight = FontWeights.SemiBold;
+            tb.Foreground = Token("BrushText", "#1F2733");
+        }
+        return tb;
     }
 
     public static TextBlock FogText(string text, double top = 0, double bottom = 0)
@@ -130,33 +165,30 @@ public static class SettingsUi
 
     public static Button Button(string text, RoutedEventHandler onClick, bool primary = false, string? stopHint = null)
     {
-        var b = new Button
+        var b = new Button { Content = text, Margin = new Thickness(8, 0, 0, 0), ToolTip = stopHint };
+        // 套设计系统：主按钮=马卡龙渐变，次按钮=磨砂白底浅蓝描边（之前是裸 Button，系统灰底）
+        if (Style(primary ? "PrimaryButton" : "DashButton") is { } s) b.Style = s;
+        else
         {
-            Content = text,
-            Padding = new Thickness(12, 4, 12, 4),
-            Margin = new Thickness(6, 0, 0, 0),
-            MinHeight = 28,
-            ToolTip = stopHint,
-        };
-        if (onClick is not null) b.Click += onClick; // 禁用占位按钮允许 null 处理器
-        if (primary)
-        {
-            b.Background = Token("BrushPrimary", "#1677FF");
-            b.Foreground = Brushes.White;
-            b.BorderThickness = new Thickness(0);
+            b.Padding = new Thickness(12, 4, 12, 4);
+            b.MinHeight = 28;
+            if (primary)
+            {
+                b.Background = Token("BrushPrimary", "#1677FF");
+                b.Foreground = Brushes.White;
+                b.BorderThickness = new Thickness(0);
+            }
         }
+        if (onClick is not null) b.Click += onClick; // 禁用占位按钮允许 null 处理器
         return b;
     }
 
     /// <summary>开关字段（CheckBox + 标签；DataContext 取传入 VM 实例；纵向布局下每个开关独立一行）。</summary>
     public static CheckBox Toggle(string label, string vmPath, object vm)
     {
-        var cb = new CheckBox
-        {
-            Content = label,
-            Margin = new Thickness(0, 0, 0, 4),
-            Foreground = Token("BrushText", "#1F2733"),
-        };
+        var cb = new CheckBox { Content = label, Margin = new Thickness(0, 3, 16, 3) };
+        if (Style("CheckBoxSoft") is { } boxStyle) cb.Style = boxStyle;
+        else cb.Foreground = Token("BrushText", "#1F2733");
         // 不显式设 DataContext：继承宿主面板（_form）的 DataContext（=卡 VM），
         // 表单回填时重置宿主 DataContext 即全量重拉
         _ = vm;
@@ -167,6 +199,9 @@ public static class SettingsUi
     /// <summary>开关组（纵向单列：每个 CheckBox 独立一行；重渲染时只能 Clear+Add 回同一面板）。</summary>
     public static StackPanel ToggleGroup(params CheckBox[] boxes)
     {
+        // 纵向单列。曾试过套 UniformGrid 做两列：UniformGrid 在纵向 StackPanel（高度无限）里
+        // 会算出异常尺寸，把整页布局撑坏 —— 实测应用设置页所有控件 BoundingRectangle=Empty
+        // （未测量未排列）、文字节点全部消失。保持最朴素的 StackPanel。
         var p = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         foreach (var b in boxes) p.Children.Add(b);
         return p;
@@ -176,6 +211,7 @@ public static class SettingsUi
     public static StackPanel NumberField(string label, string vmPath, object vm, bool isLong = false)
     {
         var tb = new TextBox { Width = 100, VerticalAlignment = VerticalAlignment.Center };
+        if (Style("InputBoxSoft") is { } st1) tb.Style = st1;
         tb.SetBinding(TextBox.TextProperty, new Binding(vmPath)
         {
             Mode = BindingMode.TwoWay,
@@ -189,6 +225,7 @@ public static class SettingsUi
     public static StackPanel TextField(string label, string vmPath, object vm, double width = 240)
     {
         var tb = new TextBox { Width = width, VerticalAlignment = VerticalAlignment.Center };
+        if (Style("InputBoxSoft") is { } st2) tb.Style = st2;
         tb.SetBinding(TextBox.TextProperty, new Binding(vmPath)
         {
             Mode = BindingMode.TwoWay,
@@ -201,6 +238,7 @@ public static class SettingsUi
     public static StackPanel ComboField(string label, string vmPath, object vm, IReadOnlyList<string> items, double width = 160)
     {
         var cb = new ComboBox { Width = width, VerticalAlignment = VerticalAlignment.Center };
+        if (Style("ComboBoxSoft") is { } comboStyle) cb.Style = comboStyle;
         cb.ItemsSource = items;
         cb.SetBinding(ComboBox.SelectedItemProperty, new Binding(vmPath) { Mode = BindingMode.TwoWay });
         return FieldRow(label, cb);
@@ -210,15 +248,24 @@ public static class SettingsUi
     /// 子元素顺序保持 [0]=标签、[1]=控件，调用方可按索引取控件（如告警卡 idleMap 提交））。</summary>
     public static StackPanel FieldRow(string label, Control control)
     {
-        var row = new StackPanel { Margin = new Thickness(0, 0, 0, 6) };
+        // 标签在左、控件在右（原先「标签在上、控件在下」的纵向堆叠会让每个字段占两行，
+        // 整页看起来像一长串裸控件）。保持 Children[0]=标签 / Children[1]=控件 的索引契约。
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 0, 0, 8),
+        };
         row.Children.Add(new TextBlock
         {
             Text = label,
-            Foreground = Token("BrushText", "#1F2733"),
+            Width = 150,
+            Foreground = Token("BrushFog", "#731F2733"),
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 12, 0),
         });
         control.HorizontalAlignment = HorizontalAlignment.Left;
+        control.VerticalAlignment = VerticalAlignment.Center;
         control.Margin = new Thickness(0);
         row.Children.Add(control);
         return row;
@@ -272,8 +319,17 @@ public static class SettingsUi
         return panel;
     }
 
-    /// <summary>antd Tag 色名 → 画刷（green/orange/red/volcano/blue/gray，暗色降饱和由视图全局 token 兜底）。</summary>
-    public static Brush TagColor(string antdColor) => Token("BrushText", antdColor switch
+    /// <summary>antd Tag 色名 → 画刷（green/orange/red/volcano/blue/gray → 主题 token；
+    /// 原实现 Token("BrushText", hex) 恒返回 BrushText，所有状态色失效为单色——已修）。</summary>
+    public static Brush TagColor(string antdColor) => Token(antdColor switch
+    {
+        "green" => "BrushSuccess",
+        "orange" => "BrushWarnDot",
+        "red" => "BrushDangerStrong",
+        "volcano" => "BrushDangerDeep",
+        "blue" => "BrushInfoFg",
+        _ => "BrushFog",
+    }, antdColor switch
     {
         "green" => "#52C41A",
         "orange" => "#FAAD14",

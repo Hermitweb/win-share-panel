@@ -22,6 +22,10 @@ public static class Logger
     // TS: fileEnabled = !('VITEST' in process.env)——vitest 运行默认关闭（防单测污染真实日志），
     // C# 侧额外检测 vstest 宿主标记，dotnet test 下同样默认关闭；测试用例经 SetFileLoggingForTesting 显式开启。
     private static bool _fileEnabled = !DetectTestHost();
+    // 写入廉价路径的状态（见 WriteLog）：目录已建标记 + 记忆化文件大小（-1=未知，下次先对盘）
+    private static bool _dirCreated;
+    private static long _cachedSize = -1;
+    private static int _sizeCheckCounter;
 
     /// <summary>TS: logDir()（win32 → %APPDATA%/WinSharePanel/logs；否则 ~/.winshare-panel/WinSharePanel/logs）。</summary>
     public static string LogDir()
@@ -42,7 +46,7 @@ public static class Logger
     /// <summary>测试专用：覆盖日志目录（与 __resetPoolForTesting 同惯例），null 恢复默认推导。</summary>
     public static void SetLogDirForTesting(string? dir)
     {
-        lock (Gate) { _cachedDir = dir ?? ""; }
+        lock (Gate) { _cachedDir = dir ?? ""; _dirCreated = false; _cachedSize = -1; }
     }
 
     /// <summary>测试专用：开/关文件落盘（仅应在测试中调用）。</summary>
@@ -85,25 +89,50 @@ public static class Logger
     public static void WriteLog(string level, string scope, string text)
     {
         string line = FormatLine(level, DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture), scope, text);
-        switch (level)
+        // 控制台镜像必须单独兜住：WPF WinExe 没有控制台、或 stdout 被重定向到已关闭句柄时
+        // Console.WriteLine 会抛 IOException。原先它写在 try 之外 —— 一抛就直接中断，
+        // 后面的文件落盘永远执行不到（这就是「WPF 侧日志一条都没有」的根因）。
+        try
         {
-            case "error":
-                Console.Error.WriteLine(line);
-                break;
-            case "warn":
-                Console.Error.WriteLine(line);
-                break;
-            default:
-                Console.WriteLine(line);
-                break;
+            switch (level)
+            {
+                case "error":
+                case "warn":
+                    Console.Error.WriteLine(line);
+                    break;
+                default:
+                    Console.WriteLine(line);
+                    break;
+            }
+        }
+        catch
+        {
+            // 镜像失败不影响落盘
         }
         try
         {
             if (!FileEnabled) return;
-            Directory.CreateDirectory(LogDir());
             string file = LogFile();
-            if (File.Exists(file) && new FileInfo(file).Length > MaxSize) Rotate(file);
+            // 廉价路径：目录创建记忆化 + 文件大小记忆化，避免每行日志都做
+            // Directory.CreateDirectory + File.Exists + FileInfo 三次磁盘往返（日志常在 UI 线程写）。
+            // 外部进程（Electron 侧构建）会轮转同名 app.log，缓存大小会漂移 —— 每 32 行强制对盘一次自愈。
+            if (!_dirCreated)
+            {
+                Directory.CreateDirectory(LogDir());
+                _dirCreated = true;
+            }
+            if (_cachedSize < 0 || ++_sizeCheckCounter >= 32)
+            {
+                _sizeCheckCounter = 0;
+                _cachedSize = File.Exists(file) ? new FileInfo(file).Length : 0;
+            }
+            if (_cachedSize > MaxSize)
+            {
+                Rotate(file);
+                _cachedSize = 0;
+            }
             File.AppendAllText(file, line + "\n");
+            _cachedSize += System.Text.Encoding.UTF8.GetByteCount(line) + 1;
         }
         catch
         {
@@ -141,13 +170,20 @@ public static class Logger
         {
             string file = LogFile();
             if (!File.Exists(file)) return "";
-            string content = File.ReadAllText(file);
-            // 大文件仅截尾部 1MB 再取行，避免全量进内存
-            if (content.Length > TailCap)
+            // 只从文件尾部读 1MB（FileStream seek），不再全量 ReadAllText（文件最大 2MB）。
+            // FileShare.ReadWrite：Electron 侧构建会并发追加/轮转同一文件，独占打开会失败。
+            string content;
+            using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                content = content[^TailCap..];
-                int nl = content.IndexOf('\n');
-                if (nl >= 0) content = content[(nl + 1)..];
+                bool truncated = fs.Length > TailCap;
+                if (truncated) fs.Seek(fs.Length - TailCap, SeekOrigin.Begin);
+                using var reader = new StreamReader(fs, System.Text.Encoding.UTF8);
+                content = reader.ReadToEnd();
+                if (truncated)
+                {
+                    int nl = content.IndexOf('\n');
+                    if (nl >= 0) content = content[(nl + 1)..];
+                }
             }
             var arr = content
                 .Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None)

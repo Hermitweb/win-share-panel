@@ -28,6 +28,15 @@
     <Color x:Key="ColorWarning">#F0C27B</Color>
     <Color x:Key="ColorDanger">#F0A8A8</Color>
 
+    <!-- ===== 语义扩展（信息/警示标签与危险文本；浅色值 = 原硬编码视觉，深色字典给正确值） ===== -->
+    <Color x:Key="ColorInfoBg">#E6F4FF</Color>
+    <Color x:Key="ColorInfoFg">#1677FF</Color>
+    <Color x:Key="ColorWarnBg">#FFFBE6</Color>
+    <Color x:Key="ColorWarnFg">#AD6800</Color>
+    <Color x:Key="ColorWarnDot">#FAAD14</Color>
+    <Color x:Key="ColorDangerStrong">#FF4D4F</Color>
+    <Color x:Key="ColorDangerDeep">#A8071A</Color>
+
     <SolidColorBrush x:Key="BrushBg" Color="{StaticResource ColorBg}" />
     <SolidColorBrush x:Key="BrushBgMist" Color="{StaticResource ColorBgMist}" />
     <SolidColorBrush x:Key="BrushCard" Color="{StaticResource ColorCard}" />
@@ -42,6 +51,15 @@
     <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
     <SolidColorBrush x:Key="BrushBorder" Color="{StaticResource ColorBorder}" />
     <SolidColorBrush x:Key="BrushChartBg" Color="{StaticResource ColorChartBg}" />
+    <SolidColorBrush x:Key="BrushInfoBg" Color="{StaticResource ColorInfoBg}" />
+    <SolidColorBrush x:Key="BrushInfoFg" Color="{StaticResource ColorInfoFg}" />
+    <SolidColorBrush x:Key="BrushWarnBg" Color="{StaticResource ColorWarnBg}" />
+    <SolidColorBrush x:Key="BrushWarnFg" Color="{StaticResource ColorWarnFg}" />
+    <SolidColorBrush x:Key="BrushWarnDot" Color="{StaticResource ColorWarnDot}" />
+    <SolidColorBrush x:Key="BrushDangerStrong" Color="{StaticResource ColorDangerStrong}" />
+    <SolidColorBrush x:Key="BrushDangerDeep" Color="{StaticResource ColorDangerDeep}" />
+    <!-- 遮罩（弹层/抽屉底衬；主题间同值） -->
+    <SolidColorBrush x:Key="BrushOverlayScrim" Color="#000000" Opacity="0.25" />
 
     <!-- ===== 磨砂玻璃 / 渐变（规范 2.2 / 4.2） ===== -->
     <SolidColorBrush x:Key="BrushGlass" Color="#FFFFFF" Opacity="0.65" />

@@ -142,9 +142,9 @@ public sealed class AppSettingsStore
         lock (_gate) { _cache = null; _journalSeq = 0; }
     }
 
-    // ===== 扩展字段 refreshInterval（TS 版没有；1|5|10|30 秒，其余收敛默认 10） =====
+    // ===== 扩展字段 refreshInterval（TS 版没有；1|5|10|30 秒，其余收敛默认 30） =====
 
-    int _refreshInterval = 10;
+    int _refreshInterval = 60;
 
     public int GetRefreshInterval()
     {
@@ -160,7 +160,7 @@ public sealed class AppSettingsStore
         lock (_gate)
         {
             if (_cache is null) LoadNoLock(); // 先读文件态（其 LoadNoLock 会从文件补读 refreshInterval）
-            _refreshInterval = seconds is 1 or 5 or 10 or 30 ? seconds : 10;
+            _refreshInterval = seconds is 1 or 5 or 10 or 30 or 60 ? seconds : 60;
             Persist(_cache!);
         }
     }
@@ -189,7 +189,7 @@ public sealed class AppSettingsStore
 
     static int ParseRefreshInterval(string? json)
     {
-        if (string.IsNullOrEmpty(json)) return 10;
+        if (string.IsNullOrEmpty(json)) return 60;
         try
         {
             using var doc = JsonDocument.Parse(json);
@@ -197,11 +197,11 @@ public sealed class AppSettingsStore
                 && v.ValueKind == JsonValueKind.Number)
             {
                 var n = v.GetInt32();
-                return n is 1 or 5 or 10 or 30 ? n : 10;
+                return n is 1 or 5 or 10 or 30 or 60 ? n : 60;
             }
         }
         catch { /* 损坏按默认 */ }
-        return 10;
+        return 60;
     }
 
     string? ReadRawJson()

@@ -3,7 +3,7 @@
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <!-- 中文资源（默认文化）：key 与 Strings.en.xaml 一一对应 -->
 
-    <sys:String x:Key="Nav.Dashboard">仪表板</sys:String>
+    <sys:String x:Key="Nav.Dashboard">仪表盘</sys:String>
     <sys:String x:Key="Nav.Share">共享管理</sys:String>
     <sys:String x:Key="Nav.Users">用户权限</sys:String>
     <sys:String x:Key="Nav.Sessions">会话监控</sys:String>
@@ -22,7 +22,7 @@
     <sys:String x:Key="Menu.Refresh">刷新</sys:String>
     <sys:String x:Key="Menu.About">关于</sys:String>
 
-    <sys:String x:Key="Dash.Title">仪表板</sys:String>
+    <sys:String x:Key="Dash.Title">仪表盘</sys:String>
     <sys:String x:Key="Dash.ExportPng">导出 PNG</sys:String>
     <sys:String x:Key="Dash.ExportCsv">导出 CSV</sys:String>
     <sys:String x:Key="Dash.Refresh">刷新</sys:String>

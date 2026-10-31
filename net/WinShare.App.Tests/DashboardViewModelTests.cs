@@ -213,12 +213,12 @@ public class DashboardViewModelTests : IDisposable
         var vm = MakeVm(FullBundle(), png, out _, out _);
 
         var store = new AppSettingsStore(_dir);
-        vm.RefreshIntervalSeconds = 30;
-        Assert.Equal(30, store.GetRefreshInterval());
-        Assert.Equal(30, vm.RefreshIntervalSeconds);
-
-        vm.RefreshIntervalSeconds = 7; // 非法 → 收敛默认 10
+        vm.RefreshIntervalSeconds = 10;
+        Assert.Equal(10, store.GetRefreshInterval());
         Assert.Equal(10, vm.RefreshIntervalSeconds);
+
+        vm.RefreshIntervalSeconds = 7; // 非法 → 收敛默认 30
+        Assert.Equal(60, vm.RefreshIntervalSeconds);
     }
 
     [Fact]

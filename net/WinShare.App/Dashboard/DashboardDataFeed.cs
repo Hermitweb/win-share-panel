@@ -49,28 +49,22 @@ public sealed class ContractServicesDataFeed : IDashboardDataFeed
 
     public async Task<DashboardBundle> GetAsync()
     {
-        DashboardStats? stats = null;
-        try { if (_system is { } s) stats = await s.GetDashboardStatsAsync(); }
-        catch { stats = null; } // 单源失败不影响其他源（如实跳过）
+        // 四个源互相独立，串行 await 会让总耗时变成「求和」（实测整轮 ~6-7s）。
+        // 并行后总耗时降到最慢的那一个。单源失败不影响其他源（如实跳过，对齐 TS per-query error）。
+        var statsTask = _system is { } s ? s.GetDashboardStatsAsync() : Task.FromResult<DashboardStats?>(null);
+        var disksTask = _disk is { } d ? d.GetDiskUsagesAsync() : Task.FromResult<IReadOnlyList<DiskUsage>?>(null);
+        var smbTask = _smb is { } m ? m.GetConfigAsync() : Task.FromResult<SmbServerConfig?>(null);
+        var secTask = _security is { } x ? x.GetSecurityReportAsync() : Task.FromResult<SecurityReport?>(null);
 
-        IReadOnlyList<DiskUsage>? disks = null;
-        try { if (_disk is { } d) disks = await d.GetDiskUsagesAsync(); }
-        catch { disks = null; }
-
-        SmbServerConfig? smb = null;
-        try { if (_smb is { } m) smb = await m.GetConfigAsync(); }
-        catch { smb = null; }
-
-        SecurityReport? sec = null;
-        try { if (_security is { } x) sec = await x.GetSecurityReportAsync(); }
-        catch { sec = null; }
+        try { await Task.WhenAll(statsTask, disksTask, smbTask, secTask); }
+        catch { /* 单源异常已由 IsCompletedSuccessfully 判为 null，不影响其他源 */ }
 
         return new DashboardBundle
         {
-            Stats = stats,
-            Disks = disks,
-            SmbConfig = smb,
-            Security = sec,
+            Stats = statsTask.IsCompletedSuccessfully ? statsTask.Result : null,
+            Disks = disksTask.IsCompletedSuccessfully ? disksTask.Result : null,
+            SmbConfig = smbTask.IsCompletedSuccessfully ? smbTask.Result : null,
+            Security = secTask.IsCompletedSuccessfully ? secTask.Result : null,
         };
     }
 }

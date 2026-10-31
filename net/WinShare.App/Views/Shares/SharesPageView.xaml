@@ -20,10 +20,10 @@
                 <RowDefinition Height="Auto" />  <!-- 状态提示 -->
             </Grid.RowDefinitions>
 
-            <!-- 页头（对齐 Shares.tsx header：标题 + 快捷键提示 + 工具按钮组） -->
-            <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="False">
+            <!-- 页头（对齐 Shares.tsx header：标题 + 快捷键提示 + 工具按钮组；标题统一 PageTitle + Nav.* 键） -->
+            <DockPanel Grid.Row="0" Margin="0,0,0,16" LastChildFill="False">
                 <StackPanel DockPanel.Dock="Left" VerticalAlignment="Top">
-                    <TextBlock Text="共享管理" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="{DynamicResource Nav.Share}" Style="{DynamicResource PageTitle}" />
                     <TextBlock FontSize="12" Foreground="{DynamicResource BrushFog}" Margin="0,4,0,0"
                                Text="提示：拖拽文件夹到本页可快速创建共享 · Ctrl+N 新建 · Del 批量删除 · Space 批量启停 · F5 刷新" />
                 </StackPanel>
@@ -38,65 +38,68 @@
             <!-- 协议未安装引导（TS ProtocolCapabilityBanner；内容在代码后置构建） -->
             <StackPanel x:Name="BannerPanel" Grid.Row="1" Margin="0,0,0,12" Visibility="Collapsed" />
 
-            <!-- 协议 Tabs（全部/SMB/NFS/FTP/WebDAV；未装协议橙点；1 列纵向流） -->
-            <StackPanel Grid.Row="2" Margin="0,0,0,8">
-                <RadioButton x:Name="TabAll" GroupName="ProtoTab" Content="全部" IsChecked="True"
-                             Checked="OnProtocolTab" FontSize="13" Margin="0,0,0,6" />
-                <RadioButton x:Name="TabSmb" GroupName="ProtoTab" Content="SMB"
-                             Checked="OnProtocolTab" FontSize="13" Margin="0,0,0,6" />
-                <StackPanel x:Name="TabNfs" Margin="0,0,0,6">
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton x:Name="TabNfsRadio" GroupName="ProtoTab" Content="NFS"
-                                     Checked="OnProtocolTab" FontSize="13" />
-                        <Ellipse x:Name="TabNfsDot" Width="7" Height="7" Fill="#FAAD14"
-                                 VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed" />
+            <!-- 协议 Tabs（全部/SMB/NFS/FTP/WebDAV；对齐 Electron 横向 Tabs，未装协议橙点） -->
+            <Border Grid.Row="2" Margin="0,0,0,8" BorderThickness="0,0,0,1"
+                    BorderBrush="{DynamicResource BrushBorder}">
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="TabAll" GroupName="ProtoTab" Content="全部" IsChecked="True"
+                                 Checked="OnProtocolTab" Style="{DynamicResource TabRadio}" />
+                    <RadioButton x:Name="TabSmb" GroupName="ProtoTab" Content="SMB"
+                                 Checked="OnProtocolTab" Style="{DynamicResource TabRadio}" />
+                    <StackPanel x:Name="TabNfs">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="TabNfsRadio" GroupName="ProtoTab" Content="NFS"
+                                         Checked="OnProtocolTab" Style="{DynamicResource TabRadio}" />
+                            <Ellipse x:Name="TabNfsDot" Width="7" Height="7" Fill="{DynamicResource BrushWarnDot}"
+                                     VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel x:Name="TabFtp">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="TabFtpRadio" GroupName="ProtoTab" Content="FTP"
+                                         Checked="OnProtocolTab" Style="{DynamicResource TabRadio}" />
+                            <Ellipse x:Name="TabFtpDot" Width="7" Height="7" Fill="{DynamicResource BrushWarnDot}"
+                                     VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel x:Name="TabWebdav">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="TabWebdavRadio" GroupName="ProtoTab" Content="WebDAV"
+                                         Checked="OnProtocolTab" Style="{DynamicResource TabRadio}" />
+                            <Ellipse x:Name="TabWebdavDot" Width="7" Height="7" Fill="{DynamicResource BrushWarnDot}"
+                                     VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed" />
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
-                <StackPanel x:Name="TabFtp" Margin="0,0,0,6">
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton x:Name="TabFtpRadio" GroupName="ProtoTab" Content="FTP"
-                                     Checked="OnProtocolTab" FontSize="13" />
-                        <Ellipse x:Name="TabFtpDot" Width="7" Height="7" Fill="#FAAD14"
-                                 VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed" />
-                    </StackPanel>
-                </StackPanel>
-                <StackPanel x:Name="TabWebdav">
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton x:Name="TabWebdavRadio" GroupName="ProtoTab" Content="WebDAV"
-                                     Checked="OnProtocolTab" FontSize="13" />
-                        <Ellipse x:Name="TabWebdavDot" Width="7" Height="7" Fill="#FAAD14"
-                                 VerticalAlignment="Center" Margin="6,0,0,0" Visibility="Collapsed" />
-                    </StackPanel>
-                </StackPanel>
-            </StackPanel>
+            </Border>
 
-            <!-- 搜索 / 只看有人连接 / 批量工具栏（TS keyword + onlyConnected + selectedShares 栏；1 列纵向流） -->
+            <!-- 搜索 / 只看有人连接 / 批量工具栏（对齐 Electron 横向工具行） -->
             <DockPanel Grid.Row="3" Margin="0,0,0,8" LastChildFill="False">
-                <StackPanel DockPanel.Dock="Left">
-                    <TextBox x:Name="TxtSearch" Width="320"
-                             Padding="6,4" FontSize="13" TextChanged="OnSearchChanged"
-                             Margin="0,0,0,6" />
-                    <CheckBox x:Name="ChkOnlyConnected" Content="只看有人连接"
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBox x:Name="TxtSearch" Width="320" Style="{DynamicResource InputBoxSoft}"
+                             TextChanged="OnSearchChanged" />
+                    <CheckBox x:Name="ChkOnlyConnected" Content="只看有人连接" Style="{DynamicResource CheckBoxSoft}"
+                             
                               Checked="OnOnlyConnected" Unchecked="OnOnlyConnected"
-                              FontSize="13" />
+                              VerticalAlignment="Center" Margin="14,0,0,0" />
                 </StackPanel>
-                <StackPanel x:Name="BatchBar" DockPanel.Dock="Right" Visibility="Collapsed">
+                <StackPanel x:Name="BatchBar" DockPanel.Dock="Right" Orientation="Horizontal"
+                            VerticalAlignment="Center" Visibility="Collapsed">
                     <TextBlock x:Name="TxtSelectedCount" Text="已选 0" FontSize="12"
-                               Foreground="{DynamicResource BrushFog}" />
-                    <Button Content="清空" Click="OnClearSelection" Padding="8,2" FontSize="12"
-                            Margin="0,6,0,0" />
-                    <Button Content="批量启停" Click="OnBatchToggle" Padding="8,2" FontSize="12"
-                            Margin="0,6,0,0" />
-                    <Button Content="批量删除" Click="OnBatchDelete" Padding="8,2" FontSize="12"
-                            Margin="0,6,0,0" VerticalContentAlignment="Center"
-                            Foreground="#A8071A" />
+                               Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
+                    <Button Content="清空" Style="{DynamicResource RowActionButton}" Click="OnClearSelection"
+                            Margin="8,0,0,0" />
+                    <Button Content="批量启停" Style="{DynamicResource RowActionButton}" Click="OnBatchToggle"
+                            Margin="8,0,0,0" />
+                    <Button Content="批量删除" Style="{DynamicResource RowActionButtonDanger}" Click="OnBatchDelete"
+                            Margin="8,0,0,0" />
                 </StackPanel>
             </DockPanel>
 
             <!-- 共享列表（TS Table；DataGrid 多选 = rowSelection） -->
             <Border Grid.Row="4" Style="{DynamicResource CardStyle}">
                 <Grid>
-                    <DataGrid x:Name="Grid"
+                    <DataGrid x:Name="Grid" Style="{DynamicResource SoftDataGrid}"
                               AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                               RowHeaderWidth="0" SelectionMode="Extended"
@@ -110,7 +113,7 @@
                                                     Visibility="{Binding ShowProtocolColumn, Converter={StaticResource BoolVis}}">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Border Background="#1677FF" CornerRadius="3" Padding="8,1"
+                                        <Border Background="{DynamicResource BrushInfoFg}" CornerRadius="{DynamicResource RadiusTag}" Padding="8,1"
                                                 HorizontalAlignment="Left">
                                             <TextBlock Text="{Binding ProtocolTagText}" Foreground="White" FontSize="12" />
                                         </Border>
@@ -129,12 +132,12 @@
                                                     Background="Transparent" BorderThickness="0" Padding="2"
                                                     ToolTip="置顶（排到最前，重启后仍在）" />
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center" Margin="4,0,0,0" />
-                                            <Border x:Name="WaterTag" CornerRadius="3" Padding="6,1" Margin="8,0,0,0"
+                                            <Border x:Name="WaterTag" CornerRadius="{DynamicResource RadiusTag}" Padding="6,1" Margin="8,0,0,0"
                                                     VerticalAlignment="Center"
                                                     Visibility="{Binding WaterTagText, Converter={StaticResource TextVis}}"
-                                                    Background="#FFFBE6"
+                                                    Background="{DynamicResource BrushWarnBg}"
                                                     ToolTip="{Binding WaterTip}">
-                                                <TextBlock Text="{Binding WaterTagText}" FontSize="11" Foreground="#AD6800" />
+                                                <TextBlock Text="{Binding WaterTagText}" FontSize="11" Foreground="{DynamicResource BrushWarnFg}" />
                                             </Border>
                                         </StackPanel>
                                     </DataTemplate>
@@ -178,18 +181,18 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
-                                            <Button Content="详情" Click="OnRowDetail" Tag="{Binding}"
-                                                    Padding="8,2" FontSize="12" />
-                                            <Button Content="{Binding ToggleVerb}" Click="OnRowToggle" Tag="{Binding}"
-                                                    Padding="8,2" FontSize="12" Margin="8,0,0,0"
+                                            <Button Content="详情" Style="{DynamicResource RowActionButton}"
+                                                    Click="OnRowDetail" Tag="{Binding}" />
+                                            <Button Content="{Binding ToggleVerb}" Style="{DynamicResource RowActionButton}"
+                                                    Click="OnRowToggle" Tag="{Binding}" Margin="4,0,0,0"
                                                     Visibility="{Binding CanToggle, Converter={StaticResource BoolVis}}" />
-                                            <Button Content="编辑" Click="OnRowEdit" Tag="{Binding}"
-                                                    Padding="8,2" FontSize="12" Margin="8,0,0,0" />
-                                            <Button Content="权限" Click="OnRowPerm" Tag="{Binding}"
-                                                    Padding="8,2" FontSize="12" Margin="8,0,0,0"
+                                            <Button Content="编辑" Style="{DynamicResource RowActionButton}"
+                                                    Click="OnRowEdit" Tag="{Binding}" Margin="4,0,0,0" />
+                                            <Button Content="权限" Style="{DynamicResource RowActionButton}"
+                                                    Click="OnRowPerm" Tag="{Binding}" Margin="4,0,0,0"
                                                     Visibility="{Binding SupportsPermissions, Converter={StaticResource BoolVis}}" />
-                                            <Button Content="删除" Click="OnRowDelete" Tag="{Binding}"
-                                                    Padding="8,2" FontSize="12" Margin="8,0,0,0" Foreground="#A8071A" />
+                                            <Button Content="删除" Style="{DynamicResource RowActionButtonDanger}"
+                                                    Click="OnRowDelete" Tag="{Binding}" Margin="4,0,0,0" />
                                         </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
@@ -230,11 +233,11 @@
                  遮罩声明在前、抽屉声明在后 = 抽屉绘制在遮罩之上（Grid 子元素后声明者在上）；
                  抽屉常驻宿主 Grid、只经 SetShare 换数据，不做跨容器搬移（WPF 逻辑父唯一）。 -->
             <Grid Grid.Row="0" Grid.RowSpan="6" Visibility="Collapsed" x:Name="DetailHost">
-                <Border Background="#40000000" MouseDown="OnDetailBackdrop" />
+                <Border Background="{DynamicResource BrushOverlayScrim}" MouseDown="OnDetailBackdrop" />
                 <local:ShareDetailDrawer x:Name="DetailDrawer" Width="520" HorizontalAlignment="Right" />
             </Grid>
             <Grid Grid.Row="0" Grid.RowSpan="6" Visibility="Collapsed" x:Name="PermHost">
-                <Border Background="#40000000" MouseDown="OnPermBackdrop" />
+                <Border Background="{DynamicResource BrushOverlayScrim}" MouseDown="OnPermBackdrop" />
                 <local:SharePermissionDrawer x:Name="PermDrawer" Width="640" HorizontalAlignment="Right" />
             </Grid>
         </Grid>

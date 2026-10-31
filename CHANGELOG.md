@@ -4,6 +4,52 @@
 
 ## [Unreleased]
 
+### ⚡ 性能 / Performance：WPF 框架重构 + 性能优化 + UI 样式补齐
+
+三线并行的一轮整固（不动 PowerShell out-of-process 生产通道、不重试页面缓存、不引入 DI 容器——均为既有既定决策）：
+
+**框架重构**
+
+- `RelayCommand` 四份同构副本（Sessions/Users 模块副本、Dashboard 内嵌、Shares 泛型变体）统一收口到 `Common/RelayCommand.cs`；测试工程三份 `SourceAttribute` 合并为单一共享文件
+- 修复 `ProtocolTabViews.BuildBanner` 的解绑 bug：`-=` 新建 lambda 与订阅实例不同，实际永不解绑（探测状态每次变化都会重渲染已卸载板块）
+- 清理死代码：`NavigationService._viewCache` 死字段、App.xaml 六个零引用样式（InputBox 模板版/InputBoxPassword/TagBase/CardSubtle/GlassCheckBox/GlassComboBox）、App 启动的 2 秒 UI 线程心跳临时诊断（`Shell/Diag.cs` 一并移除）
+- 陈旧命名修正：`RefreshInterval_DefaultsTo30_*` → `_60`（断言本就是 60），相关注释同步
+
+**性能优化**
+
+- 用户页搜索：去掉每敲一键就全量重查（spawn powershell.exe）的误伤——过滤为本地重算 + 300ms 去抖
+- 会话页：倒计时通知单独分流，两个 DataGrid 不再每秒被重绑到新分配的列表（暂停时也在绑）
+- 仪表盘：刷新加重入保护（skip 型），1s 间隔下轮次不再堆叠；告警气泡只对「本轮新增」命中发布（原先每轮重复弹）；CSV 导出去掉 UI 线程 `GetAwaiter().GetResult()` 死锁隐患
+- `PageRefreshThrottle` 铺开到共享/用户页（10s 内重访不重拉，F5/托盘绕过）
+- Logger：目录创建/文件大小记忆化（每行省 3 次磁盘往返，32 行对盘一次自愈），`ReadLogTail` 改尾部 seek 读取（不再全量 2MB 进内存）
+- 会话托盘气泡跨线程封送（NotifyIcon 句柄亲和性）；趋势图渲染画笔缓存复用 + 坐标轴色走主题 token（深色不再刺眼）
+
+**UI 样式补齐（全量）**
+
+- 主题 token 补齐：信息/警示标签底与前景、警示点、强/深危险色、遮罩——浅色保持既有视觉，深色给夜色系可读值
+- 硬编码色清零：四个主页面、代码后置、`SettingsUi`、全部抽屉/对话框 → `DynamicResource` token；修复 `SettingsUi.TagColor` 恒返回 BrushText 的真 bug（所有状态色失效为单色）
+- 新增共享样式：`RowActionButton`(+Danger)（行内/批量小按钮）、`SegmentRadio`（胶囊分段单选）、`SoftDataGrid` 补单元格选中样式、`ComboBoxItemSoft`、隐式 ToolTip
+- `SoftDataGrid` 铺开到此前裸奔的 5 个表格；全部 DataGrid 行内操作按钮/批量工具栏套样式（危险动作红色变体）
+- 抽屉/向导/对话框全量套样式：共享详情/权限抽屉、新建共享向导（27 处裸控件）、编辑窗口、用户系列对话框、首启向导、命令面板（圆角收敛 token）
+- 间距/圆角/字号归一：六页容器 margin 统一 20、卡片间距统一 16、页头统一 `PageTitle`(22) + 头下边距 16（新增 `SettingsUi.PageTitle` 辅助，设置两页标题接 i18n `Nav.*` 键）
+
+### 🎨 变更 / Changed：WPF 版布局照搬 Electron 版
+
+WPF 版（`net/WinShare.App`）的页面布局对齐 Electron 版，消除两侧的视觉差异：
+
+- **页签横向化**：原先各页把 RadioButton 竖排当 Tab 用（1 列纵向流），现改为横向 Tab 条
+  （新增 `App.xaml` 的 `TabRadio` 样式：选中态底部高亮条 + 加粗），覆盖
+  用户权限页（本地用户/本地组/权限矩阵/NTFS 权限）、会话监控页（协议 Tab + SMB 子 Tab）、
+  共享管理页（全部/SMB/NFS/FTP/WebDAV）
+- **工具行横向化**：搜索框、筛选、批量操作条由竖排改为一行（对齐 Electron 的横向工具行）
+- **「服务配置」页改为页签结构**：原先 6 张卡纵向全展开，现改为外层协议 Tabs
+  （SMB/NFS/FTP/WebDAV），SMB 内层再分「服务器配置 / 权限模板 / 快照历史」，与 Electron 一致
+- **页头统一**：标题与侧栏导航名一致（「用户与权限」→「用户权限」、「服务器配置」→「服务配置」）；
+  「应用设置」页把「查看 releases」上移到页头操作区；仪表盘页去掉品牌渐变条
+- **改名**：`仪表板` → `仪表盘`（i18n `Nav.Dashboard` / `Dash.Title`）
+
+代码后置仍读 `IsChecked`，逻辑零改动。
+
 ### 🎨 变更 / Changed：项目图标统一更换
 
 全部图标统一使用仓库根目录的 `win-share-panel.png` 作为唯一官方源图：

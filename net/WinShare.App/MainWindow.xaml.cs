@@ -21,6 +21,8 @@ public partial class MainWindow : Window
 
     readonly NavigationService _nav;
 
+
+
     public MainWindow(NavigationService nav)
     {
         _nav = nav;
@@ -93,16 +95,24 @@ public partial class MainWindow : Window
                 if (((NavDisplay)items[i]!).Route == route) { idx = i; break; }
             }
         }
-        NavList.SelectedIndex = idx;
+        // 反向同步选中项时必须设守卫：否则会再次触发 OnNavSelectionChanged，
+        // 叠加下面的延迟构建就形成导航回环（实测会把页面换成错误的那一页）。
+        _navSyncing = true;
+        try { NavList.SelectedIndex = idx; }
+        finally { _navSyncing = false; }
     }
+
+    bool _navSyncing;
 
     void OnNavSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (NavList.SelectedItem is NavDisplay nd)
-        {
-            _nav.Navigate(nd.Route);
-            PageHost.Content = _nav.CurrentView;
-        }
+        if (_navSyncing) return; // 来自 OnRouteChanged 的反向同步，不是用户点击
+        if (NavList.SelectedItem is not NavDisplay nd) return;
+        // 【回退延迟构建】把页面构建推到 Background 优先级实测会让页面错位一页
+        // （会话监控位置显示成应用设置的内容）——导航选择与路由同步耦合太紧，异步化不安全。
+        // 保持同步构建；感知速度改从「降低构造成本」入手。
+        _nav.Navigate(nd.Route);
+        PageHost.Content = _nav.CurrentView;
     }
 
 
@@ -140,38 +150,57 @@ public partial class MainWindow : Window
     }
 
     // ===== 全屏加载遮罩（承接首屏 2-3s 的 PowerShell 读取） =====
-    /// <summary>显示加载遮罩并启动旋转动画（标题文案可定制）。</summary>
+    /// <summary>显示加载遮罩并启动旋转动画（标题文案可定制）。淡入 150ms。</summary>
     public void ShowLoading(string? text = null)
     {
         if (LoadingOverlay is null) return;
         if (!string.IsNullOrWhiteSpace(text)) LoadingText.Text = text;
         LoadingOverlay.Visibility = Visibility.Visible;
+        LoadingOverlay.Opacity = 0;
+        LoadingOverlay.BeginAnimation(OpacityProperty,
+            new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150)));
         StartSpinner();
     }
 
-    /// <summary>隐藏加载遮罩并停动画。</summary>
+    /// <summary>
+    /// 隐藏加载遮罩并停动画。
+    /// 不做淡出：依赖动画 Completed 再 Collapsed 会在动画被覆盖/零跨度时永不触发，
+    /// 表现为「数据早加载完了遮罩还挂在上面」（实测踩到过）。揭幕必须是无条件的。
+    /// </summary>
     public void HideLoading()
     {
         if (LoadingOverlay is null) return;
         StopSpinner();
+        LoadingOverlay.BeginAnimation(OpacityProperty, null); // 取消进行中的淡入
+        LoadingOverlay.Opacity = 1;
         LoadingOverlay.Visibility = Visibility.Collapsed;
     }
 
-    private System.Windows.Media.Animation.Storyboard? _spinner;
+    System.Windows.Media.Animation.Storyboard? _spinner;
 
+    // 用正规 Storyboard 承载旋转：原先是空 Storyboard + BeginAnimation（动画实际由依赖属性
+    // 系统持有，Stop 时对空 Storyboard 调 Stop() 是空操作）。匀速旋转——加缓动会让
+    // spinner 每圈首尾减速，视觉上像卡顿。
     private void StartSpinner()
     {
         if (_spinner is not null) return;
-        var rotate = new System.Windows.Media.Animation.DoubleAnimation(0, 360, TimeSpan.FromMilliseconds(900))
+        var rotate = new System.Windows.Media.Animation.DoubleAnimation(0, 360, TimeSpan.FromMilliseconds(800))
         {
             RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
         };
-        SpinnerRotate.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty, rotate);
-        _spinner = new System.Windows.Media.Animation.Storyboard();
+        var sb = new System.Windows.Media.Animation.Storyboard();
+        sb.Children.Add(rotate);
+        System.Windows.Media.Animation.Storyboard.SetTarget(rotate, SpinnerRotate);
+        System.Windows.Media.Animation.Storyboard.SetTargetProperty(rotate,
+            new System.Windows.PropertyPath(System.Windows.Media.RotateTransform.AngleProperty));
+        sb.Begin();
+        _spinner = sb;
     }
 
     private void StopSpinner()
     {
+        if (_spinner is null) return;
+        _spinner.Stop();
         SpinnerRotate?.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty, null);
         _spinner = null;
     }

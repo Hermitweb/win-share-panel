@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using WinShare.App.Settings;
@@ -118,7 +119,11 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
             border.Child = stack;
         }
         Rebuild();
-        Detection.PropertyChanged += (_, _) => { Rebuild(); };
+        // 板块随页面卸载后必须退订：否则探测状态每次变化都会 Rebuild 一个已卸载的板块。
+        // 注意必须持有同一 handler 引用退订——原写法 `-=` 新建 lambda 与订阅实例不同，实际永不解绑。
+        PropertyChangedEventHandler onDetectionChanged = (_, _) => Rebuild();
+        Detection.PropertyChanged += onDetectionChanged;
+        Unloaded += (_, _) => Detection.PropertyChanged -= onDetectionChanged;
         return border;
     }
 
@@ -126,7 +131,13 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
     {
         var p = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         p.Children.Add(SettingsUi.FogText("配置预设", 4, 4));
-        var cb = new ComboBox { Width = 260, HorizontalAlignment = HorizontalAlignment.Left, DataContext = Card };
+        var cb = new ComboBox
+        {
+            Style = (Style?)TryFindResource("ComboBoxSoft"),
+            Width = 260,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            DataContext = Card,
+        };
         var defs = Presets;
         cb.ItemsSource = defs.ToList();
         cb.DisplayMemberPath = nameof(ConfigPreset.Name);

@@ -116,12 +116,14 @@ public sealed class FirstRunGuideWindow : Window
     private void BuildSteps()
     {
         // ===== 步骤一：选文件夹 =====
+        _pathBox.Style = (Style?)TryFindResource("InputBoxSoft");
         _pathBox.Margin = new Thickness(0, 4, 0, 8);
         _pathBox.Padding = new Thickness(6);
         _pathBox.TextChanged += (_, _) =>
         {
             if (!_nameEdited) _nameBox.Text = ShareNameFromPath(_pathBox.Text);
         };
+        _nameBox.Style = (Style?)TryFindResource("InputBoxSoft");
         _nameBox.Margin = new Thickness(0, 4, 0, 8);
         _nameBox.Padding = new Thickness(6);
         _nameBox.TextChanged += (_, _) =>
@@ -142,6 +144,8 @@ public sealed class FirstRunGuideWindow : Window
             PermTierOption opt = FirstRunLogic.PermTiers[i];
             var rb = new RadioButton
             {
+                Style = (Style?)TryFindResource("SegmentRadio"),
+                HorizontalAlignment = HorizontalAlignment.Left,
                 GroupName = "tier",
                 IsChecked = opt.Tier == FirstRunLogic.DefaultPermTier,
                 Margin = new Thickness(0, 6, 0, 6),
@@ -177,6 +181,7 @@ public sealed class FirstRunGuideWindow : Window
         _summary.Foreground = SettingsUi.Token("BrushText", "#1F2733");
         _stepThree.Children.Add(_summary);
 
+        _advancedToggle.Style = (Style?)TryFindResource("CheckBoxSoft");
         _advancedToggle.Content = "高级参数（点开才生效，不改保持默认）";
         _advancedToggle.Margin = new Thickness(0, 12, 0, 6);
         _advancedToggle.FontSize = 12;
@@ -184,8 +189,8 @@ public sealed class FirstRunGuideWindow : Window
         _advancedToggle.Checked += (_, _) => _advancedPanel.Visibility = Visibility.Visible;
         _advancedToggle.Unchecked += (_, _) => _advancedPanel.Visibility = Visibility.Collapsed;
 
+        _limitBox.Style = (Style?)TryFindResource("InputBoxSoft");
         _limitBox.Width = 120;
-        _limitBox.Padding = new Thickness(4);
         _limitBox.Margin = new Thickness(0, 2, 0, 6);
         _advancedPanel.Children.Add(Label("并发连接上限（0 或留空=不限制）"));
         _advancedPanel.Children.Add(_limitBox);

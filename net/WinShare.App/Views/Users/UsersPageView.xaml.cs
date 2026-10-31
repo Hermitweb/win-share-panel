@@ -18,6 +18,11 @@ public partial class UsersPageView : UserControl
     UsersViewModel? _vm;
     IUnsubscribe? _refreshSub;
 
+    // 保活后重复挂载（Loaded 再触发）时必须跳过：否则每次都新建 VM 并重订阅 PropertyChanged/事件总线，
+    // 多份订阅同时刷新 → 切页时 UI 线程被淹没。
+    bool _wired;
+    bool _applyQueued;
+
     public UsersPageView()
     {
         InitializeComponent();
@@ -28,14 +33,24 @@ public partial class UsersPageView : UserControl
         base.OnInitialized(e);
         Loaded += async (_, _) =>
         {
+            if (_wired) return;
+            _wired = true;
             _vm = UsersModule.CreateViewModel();
             _vm.Notify = (_, text) => ShowNotice(text);
+            // 合并为每调度周期一次（一次刷新会改多个属性，逐个重建表格很浪费）
             _vm.PropertyChanged += (_, _) =>
             {
-                if (Dispatcher.CheckAccess()) ApplyVm();
-                else Dispatcher.BeginInvoke(ApplyVm);
+                if (_applyQueued) return;
+                _applyQueued = true;
+                Dispatcher.BeginInvoke(new Action(() => { _applyQueued = false; ApplyVm(); }),
+                    System.Windows.Threading.DispatcherPriority.Background);
             };
-            await _vm.RefreshAsync();
+            // 节流对齐设置页口径：页面每次重建都会 Loaded 全量拉一轮（spawn powershell.exe），
+            // 快速切页会让轮次堆叠。10s 内重访跳过重拉；F5/托盘走总线订阅直接 RefreshAsync 不受限。
+            if (WinShare.App.Views.Settings.PageRefreshThrottle.ShouldRefresh("users"))
+            {
+                await _vm.RefreshAsync();
+            }
             ApplyVm();
 
             // F5 全局刷新（对齐 TS useTickEffect(refreshTick, load)；总线缺席=设计期，跳过）
@@ -49,7 +64,11 @@ public partial class UsersPageView : UserControl
                 });
             }
         };
-        Unloaded += (_, _) => _refreshSub?.Unsubscribe();
+        Unloaded += (_, _) =>
+        {
+            _refreshSub?.Unsubscribe();
+            _filterDebounce?.Stop(); // 页面重建即新实例；防旧页计时器残留触发
+        };
     }
 
     // =====================================================================
@@ -152,13 +171,35 @@ public partial class UsersPageView : UserControl
             _ = _vm.LoadMatrixAsync(); // 首次进入矩阵 Tab 加载（对齐 TS 组件挂载即加载；后续走「重新加载」）
     }
 
-    // 过滤（搜索框 / 仅启用开关共用）：同步 VM 状态 + 重算 + 刷新数据
-    async void OnFilterChanged(object sender, RoutedEventArgs e)
+    // 过滤（搜索框 / 仅启用开关共用）：同步 VM 状态 + 本地重算，不触发数据重查。
+    // 原实现每敲一个字符就 RefreshAsync()（spawn powershell.exe）——过滤只需已加载的本地
+    // 数据（VM Keyword/OnlyEnabled setter 内部 ApplyFilters），全量重查属误伤。
+    // 300ms 去抖：快速连敲只合并为一次重算（避免逐字符重建两张表 + 矩阵行）。
+    System.Windows.Threading.DispatcherTimer? _filterDebounce;
+    string _pendingKeyword = "";
+    bool _pendingOnlyEnabled;
+
+    void OnFilterChanged(object sender, RoutedEventArgs e)
     {
         if (_vm is null) return;
-        _vm.Keyword = SearchBox.Text;
-        _vm.OnlyEnabled = OnlyEnabledChk.IsChecked == true;
-        await _vm.RefreshAsync();
+        _pendingKeyword = SearchBox.Text;
+        _pendingOnlyEnabled = OnlyEnabledChk.IsChecked == true;
+        if (_filterDebounce is null)
+        {
+            _filterDebounce = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(300),
+            };
+            _filterDebounce.Tick += (_, _) =>
+            {
+                _filterDebounce.Stop();
+                if (_vm is null) return;
+                _vm.Keyword = _pendingKeyword;
+                _vm.OnlyEnabled = _pendingOnlyEnabled;
+            };
+        }
+        _filterDebounce.Stop();
+        _filterDebounce.Start();
     }
 
     void OnSearchFieldChanged(object sender, SelectionChangedEventArgs e)

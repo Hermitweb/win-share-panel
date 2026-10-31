@@ -24,9 +24,11 @@ public static class PoolSingleton
         {
             if (_instance is null)
             {
+                // 缺省 3（对齐 TS）。实测调大到 6 反而更慢：多个 powershell.exe 进程争抢
+                // CPU/内存，整轮刷新从 ~6s 涨到 7-15s。保持 3，需要更大并发用环境变量覆盖。
                 int size = 3;
                 string? raw = Environment.GetEnvironmentVariable("WINSHARE_PS_POOL_SIZE");
-                // 对齐 TS Number(env) || 3：不可解析或 0/负数均回落 3
+                // 显式配置优先；不可解析或 0/负数回落 3
                 if (raw is not null && int.TryParse(raw, out int parsed) && parsed > 0)
                 {
                     size = parsed;

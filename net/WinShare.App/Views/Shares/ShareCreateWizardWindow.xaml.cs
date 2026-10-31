@@ -145,10 +145,11 @@ public partial class ShareCreateWizardWindow : Window
         ScenarioPanel.Children.Clear();
         foreach (var preset in _vm.CreateScenarios)
         {
-            // 1 列纵向流：场景预设按钮自上而下堆叠
+            // 1 列纵向流：场景预设按钮自上而下堆叠（DashButton：与其他按钮统一 token 视觉）
             var btn = new Button
             {
                 Content = preset.Name,
+                Style = (Style?)TryFindResource("DashButton"),
                 FontSize = 12,
                 Padding = new Thickness(10, 2, 10, 2),
                 Margin = new Thickness(0, 0, 0, 6),
@@ -162,7 +163,7 @@ public partial class ShareCreateWizardWindow : Window
                 SyncFromForm();
                 _syncing = false;
                 LblError.Text = $"已套用「{preset.Name}」预设";
-                LblError.Foreground = Brushes.DimGray;
+                LblError.Foreground = (Brush?)TryFindResource("BrushFog");
                 LblError.Visibility = Visibility.Visible;
             };
             ScenarioPanel.Children.Add(btn);
@@ -172,7 +173,7 @@ public partial class ShareCreateWizardWindow : Window
             {
                 Text = "（当前协议无可用场景预设）",
                 FontSize = 11,
-                Foreground = Brushes.DimGray,
+                Foreground = (Brush?)TryFindResource("BrushFog"),
             });
     }
 
@@ -182,10 +183,11 @@ public partial class ShareCreateWizardWindow : Window
         var selected = Form.Authentication.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var (label, value) in new[] { ("Krb5", "krb5"), ("Krb5i", "krb5i"), ("Krb5p", "krb5p"), ("AUTH_SYS", "sys") })
         {
-            // 1 列纵向流：NFS 认证方式多选自上而下堆叠
+            // 1 列纵向流：NFS 认证方式多选自上而下堆叠（CheckBoxSoft：与应用设置页勾选框同款）
             var cb = new CheckBox
             {
                 Content = label,
+                Style = (Style?)TryFindResource("CheckBoxSoft"),
                 IsChecked = selected.Contains(value),
                 Margin = new Thickness(0, 0, 0, 6),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -272,7 +274,7 @@ public partial class ShareCreateWizardWindow : Window
         if (!Form.Validate(out var err))
         {
             LblError.Text = err!;
-            LblError.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x4D, 0x4F));
+            LblError.Foreground = (System.Windows.Media.Brush?)TryFindResource("BrushDangerStrong");
             LblError.Visibility = Visibility.Visible;
             return;
         }
@@ -284,7 +286,7 @@ public partial class ShareCreateWizardWindow : Window
         else
         {
             LblError.Text = result;
-            LblError.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x4D, 0x4F));
+            LblError.Foreground = (System.Windows.Media.Brush?)TryFindResource("BrushDangerStrong");
             LblError.Visibility = Visibility.Visible;
         }
     }

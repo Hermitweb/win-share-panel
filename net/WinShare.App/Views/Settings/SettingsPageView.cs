@@ -1,7 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
 using WinShare.App;
+using WinShare.App.Events;
 using WinShare.App.Settings;
+using WinShare.App.Shell;
 using WinShare.Core.Contracts;
 
 namespace WinShare.App.Views.Settings;
@@ -17,6 +19,7 @@ public sealed class SettingsPageView : UserControl
     readonly SettingsViewModel _vm;
     StackPanel? _diagnoseItems;
     StackPanel? _osDetails;
+    IUnsubscribe? _refreshSub;
 
     public SettingsPageView()
     {
@@ -24,35 +27,44 @@ public sealed class SettingsPageView : UserControl
         var advanced = store is null ? true : store.Load().advancedMode;
         _vm = new SettingsViewModel(advanced);
         DataContext = _vm;
+        WinShare.Core.Lib.Logger.Info("main", "[perf] SettingsPageView 构造开始");
         Content = BuildRoot();
-        Loaded += async (_, _) => await _vm.RefreshAsync();
+        WinShare.Core.Lib.Logger.Info("main", "[perf] SettingsPageView 构造完成");
+        Loaded += async (_, _) =>
+        {
+            if (!PageRefreshThrottle.ShouldRefresh("settings")) return;
+            WinShare.Core.Lib.Logger.Info("main", "[perf] SettingsPageView Loaded → RefreshAsync 开始");
+            await _vm.RefreshAsync();
+            WinShare.Core.Lib.Logger.Info("main", "[perf] SettingsPageView RefreshAsync 完成");
+        };
         // 全局刷新透传（F5 / 菜单 / 托盘 → 事件总线；对齐 TS refreshTick 失效重取）
-        AppServices.Bus?.Subscribe<WinShare.App.Events.RefreshRequested>(evt => { _ = _vm.RefreshAsync(); });
+        _refreshSub = AppServices.Bus?.Subscribe<WinShare.App.Events.RefreshRequested>(evt => { _ = _vm.RefreshAsync(); });
+        // 页面卸载必须退订：否则切走后这个实例仍在响应全局刷新 → 攒下「幽灵页面」拖慢 UI
+        Unloaded += (_, _) => _refreshSub?.Unsubscribe();
     }
 
     FrameworkElement BuildRoot()
     {
-        var outer = new DockPanel { Margin = new Thickness(16) };
-        outer.Children.Add(BuildHeader());
+        var outer = new DockPanel { Margin = new Thickness(20) };
+        // 页头必须显式停靠 Top：DockPanel 里未指定 Dock 的子元素默认按 Left 处理，
+        // 页头会被压成左侧窄列 → 标题竖排换行（「服务配置」四个字竖着显示）。
+        var header = BuildHeader();
+        DockPanel.SetDock(header, Dock.Top);
+        outer.Children.Add(header);
         var content = new StackPanel();
         content.Children.Add(BuildOsCompatCard());
         content.Children.Add(BuildDiagnoseCard());
         content.Children.Add(BuildProtocolSections());
-        outer.Children.Add(new ScrollViewer { Content = content });
+        // 外层不再套 ScrollViewer：页签自己要拿到有限高度才能内部滚动，
+        // 套在 ScrollViewer 里会得到无限高度 → 页签不滚动且无限拉长。
+        outer.Children.Add(content);
         return outer;
     }
 
     DockPanel BuildHeader()
     {
-        var row = new DockPanel { Margin = new Thickness(0, 0, 0, 12) };
-        var title = new TextBlock
-        {
-            Text = "服务器配置",
-            FontSize = 18,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
+        var row = new DockPanel { Margin = new Thickness(0, 0, 0, 16) };
+        var title = SettingsUi.PageTitle("Nav.Settings");
         DockPanel.SetDock(title, Dock.Left);
         row.Children.Add(title);
 
@@ -190,21 +202,44 @@ public sealed class SettingsPageView : UserControl
 
     /// <summary>
     /// 6 个协议板块纵向全展开成一列（原 TabControl 取消）：SMB → NFS → FTP → WebDAV →
-    /// 权限模板 → 快照历史，板块名作卡标题，不加折叠头。
+    /// 权限模板 → 快照历史）。
     /// </summary>
-    StackPanel BuildProtocolSections()
+    FrameworkElement BuildProtocolSections()
     {
-        var stack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
-        stack.Children.Add(ProtocolSectionCard("SMB", new SmbTabView(_vm.Smb, _vm.Detection)));
-        stack.Children.Add(ProtocolSectionCard("NFS", new NfsTabView(_vm.Nfs, _vm.Detection)));
-        stack.Children.Add(ProtocolSectionCard("FTP", new FtpTabView(_vm.Ftp, _vm.Detection)));
-        stack.Children.Add(ProtocolSectionCard("WebDAV", new WebdavTabView(_vm.Webdav, _vm.Detection)));
-        stack.Children.Add(ProtocolSectionCard("权限模板", new PresetTabView()));
-        stack.Children.Add(ProtocolSectionCard("快照历史", new SnapshotTabView()));
-        return stack;
+        // 六页签：原先 4 个协议的表单全部纵向堆出来 —— 实测 329 个控件、页面高 5415px（约 5 屏），
+        // 绝大部分内容在折叠线以下看不到。改页签后同一时刻只有当前页签的内容进入视觉树。
+        // GlassTabItem 样式已在「应用设置」页验证过，安全。
+        var tabs = new TabControl { Margin = new Thickness(0, 0, 0, 12) };
+        var tabItemStyle = SettingsUi.Style("GlassTabItem");
+        TabItem MakeTab(string headerText, UserControl section)
+        {
+            var inner = new StackPanel();
+            inner.Children.Add(SettingsUi.CardTitle(headerText));
+            inner.Children.Add(section);
+            var t = new TabItem
+            {
+                Header = headerText,
+                Content = new ScrollViewer
+                {
+                    Content = SettingsUi.Card(inner),
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                },
+            };
+            if (tabItemStyle is not null) t.Style = tabItemStyle;
+            return t;
+        }
+
+        tabs.Items.Add(MakeTab("SMB", new SmbTabView(_vm.Smb, _vm.Detection)));
+        tabs.Items.Add(MakeTab("NFS", new NfsTabView(_vm.Nfs, _vm.Detection)));
+        tabs.Items.Add(MakeTab("FTP", new FtpTabView(_vm.Ftp, _vm.Detection)));
+        tabs.Items.Add(MakeTab("WebDAV", new WebdavTabView(_vm.Webdav, _vm.Detection)));
+        tabs.Items.Add(MakeTab("权限模板", new PresetTabView()));
+        tabs.Items.Add(MakeTab("快照历史", new SnapshotTabView()));
+        return tabs;
     }
 
-    /// <summary>板块卡：SettingsUi.Card 卡壳 + 板块名卡标题 + 板块内容（纵向单列，不加折叠头）。</summary>
+    /// <summary>板块卡：SettingsUi.Card 卡壳 + 板块名卡标题 + 板块内容。</summary>
     Border ProtocolSectionCard(string sectionTitle, UserControl section)
     {
         var p = new StackPanel();

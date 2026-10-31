@@ -17,15 +17,15 @@
              1 列纵向流：区块选择器纵向堆叠，正文区纵向全展开、选中区块可见，取消页签隐藏结构） -->
         <StackPanel x:Name="Tabs" Grid.Row="1" Margin="0,0,0,12">
             <RadioButton x:Name="RbInfo" GroupName="DrawerTab" Content="基本信息" IsChecked="True"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
+                         Checked="OnTabChanged" Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
             <RadioButton x:Name="RbProps" GroupName="DrawerTab" Content="高级属性"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
+                         Checked="OnTabChanged" Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
             <RadioButton x:Name="RbConns" GroupName="DrawerTab" Content="连接"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
+                         Checked="OnTabChanged" Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
             <RadioButton x:Name="RbFiles" GroupName="DrawerTab" Content="打开文件"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
+                         Checked="OnTabChanged" Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
             <RadioButton x:Name="RbSite" GroupName="DrawerTab" Content="站点配置"
-                         Checked="OnTabChanged" FontSize="13" Margin="0,0,0,6" />
+                         Checked="OnTabChanged" Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
         </StackPanel>
 
         <!-- 正文内容区（1 列纵向流：各区块自上而下堆叠，可见性随区块选择器） -->
@@ -46,7 +46,7 @@
                     </Grid>
                     <Grid Margin="0,0,0,6">
                         <TextBlock Text="协议" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
-                        <TextBlock x:Name="VProto" FontSize="13" Foreground="#1677FF" />
+                        <TextBlock x:Name="VProto" FontSize="13" Foreground="{DynamicResource BrushInfoFg}" />
                     </Grid>
                     <Grid Margin="0,0,0,6">
                         <TextBlock Text="类型" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
@@ -67,7 +67,7 @@
                     </Grid>
                     <Grid x:Name="RowEncrypted" Margin="0,0,0,6" Visibility="Collapsed">
                         <TextBlock Text="加密" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
-                        <TextBlock x:Name="VEncrypted" FontSize="13" Foreground="#1677FF" />
+                        <TextBlock x:Name="VEncrypted" FontSize="13" Foreground="{DynamicResource BrushInfoFg}" />
                     </Grid>
                     <Grid x:Name="RowCached" Margin="0,0,0,6" Visibility="Collapsed">
                         <TextBlock Text="缓存" Width="90" Foreground="{DynamicResource BrushFog}" FontSize="13" />
@@ -78,25 +78,25 @@
             <!-- 高级属性（SMB；TS form 预填 + 保存属性） -->
             <StackPanel x:Name="SecProps" Margin="0,8,0,0">
                     <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4" />
-                    <TextBox x:Name="EDescription" FontSize="13" Margin="0,0,0,10" />
+                    <TextBox x:Name="EDescription" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,10" />
                     <TextBlock Text="并发用户上限（0=无限制）" FontSize="12" Margin="0,0,0,4" />
-                    <TextBox x:Name="ELimit" FontSize="13" Width="160" HorizontalAlignment="Left" Margin="0,0,0,10" />
+                    <TextBox x:Name="ELimit" Style="{DynamicResource InputBoxSoft}" FontSize="13" Width="160" HorizontalAlignment="Left" Margin="0,0,0,10" />
                     <TextBlock Text="文件夹枚举模式" FontSize="12" Margin="0,0,0,4" />
-                    <ComboBox x:Name="CFem" FontSize="13" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10">
+                    <ComboBox x:Name="CFem" Style="{DynamicResource ComboBoxSoft}" FontSize="13" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10">
                         <ComboBoxItem Content="基于访问（仅可见有权限的子项）" Tag="AccessBased" />
                         <ComboBoxItem Content="无限制（可见全部子项）" Tag="Unrestricted" />
                     </ComboBox>
                     <TextBlock Text="脱机缓存模式" FontSize="12" Margin="0,0,0,4" />
-                    <ComboBox x:Name="CCaching" FontSize="13" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10">
+                    <ComboBox x:Name="CCaching" Style="{DynamicResource ComboBoxSoft}" FontSize="13" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10">
                         <ComboBoxItem Content="无" Tag="None" />
                         <ComboBoxItem Content="手动" Tag="Manual" />
                         <ComboBoxItem Content="文档" Tag="Documents" />
                         <ComboBoxItem Content="程序" Tag="Programs" />
                         <ComboBoxItem Content="BranchCache" Tag="BranchCache" />
                     </ComboBox>
-                    <CheckBox x:Name="ChkEncryptData" Content="启用数据加密" Margin="0,0,0,6" />
-                    <CheckBox x:Name="ChkHidden" Content="隐藏共享（不在网络浏览列表显示）" Margin="0,0,0,10" />
-                    <Button Content="保存属性" Click="OnSaveSmbProps" Padding="14,5" FontSize="13"
+                    <CheckBox x:Name="ChkEncryptData" Content="启用数据加密" Style="{DynamicResource CheckBoxSoft}" Margin="0,0,0,6" />
+                    <CheckBox x:Name="ChkHidden" Content="隐藏共享（不在网络浏览列表显示）" Style="{DynamicResource CheckBoxSoft}" Margin="0,0,0,10" />
+                    <Button Content="保存属性" Style="{DynamicResource DashButton}" Click="OnSaveSmbProps"
                             HorizontalAlignment="Left" />
                     <TextBlock x:Name="LSaveSmbMsg" FontSize="12" Margin="0,8,0,0"
                                Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
@@ -107,11 +107,12 @@
                     <StackPanel Margin="0,0,0,8">
                         <TextBlock x:Name="ConnCountText" Text="当前 0 个连接" FontSize="12"
                                    Foreground="{DynamicResource BrushFog}" />
-                        <Button Content="刷新" Click="OnRefreshConns" Padding="8,2" FontSize="12"
+                        <Button Content="刷新" Style="{DynamicResource RowActionButton}" Click="OnRefreshConns"
                                 HorizontalAlignment="Right" Margin="0,4,0,0" />
                     </StackPanel>
                     <Grid>
-                        <DataGrid x:Name="ConnsGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                        <DataGrid x:Name="ConnsGrid" Style="{DynamicResource SoftDataGrid}"
+                                  AutoGenerateColumns="False" CanUserAddRows="False"
                                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                   FontSize="12" RowHeaderWidth="0" Height="320" VerticalAlignment="Top">
                             <DataGrid.Columns>
@@ -132,15 +133,15 @@
                     <StackPanel Margin="0,0,0,8">
                         <TextBlock x:Name="FilesCountText" Text="0 个打开文件" FontSize="12"
                                    Foreground="{DynamicResource BrushFog}" />
-                        <Button x:Name="BtnCloseAll" Content="全部关闭" Click="OnCloseAll"
-                                Padding="8,2" FontSize="12" Foreground="#A8071A"
-                                HorizontalAlignment="Left" Margin="0,4,0,0"
+                        <Button x:Name="BtnCloseAll" Content="全部关闭" Style="{DynamicResource RowActionButtonDanger}"
+                                Click="OnCloseAll" HorizontalAlignment="Left" Margin="0,4,0,0"
                                 Visibility="Collapsed" />
-                        <Button Content="刷新" Click="OnRefreshFiles" Padding="8,2" FontSize="12"
+                        <Button Content="刷新" Style="{DynamicResource RowActionButton}" Click="OnRefreshFiles"
                                 HorizontalAlignment="Left" Margin="0,4,0,0" />
                     </StackPanel>
                     <Grid>
-                        <DataGrid x:Name="FilesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                        <DataGrid x:Name="FilesGrid" Style="{DynamicResource SoftDataGrid}"
+                                  AutoGenerateColumns="False" CanUserAddRows="False"
                                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                   FontSize="12" RowHeaderWidth="0" Height="320" VerticalAlignment="Top">
                             <DataGrid.Columns>
@@ -162,23 +163,23 @@
                     <!-- NFS 站点配置 -->
                     <StackPanel x:Name="SiteNfs" Visibility="Collapsed">
                         <TextBlock Text="共享权限" FontSize="12" Margin="0,0,0,4" />
-                        <ComboBox x:Name="CNfsPerm" FontSize="13" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10">
+                        <ComboBox x:Name="CNfsPerm" Style="{DynamicResource ComboBoxSoft}" FontSize="13" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10">
                             <ComboBoxItem Content="只读 (ro)" Tag="ro" />
                             <ComboBoxItem Content="读写 (rw)" Tag="rw" />
                         </ComboBox>
-                        <CheckBox x:Name="ChkSiteRoot" Content="允许 root 完全访问" Margin="0,0,0,6" />
-                        <CheckBox x:Name="ChkSiteUnmapped" Content="允许未映射访问（无身份映射）" Margin="0,0,0,10" />
+                        <CheckBox x:Name="ChkSiteRoot" Content="允许 root 完全访问" Style="{DynamicResource CheckBoxSoft}" Margin="0,0,0,6" />
+                        <CheckBox x:Name="ChkSiteUnmapped" Content="允许未映射访问（无身份映射）" Style="{DynamicResource CheckBoxSoft}" Margin="0,0,0,10" />
                     </StackPanel>
                     <!-- FTP 站点配置 -->
                     <StackPanel x:Name="SiteFtp" Visibility="Collapsed">
                         <TextBlock Text="SSL 策略" FontSize="12" Margin="0,0,0,4" />
-                        <ComboBox x:Name="CFtpSsl" FontSize="13" Width="220" HorizontalAlignment="Left" Margin="0,0,0,10">
+                        <ComboBox x:Name="CFtpSsl" Style="{DynamicResource ComboBoxSoft}" FontSize="13" Width="220" HorizontalAlignment="Left" Margin="0,0,0,10">
                             <ComboBoxItem Content="允许 TLS（不强制）" Tag="SslAllow" />
                             <ComboBoxItem Content="要求 TLS" Tag="SslRequire" />
                             <ComboBoxItem Content="要求 TLS + 客户端证书" Tag="SslRequireCredentials" />
                         </ComboBox>
                         <TextBlock Text="认证模式" FontSize="12" Margin="0,0,0,4" />
-                        <ComboBox x:Name="CFtpAuth" FontSize="13" Width="220" HorizontalAlignment="Left" Margin="0,0,0,10">
+                        <ComboBox x:Name="CFtpAuth" Style="{DynamicResource ComboBoxSoft}" FontSize="13" Width="220" HorizontalAlignment="Left" Margin="0,0,0,10">
                             <ComboBoxItem Content="匿名" Tag="anonymous" />
                             <ComboBoxItem Content="基本（本地用户）" Tag="basic" />
                             <ComboBoxItem Content="Windows" Tag="windows" />
@@ -186,9 +187,9 @@
                         <TextBlock Text="本地物理路径（修改后需与新路径的 NTFS 权限及授权规则匹配）" FontSize="12"
                                    Margin="0,0,0,4" TextWrapping="Wrap" />
                         <StackPanel Margin="0,0,0,10">
-                            <TextBox x:Name="TSitePath" FontSize="13" />
-                            <Button x:Name="BtnSiteBrowse" Content="浏览" HorizontalAlignment="Left"
-                                    Click="OnSiteBrowse" Padding="8,2" Margin="0,4,0,0" />
+                            <TextBox x:Name="TSitePath" Style="{DynamicResource InputBoxSoft}" FontSize="13" />
+                            <Button x:Name="BtnSiteBrowse" Content="浏览" Style="{DynamicResource RowActionButton}"
+                                    HorizontalAlignment="Left" Click="OnSiteBrowse" Margin="0,4,0,0" />
                         </StackPanel>
                     </StackPanel>
                     <!-- WebDAV 站点配置 -->
@@ -198,7 +199,7 @@
                                    Foreground="{DynamicResource BrushFog}" Margin="0,0,0,8" />
                         <CheckBox x:Name="ChkWdavAuthoring" Content="允许写入（WebDAV authoring）" Margin="0,0,0,10" />
                     </StackPanel>
-                    <Button Content="保存配置" Click="OnSaveSite" Padding="14,5" FontSize="13"
+                    <Button Content="保存配置" Style="{DynamicResource DashButton}" Click="OnSaveSite"
                             HorizontalAlignment="Left" />
                     <TextBlock x:Name="LSaveSiteMsg" FontSize="12" Margin="0,8,0,0"
                                Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />

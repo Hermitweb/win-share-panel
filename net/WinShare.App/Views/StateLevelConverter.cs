@@ -15,15 +15,18 @@ public sealed class StateLevelConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
-/// <summary>告警等级 → Tag 背景（对齐 antd Tag red/orange 底色）。</summary>
+/// <summary>告警等级 → Tag 背景（对齐 antd Tag red/orange 底色；走主题 token，深色自洽）。</summary>
 public sealed class LevelBrushConverter : IValueConverter
 {
     public static readonly LevelBrushConverter Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        var hex = value is string s && s == "danger" ? "#FFF1F0" : "#FFF7E6";
-        return (System.Windows.Media.Brush)System.Windows.Media.ColorConverter.ConvertFromString(hex)!;
+        // danger→危险底、warn→警示底；token 缺席（设计期）回退原硬编码浅色值
+        var key = value is string s && s == "danger" ? "BrushDanger" : "BrushWarning";
+        return System.Windows.Application.Current?.TryFindResource(key) as System.Windows.Media.Brush
+            ?? (System.Windows.Media.Brush)System.Windows.Media.ColorConverter
+                .ConvertFromString(value is string s2 && s2 == "danger" ? "#FFF1F0" : "#FFF7E6")!;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -51,21 +54,22 @@ public sealed class DiskLevelTextConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
-/// <summary>磁盘水位等级 → 进度条前景色（对齐 TS DISK_LEVEL_META.color）。</summary>
+/// <summary>磁盘水位等级 → 进度条前景色（对齐 TS DISK_LEVEL_META.color；走主题 token）。</summary>
 public sealed class DiskLevelBrushConverter : IValueConverter
 {
     public static readonly DiskLevelBrushConverter Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        var hex = value is string s ? s switch
+        var key = value is string s ? s switch
         {
-            "ok" => "#52C41A",
-            "warn" => "#FAAD14",
-            "danger" => "#FF4D4F",
-            _ => "#808080",
-        } : "#808080";
-        return (System.Windows.Media.Brush)System.Windows.Media.ColorConverter.ConvertFromString(hex)!;
+            "ok" => "BrushSuccess",
+            "warn" => "BrushWarnDot",
+            "danger" => "BrushDangerStrong",
+            _ => "BrushFog",
+        } : "BrushFog";
+        return System.Windows.Application.Current?.TryFindResource(key) as System.Windows.Media.Brush
+            ?? (System.Windows.Media.Brush)System.Windows.Media.ColorConverter.ConvertFromString("#808080")!;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

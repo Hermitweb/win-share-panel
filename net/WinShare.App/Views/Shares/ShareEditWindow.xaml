@@ -10,51 +10,59 @@
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0">
             <TextBlock Text="共享名（不可改）" FontSize="12" Margin="0,0,0,4" />
-            <TextBox x:Name="TxtName" IsReadOnly="True" FontSize="13" Margin="0,0,0,12"
+            <TextBox x:Name="TxtName" IsReadOnly="True" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12"
                      Foreground="{DynamicResource BrushFog}" />
             <TextBlock Text="路径（不可改）" FontSize="12" Margin="0,0,0,4" />
-            <TextBox x:Name="TxtPath" IsReadOnly="True" FontSize="13" Margin="0,0,0,12"
+            <TextBox x:Name="TxtPath" IsReadOnly="True" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12"
                      Foreground="{DynamicResource BrushFog}" />
             <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4" />
-            <TextBox x:Name="TxtDescription" FontSize="13" Margin="0,0,0,12" />
+            <TextBox x:Name="TxtDescription" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12" />
 
             <!-- NFS 专有（TS editShare.protocol==='nfs'） -->
             <StackPanel x:Name="BlockNfs" Visibility="Collapsed">
                 <TextBlock Text="NFS 权限" FontSize="12" Margin="0,0,0,4" />
                 <StackPanel Margin="0,0,0,8">
-                    <RadioButton x:Name="RadEditRw" GroupName="EditNfs" Content="读写" IsChecked="True" Margin="0,0,0,6" />
-                    <RadioButton x:Name="RadEditRo" GroupName="EditNfs" Content="只读" />
+                    <RadioButton x:Name="RadEditRw" GroupName="EditNfs" Content="读写" IsChecked="True" Margin="0,0,0,6"
+                                 Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
+                    <RadioButton x:Name="RadEditRo" GroupName="EditNfs" Content="只读"
+                                 Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
                 </StackPanel>
-                <CheckBox x:Name="ChkEditRoot" Content="允许 root 访问（新手模式不渲染不提交）" Margin="0,0,0,8" />
+                <CheckBox x:Name="ChkEditRoot" Content="允许 root 访问（新手模式不渲染不提交）" Style="{DynamicResource CheckBoxSoft}" Margin="0,0,0,8" />
             </StackPanel>
 
             <!-- FTP 专有 -->
             <StackPanel x:Name="BlockFtp" Visibility="Collapsed">
                 <TextBlock Text="SSL 策略" FontSize="12" Margin="0,0,0,4" />
                 <StackPanel Margin="0,0,0,8">
-                    <RadioButton x:Name="RadEditSslAllow" GroupName="EditSsl" Content="允许" IsChecked="True" Margin="0,0,0,6" />
-                    <RadioButton x:Name="RadEditSslRequire" GroupName="EditSsl" Content="要求" Margin="0,0,0,6" />
-                    <RadioButton x:Name="RadEditSslCred" GroupName="EditSsl" Content="要求凭据" />
+                    <RadioButton x:Name="RadEditSslAllow" GroupName="EditSsl" Content="允许" IsChecked="True" Margin="0,0,0,6"
+                                 Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
+                    <RadioButton x:Name="RadEditSslRequire" GroupName="EditSsl" Content="要求" Margin="0,0,0,6"
+                                 Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
+                    <RadioButton x:Name="RadEditSslCred" GroupName="EditSsl" Content="要求凭据"
+                                 Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
                 </StackPanel>
                 <TextBlock Text="认证模式" FontSize="12" Margin="0,0,0,4" />
                 <StackPanel Margin="0,0,0,8">
-                    <RadioButton x:Name="RadEditAnon" GroupName="EditAuth" Content="匿名" Margin="0,0,0,6" />
-                    <RadioButton x:Name="RadEditBasic" GroupName="EditAuth" Content="基本" IsChecked="True" Margin="0,0,0,6" />
-                    <RadioButton x:Name="RadEditWin" GroupName="EditAuth" Content="Windows" />
+                    <RadioButton x:Name="RadEditAnon" GroupName="EditAuth" Content="匿名" Margin="0,0,0,6"
+                                 Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
+                    <RadioButton x:Name="RadEditBasic" GroupName="EditAuth" Content="基本" IsChecked="True" Margin="0,0,0,6"
+                                 Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
+                    <RadioButton x:Name="RadEditWin" GroupName="EditAuth" Content="Windows"
+                                 Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
                 </StackPanel>
             </StackPanel>
 
             <!-- WebDAV 专有 -->
             <StackPanel x:Name="BlockWebdav" Visibility="Collapsed">
-                <CheckBox x:Name="ChkEditWdavAnon" Content="启用匿名访问" Margin="0,0,0,8" />
+                <CheckBox x:Name="ChkEditWdavAnon" Content="启用匿名访问" Style="{DynamicResource CheckBoxSoft}" Margin="0,0,0,8" />
             </StackPanel>
 
-            <TextBlock x:Name="LblError" FontSize="12" Foreground="#FF4D4F"
+            <TextBlock x:Name="LblError" FontSize="12" Foreground="{DynamicResource BrushDangerStrong}"
                        TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
         </StackPanel>
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="取消" Click="OnCancel" Padding="14,5" FontSize="13" Margin="0,0,8,0" />
-            <Button Content="保存" Click="OnSave" Padding="14,5" FontSize="13" FontWeight="SemiBold" />
+            <Button Content="取消" Style="{DynamicResource DashButton}" Click="OnCancel" Margin="0,0,8,0" />
+            <Button Content="保存" Style="{DynamicResource PrimaryButton}" Click="OnSave" />
         </StackPanel>
     </Grid>
 </Window>

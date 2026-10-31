@@ -15,9 +15,30 @@ public partial class SessionsPageView : UserControl
 {
     SessionsViewModel? _vm;
 
+    // 保活后重复挂载（Loaded 再触发）时必须跳过：否则每次都新建 VM 并重订阅 PropertyChanged，
+    // 旧 VM 的轮询仍在跑、订阅却已失效 → 切换页面时 UI 线程被多份刷新淹没。
+    bool _wired;
+    bool _applyQueued;
+
     public SessionsPageView()
     {
         InitializeComponent();
+    }
+
+    // VM 通知分流（倒计时轻路径 / 数据全量路径）——见 OnInitialized 内注释
+    void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_vm is null) return;
+        if (e.PropertyName == nameof(SessionsViewModel.Countdown))
+        {
+            if (Dispatcher.CheckAccess()) CountdownText.Text = $"{_vm.Countdown}s";
+            else Dispatcher.BeginInvoke(new Action(() => CountdownText.Text = $"{_vm.Countdown}s"));
+            return;
+        }
+        if (_applyQueued) return;
+        _applyQueued = true;
+        Dispatcher.BeginInvoke(new Action(() => { _applyQueued = false; ApplyVm(); }),
+            System.Windows.Threading.DispatcherPriority.Background);
     }
 
     protected override void OnInitialized(EventArgs e)
@@ -25,18 +46,31 @@ public partial class SessionsPageView : UserControl
         base.OnInitialized(e);
         Loaded += async (_, _) =>
         {
+            if (_wired) return;
+            _wired = true;
             _vm = SessionsModule.CreateViewModel();
             _vm.Notify = (_, text) => ShowNotice(text);
-            _vm.BalloonRequested += (title, body) => AppShell.ShowBalloon(title, body);
-            _vm.PropertyChanged += (_, _) =>
+            // BalloonRequested 从轮询定时器线程触发：NotifyIcon 有句柄亲和性，直接调用
+            // 会偶发抛异常被 TrayController 吞掉（气泡丢失）——封送回 UI 线程。
+            _vm.BalloonRequested += (title, body) =>
             {
-                if (Dispatcher.CheckAccess()) ApplyVm();
-                else Dispatcher.BeginInvoke(ApplyVm);
+                if (Dispatcher.CheckAccess()) AppShell.ShowBalloon(title, body);
+                else Dispatcher.BeginInvoke(new Action(() => AppShell.ShowBalloon(title, body)));
             };
+            // 合并为每调度周期一次（一次刷新会改多个属性，逐个重建表格很浪费）。
+            // 倒计时单独分流：Countdown 每秒必触发（暂停时也在走），若一并进 ApplyVm，
+            // 两个 DataGrid 就每秒被重绑到新分配的 List（全行重绘）——数据没变也在烧 UI 线程。
+            _vm.PropertyChanged += OnVmPropertyChanged;
             await _vm.StartAsync();
             ApplyVm();
         };
         Unloaded += (_, _) => _vm?.Stop();
+        // 常驻挂载下按可见性暂停/恢复轮询（隐藏的会话页若继续轮询，多开几页后 UI 线程被淹没）
+        IsVisibleChanged += (_, _) =>
+        {
+            if (_vm is null) return;
+            if (IsVisible) _ = _vm.StartAsync(); else _vm.Stop();
+        };
     }
 
     // =====================================================================

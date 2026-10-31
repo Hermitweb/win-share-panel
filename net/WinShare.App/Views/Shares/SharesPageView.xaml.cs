@@ -71,7 +71,12 @@ public partial class SharesPageView : UserControl
         var attention = AppServices.Navigation.TakeAttention();
         if (!string.IsNullOrWhiteSpace(attention)) _vm.Keyword = attention;
 
-        await _vm.LoadAsync();
+        // 节流对齐设置页口径：页面每次重建都会 Loaded 全量拉一轮（7 路并行 PowerShell），
+        // 快速切页会让轮次堆叠。10s 内重访跳过重拉；F5/托盘走总线（VM 内订阅）不受此限。
+        if (WinShare.App.Views.Settings.PageRefreshThrottle.ShouldRefresh("shares"))
+        {
+            await _vm.LoadAsync();
+        }
         ApplyVm();
     }
 
@@ -84,8 +89,16 @@ public partial class SharesPageView : UserControl
         ClosePoppedWindows();
     }
 
-    void OnVmChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) =>
-        Dispatcher.BeginInvoke(ApplyVm);
+    bool _applyQueued;
+
+    // 合并为每调度周期一次（一次刷新会改多个属性，逐个重建表格很浪费）
+    void OnVmChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_applyQueued) return;
+        _applyQueued = true;
+        Dispatcher.BeginInvoke(new Action(() => { _applyQueued = false; ApplyVm(); }),
+            System.Windows.Threading.DispatcherPriority.Background);
+    }
 
     void ClosePoppedWindows()
     {
@@ -173,13 +186,12 @@ public partial class SharesPageView : UserControl
             BannerPanel.Children.Add(row);
         }
 
-        // 状态提示（TS message.success/warning 的页面内等价面）
+        // 状态提示（TS message.success/warning 的页面内等价面；色走主题 token）
         var tip = _vm.StatusMsg;
         StatusTip.Text = tip;
         StatusTip.Visibility = string.IsNullOrEmpty(tip) ? Visibility.Collapsed : Visibility.Visible;
-        StatusTip.Foreground = _vm.StatusIsWarning
-            ? new SolidColorBrush(Color.FromRgb(0xD4, 0x8B, 0x0B))
-            : new SolidColorBrush(Color.FromRgb(0x26, 0x75, 0x0F));
+        StatusTip.Foreground = TryFindResource(_vm.StatusIsWarning ? "BrushWarnFg" : "BrushSuccess") as Brush
+            ?? StatusTip.Foreground;
 
         LoadingTip.Visibility = _vm.Loading && _vm.Hydrated ? Visibility.Visible : Visibility.Collapsed;
     }

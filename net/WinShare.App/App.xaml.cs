@@ -79,7 +79,14 @@ public partial class App : Application
         {
             try { await AppServices.DashboardViewModel.RefreshAsync(); }
             catch (Exception e) { LogSink.Warn("main", "首屏数据加载失败：" + e.Message); }
-            finally { revealTimer.Stop(); }
+            finally
+            {
+                revealTimer.Stop();
+                // 数据就绪即揭幕。不能只依赖仪表盘页的 Loaded：MainWindow 构造函数里就已经
+                // 导航并挂好了仪表盘（Loaded → HideLoading 在遮罩显示之前跑完，等于空操作），
+                // 之后才 ShowLoading —— 遮罩就再没人关了（此前只能等 12s 兜底）。
+                _window?.HideLoading();
+            }
 
             // 首启三问向导（新手且从未建过共享时才弹；判定内部自行吞异常）
             await MaybeShowFirstRunGuideAsync();

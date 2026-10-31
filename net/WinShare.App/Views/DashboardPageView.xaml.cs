@@ -16,6 +16,13 @@ public partial class DashboardPageView : UserControl
 {
     DashboardViewModel? _vm;
 
+    // 保活后页面会被重复挂载（Loaded 再次触发）。没有这个守卫时，每次重挂载都会
+    // 再订阅一次 PropertyChanged + 再起一轮自动刷新，N 次重挂载后一次 VM 变更触发 N 次
+    // ApplyVm()（每次都重建协议网格/磁盘列表并重绘两张图表）→ UI 线程被淹没，表现为「点回仪表盘卡死」。
+    bool _wired;
+    bool _applyQueued;
+    System.ComponentModel.PropertyChangedEventHandler? _vmHandler;
+
     public DashboardPageView()
     {
         InitializeComponent();
@@ -28,20 +35,43 @@ public partial class DashboardPageView : UserControl
         base.OnInitialized(e);
         Loaded += async (_, _) =>
         {
+            if (_wired) return;
+            _wired = true;
             _vm = AppServices.DashboardViewModel;
             // VM 的 PropertyChanged 可能在后台线程（RefreshAsync 续体/采样器）触发；
             // 控件赋值必须回 UI 线程，否则 InvalidOperationException 会被 ApplyVm 的 catch 吞掉，
             // 表现为「卡片只剩标题、动态内容永不出现」——曾据此误判为渲染/Effect 问题。
-            _vm.PropertyChanged += (_, _) =>
+            // 一次数据刷新会改 ~10 个属性；逐个触发 ApplyVm 等于把整页（协议网格/磁盘列表/两张图）
+            // 重建 10 遍。改为每个调度周期只合并成一次（默认 10s 刷新一次、单次 ~7s，
+            // 不合并的话 UI 线程大半时间都在重建 → 整体卡顿）。
+            // 保存 handler 以便退订：DashboardViewModel 是静态单例，页面每次重建都会重新订阅；
+            // 不退订的话访问 N 次就累积 N 个 handler，VM 每轮刷新触发 N 次 ApplyVm
+            // （绝大多数打在已销毁的页面上）→ 常驻卡顿，且随访问次数变严重。
+            _vmHandler = (_, _) =>
             {
-                if (Dispatcher.CheckAccess()) ApplyVm();
-                else Dispatcher.BeginInvoke(new Action(ApplyVm));
+                if (_applyQueued) return;
+                _applyQueued = true;
+                Dispatcher.BeginInvoke(new Action(() => { _applyQueued = false; ApplyVm(); }),
+                    System.Windows.Threading.DispatcherPriority.Background);
             };
+            _vm.PropertyChanged += _vmHandler;
             await _vm.RefreshAsync();
             ApplyVm();
             // 首帧就绪 → 揭掉主窗口的全屏加载遮罩（比定时器更准：真正画完才揭）
             if (Window.GetWindow(this) is MainWindow mw) mw.HideLoading();
             _vm.StartAutoRefresh();
+        };
+        // 卸载时退订（关键修复）：VM 是单例，不退订就会累积 handler。
+        // 不再在 Unloaded/IsVisibleChanged 里启停共享 VM 的定时器 —— 旧页的 Unloaded 可能
+        // 晚于新页的 IsVisibleChanged 触发，会把新页刚启动的定时器又停掉（两边互抢）。
+        // 定时器由 VM 常驻（默认 60s 一轮，开销可忽略），页面只在挂载期间接收通知。
+        Unloaded += (_, _) =>
+        {
+            if (_vm is not null && _vmHandler is not null)
+            {
+                _vm.PropertyChanged -= _vmHandler;
+                _vmHandler = null;
+            }
         };
     }
 
@@ -142,9 +172,10 @@ public partial class DashboardPageView : UserControl
             // 纵向 1 列（B4 决策）：每协议一行，行内标签 + 计数
             var p = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
             var color = WpfColors.ToBrush(ProtocolPalette.Color(row.Protocol));
+            var fog = TryFindResource("BrushFog") as Brush ?? new SolidColorBrush(Color.FromRgb(0x8A, 0xA0, 0xB0));
             var tag = new Border
             {
-                CornerRadius = new CornerRadius(4),
+                CornerRadius = TryFindResource("RadiusTag") is CornerRadius cr ? cr : new CornerRadius(8),
                 Padding = new Thickness(10, 1, 10, 1),
                 Background = color,
                 HorizontalAlignment = HorizontalAlignment.Left,
@@ -164,7 +195,7 @@ public partial class DashboardPageView : UserControl
             {
                 Text = "共享数",
                 FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x8C, 0x8C, 0x8C)),
+                Foreground = fog,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 8, 0),
             });
@@ -181,7 +212,7 @@ public partial class DashboardPageView : UserControl
             {
                 Text = $"会话 {row.Sessions}",
                 FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x8C, 0x8C, 0x8C)),
+                Foreground = fog,
                 VerticalAlignment = VerticalAlignment.Center,
             });
             p.Children.Add(counts);

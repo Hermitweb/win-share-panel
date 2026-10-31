@@ -12,20 +12,20 @@
         <DataTemplate DataType="{x:Type state:AlertEvaluator+AttentionItem}">
             <DockPanel Margin="0,0,0,8">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                    <Border CornerRadius="3" Padding="8,1" Margin="0,0,8,0"
+                    <Border CornerRadius="{DynamicResource RadiusTag}" Padding="8,1" Margin="0,0,8,0"
                             Background="{Binding Level, Converter={StaticResource LevelBrush}}" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Level, Converter={StaticResource LevelText}}" FontSize="12" />
                     </Border>
                     <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap"
                                VerticalAlignment="Center" MaxWidth="480" Margin="0,0,12,0" />
                 </StackPanel>
-                <Button Content="{Binding ActionLabel}" FontSize="12" DockPanel.Dock="Right"
-                        Click="OnAttentionAction" Tag="{Binding}" Padding="8,2" />
+                <Button Content="{Binding ActionLabel}" Style="{DynamicResource RowActionButton}"
+                        DockPanel.Dock="Right" Click="OnAttentionAction" Tag="{Binding}" />
             </DockPanel>
         </DataTemplate>
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <Grid Margin="24,22,24,28" Background="Transparent">
+    <Grid Margin="20" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -35,12 +35,9 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 页头：标题 + 状态提示 + 导出/刷新（对齐 Dashboard.tsx header Space + message） -->
+        <!-- 页头：标题 + 状态提示 + 导出/刷新（对齐 Electron PageHeader：标题在左、操作在右一行） -->
         <DockPanel Grid.Row="0" Margin="0,0,0,16" LastChildFill="False">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                <!-- 规范 §5.3：渐变指示条作为页面标题的品牌锚点 -->
-                <Border Width="4" Height="22" CornerRadius="2" Margin="0,0,10,0"
-                        Background="{DynamicResource BrushBrandGradient}" VerticalAlignment="Center" />
                 <TextBlock Text="{DynamicResource Dash.Title}" Style="{DynamicResource PageTitle}"
                            VerticalAlignment="Center" />
                 <TextBlock x:Name="StatusTip" FontSize="12" Foreground="{DynamicResource BrushFog}"
@@ -56,36 +53,40 @@
             </StackPanel>
         </DockPanel>
 
-        <!-- 统计卡 ×4（对齐 antd Row gutter 16 + Statistic） -->
+        <!-- 统计卡 ×4（对齐 antd Row gutter 16 + Statistic；装饰条四卡统一，大数字统一 StatNumber token） -->
         <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,16">
             <Border Style="{DynamicResource CardStyle}" Margin="0,0,10,0">
                 <StackPanel>
                     <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
                             Background="{DynamicResource BrushBrandGradient}" />
                     <TextBlock Text="{DynamicResource Dash.ShareCount}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
-                    <TextBlock x:Name="TxtShareCount" Text="0" FontSize="28" FontWeight="SemiBold" Margin="0,4,0,0" />
+                    <TextBlock x:Name="TxtShareCount" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
             <Border Style="{DynamicResource CardStyle}" Margin="8,0">
                 <StackPanel>
+                    <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
+                            Background="{DynamicResource BrushBrandGradient}" />
                     <TextBlock Text="{DynamicResource Dash.ActiveSessions}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
-                    <TextBlock x:Name="TxtSessions" Text="0" FontSize="28" FontWeight="SemiBold" Margin="0,4,0,0" />
+                    <TextBlock x:Name="TxtSessions" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
             <Border Style="{DynamicResource CardStyle}" Margin="8,0">
                 <StackPanel>
                     <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10" Background="{DynamicResource BrushBrandGradient}" />
                     <TextBlock Text="{DynamicResource Dash.OpenFiles}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
-                    <TextBlock x:Name="TxtOpenFiles" Text="0" FontSize="28" FontWeight="SemiBold" Margin="0,4,0,0" />
+                    <TextBlock x:Name="TxtOpenFiles" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
             <Border Style="{DynamicResource CardStyle}" Margin="8,0,0,0">
                 <StackPanel>
+                    <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
+                            Background="{DynamicResource BrushBrandGradient}" />
                     <TextBlock Text="{DynamicResource Dash.ServiceStatus}" FontSize="12" Foreground="{DynamicResource BrushFog}" Margin="0,0,0,4" />
-                    <Border x:Name="SvcTag" CornerRadius="4" Padding="10,2" Height="24"
-                            Background="#E6F4FF" HorizontalAlignment="Left">
+                    <Border x:Name="SvcTag" CornerRadius="{DynamicResource RadiusTag}" Padding="10,2" Height="24"
+                            Background="{DynamicResource BrushInfoBg}" HorizontalAlignment="Left">
                         <TextBlock x:Name="TxtService" Text="未知" FontSize="13" VerticalAlignment="Center"
-                                   Foreground="#1677FF" />
+                                   Foreground="{DynamicResource BrushInfoFg}" />
                     </Border>
                 </StackPanel>
             </Border>
@@ -123,11 +124,11 @@
                                    Foreground="{DynamicResource BrushFog}" VerticalAlignment="Bottom" Margin="8,0,0,2" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                             <RadioButton x:Name="ModeBoth" GroupName="TrendMode" Content="{DynamicResource Dash.Both}"
-                                         IsChecked="True" Checked="OnTrendMode" FontSize="12" Margin="0,0,12,0" />
+                                         IsChecked="True" Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
                             <RadioButton x:Name="ModeSessions" GroupName="TrendMode" Content="{DynamicResource Dash.SessionsOnly}"
-                                         Checked="OnTrendMode" FontSize="12" Margin="0,0,12,0" />
+                                         Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
                             <RadioButton x:Name="ModeOpenFiles" GroupName="TrendMode" Content="{DynamicResource Dash.OpenFilesOnly}"
-                                         Checked="OnTrendMode" FontSize="12" />
+                                         Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
                         </StackPanel>
                     </StackPanel>
                     <Grid>
@@ -154,7 +155,7 @@
                                FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
                     <TextBlock x:Name="ProtocolEmpty" Visibility="Collapsed"
                                Text="协议统计暂未取到（本机四类协议均未检出或服务查询未完成）· 点右上「刷新」重试"
-                               FontSize="12" Margin="2,4,0,4" Foreground="#8AA0B0" TextWrapping="Wrap" />
+                               FontSize="12" Margin="2,4,0,4" Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
                     <StackPanel x:Name="ProtocolGrid" />
                 </StackPanel>
             </Border>
