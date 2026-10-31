@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "stop-20261031T062153007Z-9024-ec529e2155bd",
+  "runId": "20261031T062153007Z-9024-ec529e2155bd",
+  "runStatus": "completed",
+  "coverage": {
+    "status": "complete",
+    "reasons": []
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "Stop"
+  },
+  "revision": "2347c8e382e4136b3b5d70a97fd3fcb2069d7ee9",
+  "diffHash": "235f40f16f3aceda396ea5522cc7b38f7fd2380dffed5c99be9af992ba629638",
+  "rulesVersion": "unavailable",
+  "sessionHash": "064f957bfa1b42792b920f06309f05bea2c648c67e54696eca533e488c8ecb10",
+  "reportRef": ".mimosa/reports/task-review-sess_1911fef1-7dfe-4256-8704-33081274845c-20261031T062153007Z-9024-ec529e2155bd.json",
+  "events": [],
+  "observedFindingIds": [
+    "mimosa-151ad22bfd9af030bc91db98"
+  ],
+  "verifiedFiles": [
+    {
+      "file": "electron/lib/psRuntimeProbe.ts",
+      "direct": "complete",
+      "projectContext": "partial"
+    }
+  ],
+  "recordedAt": "2026-10-31T06:21:53.531Z"
+}

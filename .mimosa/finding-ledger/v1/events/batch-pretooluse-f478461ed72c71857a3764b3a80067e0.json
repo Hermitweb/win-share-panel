@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "pretooluse-f478461ed72c71857a3764b3a80067e0",
+  "runId": null,
+  "runStatus": "completed",
+  "coverage": {
+    "status": "complete",
+    "reasons": []
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "PreToolUse"
+  },
+  "revision": null,
+  "diffHash": null,
+  "rulesVersion": null,
+  "sessionHash": "064f957bfa1b42792b920f06309f05bea2c648c67e54696eca533e488c8ecb10",
+  "reportRef": null,
+  "events": [
+    {
+      "eventId": "hook-da238e2737eba3b781f9f9ac37eb48a5",
+      "findingId": "mimosa-6ee863a64eef31580babc666",
+      "type": "finding_blocked",
+      "at": "2026-10-31T05:53:56.301Z",
+      "identity": {
+        "projectRelativeFile": "net/WinShare.App/Views/Settings/AppSettingsPageView.cs",
+        "ruleId": "security",
+        "codeEvidenceHash": "1e262cd7d110812f5726055a6e672b92cde43648b76adff51a12441fbdf7e667",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 75,
+      "endLine": 75,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "1e262cd7d110812f5726055a6e672b92cde43648b76adff51a12441fbdf7e667"
+      },
+      "sequence": 0
+    },
+    {
+      "eventId": "hook-d480a8266245655a0178806def14006e",
+      "findingId": "mimosa-51abd5cf887124d384e9e2e5",
+      "type": "finding_blocked",
+      "at": "2026-10-31T05:53:56.302Z",
+      "identity": {
+        "projectRelativeFile": "net/WinShare.App/Views/Settings/AppSettingsPageView.cs",
+        "ruleId": "security",
+        "codeEvidenceHash": "0ded7370d56839f87c032aabca38bd02599e6c1ac1c2b62eb33ea608913e05b8",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 77,
+      "endLine": 77,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "0ded7370d56839f87c032aabca38bd02599e6c1ac1c2b62eb33ea608913e05b8"
+      },
+      "sequence": 1
+    }
+  ],
+  "observedFindingIds": [],
+  "verifiedFiles": [],
+  "recordedAt": "2026-10-31T05:53:56.785Z"
+}

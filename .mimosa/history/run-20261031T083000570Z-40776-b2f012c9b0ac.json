@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "mimosa-finding-history/v1",
+  "runId": "20261031T083000570Z-40776-b2f012c9b0ac",
+  "runStatus": "inconclusive",
+  "errors": [
+    "candidate-select:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Shares/ShareDetailDrawer.g.cs: candidate_limit_exceeded: 25 changed reviewable file(s) were not scanned because the limit is 20",
+    "baseline-read:net/WinShare.Core/obj/x64/Release/net10.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.AssemblyInfo.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.GlobalUsings.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.AssemblyInfo.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.GlobalUsings.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/App.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/GeneratedInternalTypeHelper.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/MainWindow.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.AssemblyInfo.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.GlobalUsings.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.AssemblyInfo.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.GlobalUsings.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/DashboardPageView.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Users/UsersPageView.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Shares/ShareCreateWizardWindow.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "scan:net/WinShare.Core.Tests/obj/Debug/net10.0/WinShare.Core.Tests.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.Core/obj/x64/Release/net10.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.GlobalUsings.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.Core/obj/x64/Debug/net10.0/WinShare.Core.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.Core/obj/Debug/net10.0/WinShare.Core.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.GlobalUsings.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/App.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/GeneratedInternalTypeHelper.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/MainWindow.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.GlobalUsings.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.GlobalUsings.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/DashboardPageView.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Users/UsersPageView.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Shares/ShareCreateWizardWindow.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+  ],
+  "target": ".",
+  "revision": "13b98df9b006ac91a07e396af369f71962749e1c",
+  "diffHash": "5a155d19c222936858b443a7d24f64befc17428c018898eace4247df6ae394cf",
+  "rulesVersion": "unavailable",
+  "recordedAt": "2026-10-31T08:30:00.570Z",
+  "timing": {
+    "startedAt": "2026-10-31T08:29:57.502Z",
+    "completedAt": "2026-10-31T08:30:00.570Z",
+    "durationMs": 3068
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "modelCalls": 0,
+    "measurement": "known-zero"
+  },
+  "findings": {
+    "total": 0,
+    "bySeverity": {},
+    "byStatus": {}
+  },
+  "coverage": {
+    "status": "partial",
+    "reasonCounts": {
+      "candidate_limit_exceeded": 1,
+      "baseline_snapshot_unreadable": 17,
+      "scanner_failed": 20,
+      "project_check_failed": 38
+    }
+  },
+  "evidenceBoundary": "static_only",
+  "immutableReport": ".mimosa/reports/task-review-sess_1911fef1-7dfe-4256-8704-33081274845c-20261031T083000570Z-40776-b2f012c9b0ac.json"
+}

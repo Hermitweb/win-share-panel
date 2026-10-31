@@ -116,3 +116,51 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  wpf-release:
+    # WPF .NET 10 壳发布：self-contained（免装运行时，兼容面 = 打包面）+ ReadyToRun 启动提速。
+    # win-x64 为主力 SKU；arm64 待有真机验证后再加。产物命名对齐 Electron 惯例
+    # （项目名-版本-平台-架构-格式，无 wpf 标注），版本取自 csproj <Version>（与
+    # package.json 同步维护），zip 挂同一 Release。
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish WPF (self-contained win-x64 + ReadyToRun)
+        id: pack
+        # 直接 publish csproj（不经 slnx）：规避 MSB4126（环境变量 Platform=x64 时
+        # slnx 的显式 Any CPU/x64 平台声明会构建失败——见 WinShare.slnx 注释）
+        run: dotnet publish net/WinShare.App/WinShare.App.csproj -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true -o net/WinShare.App/publish
+
+      - name: Read WPF version
+        id: version
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content net/WinShare.App/WinShare.App.csproj)).Project.PropertyGroup.Version |
+                     Select-Object -First 1
+          if (-not $version) { Write-Host 'ERROR: csproj <Version> 未声明'; exit 1 }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "WPF version=$version"
+
+      - name: Zip WPF artifacts
+        shell: pwsh
+        run: |
+          $zip = "release/WinShare.Panel-${{ steps.version.outputs.version }}-win-x64.zip"
+          Compress-Archive -Path 'net/WinShare.App/publish/*' -DestinationPath $zip -Force
+          Get-Item $zip | Select-Object Name, Length | Format-Table -AutoSize
+
+      - name: Upload WPF artifact to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/WinShare.Panel-${{ steps.version.outputs.version }}-win-x64.zip
+          generate_release_notes: false   # Release notes 由 Electron job 生成，避免重复
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

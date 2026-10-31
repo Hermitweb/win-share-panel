@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "mimosa-finding-history/v1",
+  "runId": "20261031T084153423Z-37228-c58ad1f475e8",
+  "runStatus": "inconclusive",
+  "errors": [
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/App.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/GeneratedInternalTypeHelper.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/MainWindow.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/WinShare.App.AssemblyInfo.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/WinShare.App_5up243mb_wpftmp.AssemblyInfo.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/WinShare.App_5up243mb_wpftmp.GlobalUsings.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/DashboardPageView.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Users/UsersPageView.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/ShareCreateWizardWindow.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/ShareDetailDrawer.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/ShareEditWindow.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/SharePermissionDrawer.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/SharesPageView.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Sessions/SessionsPageView.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "baseline-read:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Shell/CommandPaletteWindow.g.cs: baseline_snapshot_unreadable: file is missing from task baseline",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/App.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/GeneratedInternalTypeHelper.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/MainWindow.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/WinShare.App.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/WinShare.App_5up243mb_wpftmp.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/WinShare.App_5up243mb_wpftmp.GlobalUsings.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/DashboardPageView.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Users/UsersPageView.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/ShareCreateWizardWindow.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/ShareDetailDrawer.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/ShareEditWindow.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/SharePermissionDrawer.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Shares/SharesPageView.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Views/Sessions/SessionsPageView.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/x64/Debug/net10.0-windows10.0.17763.0/Shell/CommandPaletteWindow.g.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "scan:net/WinShare.App/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.AssemblyInfo.cs: scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+    "supply-chain-check:.: stop_budget_exhausted: focused supply-chain check was not run before the gate budget",
+    "agent-check:.: stop_budget_exhausted: focused agent configuration check was not run before the gate budget"
+  ],
+  "target": ".",
+  "revision": "13b98df9b006ac91a07e396af369f71962749e1c",
+  "diffHash": "5a098376907f7c2d34849074210f0eee747ccf779357ada5485be33da7521350",
+  "rulesVersion": "unavailable",
+  "recordedAt": "2026-10-31T08:41:53.423Z",
+  "timing": {
+    "startedAt": "2026-10-31T08:41:49.057Z",
+    "completedAt": "2026-10-31T08:41:53.423Z",
+    "durationMs": 4366
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "modelCalls": 0,
+    "measurement": "known-zero"
+  },
+  "findings": {
+    "total": 0,
+    "bySeverity": {},
+    "byStatus": {}
+  },
+  "coverage": {
+    "status": "partial",
+    "reasonCounts": {
+      "baseline_snapshot_unreadable": 16,
+      "scanner_failed": 17,
+      "stop_budget_exhausted": 2,
+      "project_check_failed": 35
+    }
+  },
+  "evidenceBoundary": "static_only",
+  "immutableReport": ".mimosa/reports/task-review-sess_1911fef1-7dfe-4256-8704-33081274845c-20261031T084153423Z-37228-c58ad1f475e8.json"
+}

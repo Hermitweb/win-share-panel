@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+### 📦 打包 / Packaging：WPF 发布流水线 + 兼容度声明补齐
+
+兼容度审计（Win7/8 不可运行、Win10/11/Server 2012+ 完整可用）后的缺口补齐：
+
+- **Release 流水线新增 `wpf-release` job**：`dotnet publish` self-contained win-x64 +
+  ReadyToRun（免装 .NET 运行时，兼容面 = 打包面）→ 产物 `WinShare.Panel-{version}-win-x64.zip`
+  （命名对齐 Electron 惯例：项目名-版本-平台-架构-格式；版本取自 csproj `<Version>`，
+  与 package.json 同步维护为 1.5.0；程序集版本 1.0.0.0 → 1.5.0，关于卡/UpdateChecker
+  随宿主程序集自动对齐）挂同一 Release。此前 WPF 完全没有
+  发布链路，兼容度实际取决于本机 Debug 构建。publish 直接走 csproj 规避 slnx 的 MSB4126
+  平台坑（注释在 job 内）
+- **新增 `net/WinShare.App/app.manifest`**：Win8.1/Win10 兼容性声明（防兼容性垫片猜测）、
+  `longPathAware`、显式 `PerMonitorV2` DPI（锁死 .NET Core WPF 框架默认）、`asInvoker`
+  （不做自动提权，保留应用内 UAC 软提权语义）
+- **csproj**：`ApplicationManifest` 接入 + `SupportedOSPlatformVersion=10.0.14393.0`
+  （= Win10 1607，平台分析器对更高版本 API 裸用报警）
+- **README 新增「系统要求（WPF 版）」**：明确 Win7/8.x 不可运行的硬门槛、各系统降级行为、
+  self-contained 发行形态——此前系统要求无处可查
+
 ### 🔒 安全 / Security：外链与进程探测防御性加固
 
 - `electron/lib/psRuntimeProbe.ts`：版本探测前校验解析出的宿主可执行文件名（仅放行

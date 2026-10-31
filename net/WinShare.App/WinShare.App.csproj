@@ -12,15 +12,26 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- TFM 带平台版本（net10.0-windows10.0.17763.0）：WindowsDesktop SDK 会无条件按 TFM
+         第 4 段重写 TargetPlatformVersion——不带版本时回落 7.0（保守 API 面，Win10+ API 不可见）。
+         17763 = Win10 1809 投影，覆盖本项目全部 API 需求 -->
+    <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <AssemblyTitle>WinShare Panel</AssemblyTitle>
+    <!-- 版本与 Electron 侧（package.json 1.5.0）对齐：关于卡/UpdateChecker 读宿主程序集版本；
+         Release 流水线的产物名 WinShare.Panel-{version}-win-x64.zip 也取自此值 -->
+    <Version>1.5.0</Version>
     <!-- 统一图标：exe 图标与 Electron 侧共用仓库根 resources/icon.ico -->
     <ApplicationIcon>..\..\resources\icon.ico</ApplicationIcon>
+    <!-- 应用清单：兼容性声明 + 长路径 + 显式 PerMonitorV2 DPI + asInvoker（见 app.manifest） -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 平台 API 运行时下限 = .NET 10 支持矩阵的实际下限（Win10 1607 = build 14393）；
+         平台分析器据此对更高版本 API 的裸用报警（须 ≤ TFM 声明的 TargetPlatformVersion） -->
+    <SupportedOSPlatformVersion>10.0.14393.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
   <!-- 统一图标：内嵌仓库根 resources/（窗口标题栏 logo.png + 托盘 icon.ico 同源） -->

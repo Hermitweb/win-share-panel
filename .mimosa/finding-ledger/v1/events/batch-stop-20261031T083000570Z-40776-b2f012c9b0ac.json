@@ -1,0 +1,472 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "stop-20261031T083000570Z-40776-b2f012c9b0ac",
+  "runId": "20261031T083000570Z-40776-b2f012c9b0ac",
+  "runStatus": "inconclusive",
+  "coverage": {
+    "status": "partial",
+    "reasons": [
+      {
+        "code": "candidate_limit_exceeded",
+        "stage": "candidate-select",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Shares/ShareDetailDrawer.g.cs",
+        "detail": "25 changed reviewable file(s) were not scanned because the limit is 20",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.GlobalUsings.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.AssemblyInfo.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.GlobalUsings.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/App.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/GeneratedInternalTypeHelper.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/MainWindow.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.AssemblyInfo.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.GlobalUsings.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.AssemblyInfo.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.GlobalUsings.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/DashboardPageView.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Users/UsersPageView.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Shares/ShareCreateWizardWindow.g.cs",
+        "detail": "file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core.Tests/obj/Debug/net10.0/WinShare.Core.Tests.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.GlobalUsings.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.GlobalUsings.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/App.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/GeneratedInternalTypeHelper.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/MainWindow.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.GlobalUsings.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.GlobalUsings.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/DashboardPageView.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Users/UsersPageView.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Shares/ShareCreateWizardWindow.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "candidate-select",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Shares/ShareDetailDrawer.g.cs",
+        "detail": "candidate_limit_exceeded: 25 changed reviewable file(s) were not scanned because the limit is 20",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.GlobalUsings.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.AssemblyInfo.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.GlobalUsings.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/App.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/GeneratedInternalTypeHelper.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/MainWindow.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.AssemblyInfo.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App.GlobalUsings.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.AssemblyInfo.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/WinShare.App_ygs4a3dc_wpftmp.GlobalUsings.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/DashboardPageView.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Users/UsersPageView.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Release/net10.0-windows10.0.17763.0/win-x64/Views/Shares/ShareCreateWizardWindow.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core.Tests/obj/Debug/net10.0/WinShare.Core.Tests.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Release/net10.0/WinShare.Core.GlobalUsings.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/.NETCoreApp,Version=v10.0.AssemblyAttributes.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows10.0.17763.0/WinShare.App.Tests.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affectsCompletion": true
+      }
+    ]
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "Stop"
+  },
+  "revision": "13b98df9b006ac91a07e396af369f71962749e1c",
+  "diffHash": "5a155d19c222936858b443a7d24f64befc17428c018898eace4247df6ae394cf",
+  "rulesVersion": "unavailable",
+  "sessionHash": "064f957bfa1b42792b920f06309f05bea2c648c67e54696eca533e488c8ecb10",
+  "reportRef": ".mimosa/reports/task-review-sess_1911fef1-7dfe-4256-8704-33081274845c-20261031T083000570Z-40776-b2f012c9b0ac.json",
+  "events": [],
+  "observedFindingIds": [],
+  "verifiedFiles": [],
+  "recordedAt": "2026-10-31T08:30:01.112Z"
+}

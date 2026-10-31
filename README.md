@@ -101,6 +101,25 @@
 - **Windows 10 / 11**（依赖 SMB/NFS PowerShell cmdlet 与 IIS FTP/WebDAV）
 - **管理员权限**（打包版经 UAC 自动提权；**开发模式需以管理员终端启动**，否则共享写操作报"权限不足"）
 
+### 系统要求（WPF 版 / WPF shell requirements）
+
+WPF 壳（`net/`，.NET 10）与 Electron 版的系统门槛**不同**，以 .NET 10 官方支持矩阵为准：
+
+| 系统 | WPF 版可用性 |
+|---|---|
+| Windows 10 1607+（含 LTSB/LTSC） | ✅ 完整可用；Win11 专属亚克力视觉自动关闭，回退默认外观 |
+| Windows 11 全版本 | ✅ 完整可用 + DWM 亚克力/系统圆角 |
+| Windows Server 2012 / 2012R2 / 2016 / 2019 / 2022 / 23H2 / 2025 | ✅ 可用（Server SKU 自动识别，IIS 恒视为可承载） |
+| **Windows 7 / 8 / 8.1** | ❌ **不可运行**（.NET 10 运行时已不支持，项目无 net48 后备构建） |
+
+- 协议能力随系统如实降级：客户端 Windows 无 NFS 服务端 cmdlet、家庭版无 IIS、SMB QUIC 仅
+  特定版本 —— 「服务配置」页的「版本适配」卡会逐项探测并给出安装引导
+- PowerShell：优先系统内置 5.1（无需安装），装有 PowerShell 7 时自动识别（引擎版本探测）
+- 发行版：Release 流水线提供 **self-contained win-x64** zip（免装 .NET 运行时，命名
+  `WinShare.Panel-{version}-win-x64.zip`，版本与 Electron 侧同步维护）；本机构建需 .NET 10 SDK
+  （`global.json` 钉 10.0.100）
+- 长路径 / PerMonitorV2 DPI / 兼容性声明见 `net/WinShare.App/app.manifest`
+
 ### 安装与运行 / Install & Run
 
 ```bash

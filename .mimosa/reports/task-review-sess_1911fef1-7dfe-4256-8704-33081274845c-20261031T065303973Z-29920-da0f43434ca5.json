@@ -1,0 +1,1474 @@
+{
+  "schema_version": "mimosa-task-review/v2",
+  "run_id": "20261031T065303973Z-29920-da0f43434ca5",
+  "run_status": "inconclusive",
+  "errors": [
+    {
+      "stage": "candidate-select",
+      "target": "net/WinShare.App/obj/Debug/net10.0-windows/WinShare.App.AssemblyInfo.cs",
+      "reason": "candidate_limit_exceeded: 3 changed reviewable file(s) were not scanned because the limit is 20"
+    },
+    {
+      "stage": "baseline-read",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.AssemblyInfo.cs",
+      "reason": "baseline_snapshot_unreadable: file is missing from task baseline"
+    },
+    {
+      "stage": "baseline-read",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.GlobalUsings.g.cs",
+      "reason": "baseline_snapshot_unreadable: file is missing from task baseline"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.Core.Tests/obj/Debug/net10.0/WinShare.Core.Tests.AssemblyInfo.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.Core/obj/x64/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.Core/obj/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows/WinShare.App.Tests.AssemblyInfo.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/App.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/MainWindow.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App.AssemblyInfo.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.AssemblyInfo.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.GlobalUsings.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/DashboardPageView.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Users/UsersPageView.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareCreateWizardWindow.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareDetailDrawer.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareEditWindow.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/SharePermissionDrawer.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/SharesPageView.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Sessions/SessionsPageView.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Shell/CommandPaletteWindow.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/Debug/net10.0-windows/App.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    },
+    {
+      "stage": "scan",
+      "target": "net/WinShare.App/obj/Debug/net10.0-windows/MainWindow.g.cs",
+      "reason": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT"
+    }
+  ],
+  "coverage": {
+    "schema_version": "mimosa-hook-coverage/v1",
+    "status": "partial",
+    "scope": "hook_observed_diff",
+    "baseline": {
+      "complete": true,
+      "captured_files": 617,
+      "candidate_limit": 5000,
+      "truncated": false,
+      "enumeration_error_count": 0,
+      "snapshot_error_count": 0,
+      "compensated_target_count": 19
+    },
+    "change_tracking": {
+      "touched_observed": 0,
+      "touched_retained": 0,
+      "truncated": false,
+      "bash_mutation": true,
+      "bash_discovered": 23,
+      "bash_discovery_limit": 80,
+      "bash_discovery_truncated": false
+    },
+    "candidates": {
+      "eligible_files": 23,
+      "selected_files": 20,
+      "limit": 20,
+      "truncated": true
+    },
+    "scanning": {
+      "required_files": 20,
+      "scanned_files": 0,
+      "skipped_files": 0,
+      "failed_files": 20,
+      "project_checks_required": 0,
+      "project_checks_completed": 0
+    },
+    "notification": {
+      "eligible_findings": 0,
+      "detailed_findings": 0,
+      "detail_limit": 3,
+      "truncated": false
+    },
+    "reason_counts": {
+      "candidate_limit_exceeded": 1,
+      "baseline_snapshot_unreadable": 2,
+      "scanner_failed": 20,
+      "project_check_failed": 23
+    },
+    "reasons": [
+      {
+        "code": "candidate_limit_exceeded",
+        "stage": "candidate-select",
+        "target": "net/WinShare.App/obj/Debug/net10.0-windows/WinShare.App.AssemblyInfo.cs",
+        "detail": "3 changed reviewable file(s) were not scanned because the limit is 20",
+        "affects_completion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.AssemblyInfo.cs",
+        "detail": "file is missing from task baseline",
+        "affects_completion": true
+      },
+      {
+        "code": "baseline_snapshot_unreadable",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.GlobalUsings.g.cs",
+        "detail": "file is missing from task baseline",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core.Tests/obj/Debug/net10.0/WinShare.Core.Tests.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows/WinShare.App.Tests.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/App.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/MainWindow.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.AssemblyInfo.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.GlobalUsings.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/DashboardPageView.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Users/UsersPageView.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareCreateWizardWindow.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareDetailDrawer.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareEditWindow.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/SharePermissionDrawer.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/SharesPageView.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Sessions/SessionsPageView.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Shell/CommandPaletteWindow.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/Debug/net10.0-windows/App.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "scanner_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/Debug/net10.0-windows/MainWindow.g.cs",
+        "detail": "spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "candidate-select",
+        "target": "net/WinShare.App/obj/Debug/net10.0-windows/WinShare.App.AssemblyInfo.cs",
+        "detail": "candidate_limit_exceeded: 3 changed reviewable file(s) were not scanned because the limit is 20",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.AssemblyInfo.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "baseline-read",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.GlobalUsings.g.cs",
+        "detail": "baseline_snapshot_unreadable: file is missing from task baseline",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core.Tests/obj/Debug/net10.0/WinShare.Core.Tests.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/x64/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.Core/obj/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App.Tests/obj/Debug/net10.0-windows/WinShare.App.Tests.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/App.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/MainWindow.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.AssemblyInfo.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.GlobalUsings.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/DashboardPageView.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Users/UsersPageView.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareCreateWizardWindow.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareDetailDrawer.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareEditWindow.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/SharePermissionDrawer.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/SharesPageView.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Sessions/SessionsPageView.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Shell/CommandPaletteWindow.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/Debug/net10.0-windows/App.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "scan",
+        "target": "net/WinShare.App/obj/Debug/net10.0-windows/MainWindow.g.cs",
+        "detail": "scanner_failed: spawnSync C:\\Program Files\\nodejs\\node.exe ETIMEDOUT",
+        "affects_completion": true
+      }
+    ],
+    "reasons_truncated": false
+  },
+  "generated_at": "2026-10-31T06:53:03.973Z",
+  "session_id": "sess_1911fef1-7dfe-4256-8704-33081274845c",
+  "target": ".",
+  "revision": "d7736883d598dfbeafb9e0db41c9e9eac8f948c0",
+  "rules_version": "unavailable",
+  "diff_hash": "4557d5510c28b572ab8fab55aad2bee21489ffd1d1e98c2706a62cb32946a593",
+  "diff": {
+    "algorithm": "sha256",
+    "changed_file_count": 20,
+    "changed_files": [
+      {
+        "file": "net/WinShare.App.Tests/obj/Debug/net10.0-windows/WinShare.App.Tests.AssemblyInfo.cs",
+        "ranges": [
+          {
+            "start": 16,
+            "end": 16
+          }
+        ],
+        "before_hash": "36cbc9d773eb2742cc21e4ac1c17abc3ff83451d445ce8e860902b836eeff1f8",
+        "after_hash": "f8351d611b51e2bc71e686c222004ea49c30b3412816268c72d6d0f3ec0f5b3c"
+      },
+      {
+        "file": "net/WinShare.App/obj/Debug/net10.0-windows/App.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          }
+        ],
+        "before_hash": "b57203ae6225eecdadbedd0352db968b3a81cf25f6a8719ff5a7c3d2f03c276a",
+        "after_hash": "d5d14e2b19cae9a16b45d702a5872a939d83ed6a8d4775ce5358af386bf3bda8"
+      },
+      {
+        "file": "net/WinShare.App/obj/Debug/net10.0-windows/MainWindow.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          },
+          {
+            "start": 52,
+            "end": 52
+          },
+          {
+            "start": 60,
+            "end": 60
+          },
+          {
+            "start": 68,
+            "end": 68
+          },
+          {
+            "start": 76,
+            "end": 76
+          },
+          {
+            "start": 84,
+            "end": 84
+          },
+          {
+            "start": 92,
+            "end": 92
+          },
+          {
+            "start": 100,
+            "end": 100
+          },
+          {
+            "start": 108,
+            "end": 108
+          },
+          {
+            "start": 116,
+            "end": 116
+          },
+          {
+            "start": 124,
+            "end": 124
+          },
+          {
+            "start": 166,
+            "end": 166
+          },
+          {
+            "start": 177,
+            "end": 177
+          },
+          {
+            "start": 185,
+            "end": 185
+          },
+          {
+            "start": 193,
+            "end": 193
+          },
+          {
+            "start": 201,
+            "end": 201
+          },
+          {
+            "start": 209,
+            "end": 209
+          },
+          {
+            "start": 217,
+            "end": 217
+          },
+          {
+            "start": 225,
+            "end": 225
+          },
+          {
+            "start": 233,
+            "end": 233
+          },
+          {
+            "start": 241,
+            "end": 241
+          },
+          {
+            "start": 250,
+            "end": 250
+          },
+          {
+            "start": 259,
+            "end": 259
+          },
+          {
+            "start": 268,
+            "end": 268
+          },
+          {
+            "start": 276,
+            "end": 276
+          },
+          {
+            "start": 285,
+            "end": 285
+          }
+        ],
+        "before_hash": "ab9ac6e06caa647b74e097156000a1f0b1b87a9ad654c114576f91b0c5190896",
+        "after_hash": "1acde2087ee6a003b3b8dd3a186c0dabb71a9efc71c589d78e5755353e78605b"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/App.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          }
+        ],
+        "before_hash": "0a832054eeb2f1df57f389e83f07d617ae37b223219fc67cd836e0325b6608d0",
+        "after_hash": "0b4d798b29ecf3796eea8cf437f1c0ea9d46da47b4eeba6199458bf084b230c5"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/MainWindow.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          },
+          {
+            "start": 52,
+            "end": 52
+          },
+          {
+            "start": 60,
+            "end": 60
+          },
+          {
+            "start": 68,
+            "end": 68
+          },
+          {
+            "start": 76,
+            "end": 76
+          },
+          {
+            "start": 84,
+            "end": 84
+          },
+          {
+            "start": 92,
+            "end": 92
+          },
+          {
+            "start": 100,
+            "end": 100
+          },
+          {
+            "start": 108,
+            "end": 108
+          },
+          {
+            "start": 116,
+            "end": 116
+          },
+          {
+            "start": 124,
+            "end": 124
+          },
+          {
+            "start": 166,
+            "end": 166
+          },
+          {
+            "start": 177,
+            "end": 177
+          },
+          {
+            "start": 185,
+            "end": 185
+          },
+          {
+            "start": 193,
+            "end": 193
+          },
+          {
+            "start": 201,
+            "end": 201
+          },
+          {
+            "start": 209,
+            "end": 209
+          },
+          {
+            "start": 217,
+            "end": 217
+          },
+          {
+            "start": 225,
+            "end": 225
+          },
+          {
+            "start": 233,
+            "end": 233
+          },
+          {
+            "start": 241,
+            "end": 241
+          },
+          {
+            "start": 250,
+            "end": 250
+          },
+          {
+            "start": 259,
+            "end": 259
+          },
+          {
+            "start": 268,
+            "end": 268
+          },
+          {
+            "start": 276,
+            "end": 276
+          },
+          {
+            "start": 285,
+            "end": 285
+          }
+        ],
+        "before_hash": "b913b00b13b3cbfcf54a96664e873ce389b66a781f2d79134600b436f8380566",
+        "after_hash": "52321253d40c7d5e9882e26709846e3454740c9f4bab2c3d83ee9aba712aaefc"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Shell/CommandPaletteWindow.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          }
+        ],
+        "before_hash": "60bad4cf656072d67c7219460d54522978849c009840d7e2d20249c9d0e1f072",
+        "after_hash": "4a36e19d521207a46e1f30ce4767eba2ccd5aec6887fae3a18cc0362e46befa7"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/DashboardPageView.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          },
+          {
+            "start": 87,
+            "end": 87
+          },
+          {
+            "start": 95,
+            "end": 95
+          },
+          {
+            "start": 103,
+            "end": 103
+          },
+          {
+            "start": 111,
+            "end": 111
+          },
+          {
+            "start": 119,
+            "end": 119
+          },
+          {
+            "start": 127,
+            "end": 127
+          },
+          {
+            "start": 135,
+            "end": 135
+          },
+          {
+            "start": 143,
+            "end": 143
+          },
+          {
+            "start": 151,
+            "end": 151
+          },
+          {
+            "start": 159,
+            "end": 159
+          },
+          {
+            "start": 167,
+            "end": 167
+          },
+          {
+            "start": 175,
+            "end": 175
+          },
+          {
+            "start": 183,
+            "end": 183
+          },
+          {
+            "start": 191,
+            "end": 191
+          },
+          {
+            "start": 199,
+            "end": 199
+          },
+          {
+            "start": 207,
+            "end": 207
+          },
+          {
+            "start": 215,
+            "end": 215
+          },
+          {
+            "start": 223,
+            "end": 223
+          },
+          {
+            "start": 324,
+            "end": 324
+          },
+          {
+            "start": 333,
+            "end": 333
+          },
+          {
+            "start": 342,
+            "end": 342
+          }
+        ],
+        "before_hash": "86ef08309ee745884304a51c143c6a3316c6bbaa49005c16238676f48725d9db",
+        "after_hash": "f042a1a74d99597fd473991cd31a01cbbe239af4bde7ea2d1e3ac197d73e349c"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Sessions/SessionsPageView.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          },
+          {
+            "start": 140,
+            "end": 140
+          },
+          {
+            "start": 148,
+            "end": 148
+          },
+          {
+            "start": 156,
+            "end": 156
+          },
+          {
+            "start": 164,
+            "end": 164
+          },
+          {
+            "start": 172,
+            "end": 172
+          },
+          {
+            "start": 180,
+            "end": 180
+          },
+          {
+            "start": 188,
+            "end": 188
+          },
+          {
+            "start": 212,
+            "end": 212
+          },
+          {
+            "start": 333,
+            "end": 333
+          },
+          {
+            "start": 351,
+            "end": 351
+          },
+          {
+            "start": 360,
+            "end": 360
+          },
+          {
+            "start": 369,
+            "end": 369
+          },
+          {
+            "start": 384,
+            "end": 384
+          },
+          {
+            "start": 408,
+            "end": 408
+          },
+          {
+            "start": 424,
+            "end": 424
+          }
+        ],
+        "before_hash": "c2363f2b92a216136853fe6bd407758ed5137b2adbc63fc4219498a7990e1834",
+        "after_hash": "56f237a8471ccdac0a32b17f9805fe6c123bb8b97eefdafde20ccf4c11da44ee"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareCreateWizardWindow.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          }
+        ],
+        "before_hash": "d6224a84b502cb26da980fc84a8d3b3a02e1cec5df0ea3cb4c668d1605396643",
+        "after_hash": "f419326c646c392884bf99ee18e8aa7316e306df2d8b4abf93ae4a60f6fee9de"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareDetailDrawer.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          },
+          {
+            "start": 300,
+            "end": 300
+          },
+          {
+            "start": 308,
+            "end": 308
+          },
+          {
+            "start": 316,
+            "end": 316
+          },
+          {
+            "start": 324,
+            "end": 324
+          },
+          {
+            "start": 340,
+            "end": 340
+          },
+          {
+            "start": 348,
+            "end": 348
+          },
+          {
+            "start": 356,
+            "end": 356
+          },
+          {
+            "start": 364,
+            "end": 364
+          },
+          {
+            "start": 372,
+            "end": 372
+          },
+          {
+            "start": 380,
+            "end": 380
+          },
+          {
+            "start": 388,
+            "end": 388
+          },
+          {
+            "start": 396,
+            "end": 396
+          },
+          {
+            "start": 404,
+            "end": 404
+          },
+          {
+            "start": 412,
+            "end": 412
+          },
+          {
+            "start": 420,
+            "end": 420
+          },
+          {
+            "start": 428,
+            "end": 428
+          },
+          {
+            "start": 436,
+            "end": 436
+          },
+          {
+            "start": 444,
+            "end": 444
+          },
+          {
+            "start": 452,
+            "end": 452
+          },
+          {
+            "start": 460,
+            "end": 460
+          },
+          {
+            "start": 468,
+            "end": 468
+          },
+          {
+            "start": 659,
+            "end": 659
+          },
+          {
+            "start": 709,
+            "end": 709
+          },
+          {
+            "start": 726,
+            "end": 726
+          }
+        ],
+        "before_hash": "c6e61b0b41fdab34293ee9b51e360031b34461d3f69d57b207f135b5cbf55c49",
+        "after_hash": "712fa6ebde2164b24d1958be1dc9d81aa04fe099da36f687cb072500dd5e1183"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/ShareEditWindow.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          },
+          {
+            "start": 84,
+            "end": 84
+          },
+          {
+            "start": 92,
+            "end": 92
+          },
+          {
+            "start": 100,
+            "end": 100
+          },
+          {
+            "start": 108,
+            "end": 108
+          },
+          {
+            "start": 116,
+            "end": 116
+          },
+          {
+            "start": 124,
+            "end": 124
+          },
+          {
+            "start": 132,
+            "end": 132
+          },
+          {
+            "start": 140,
+            "end": 140
+          },
+          {
+            "start": 148,
+            "end": 148
+          },
+          {
+            "start": 156,
+            "end": 156
+          },
+          {
+            "start": 164,
+            "end": 164
+          },
+          {
+            "start": 172,
+            "end": 172
+          },
+          {
+            "start": 262,
+            "end": 262
+          },
+          {
+            "start": 270,
+            "end": 270
+          }
+        ],
+        "before_hash": "410589a275aae5eb3174b3658697dbc1eca2355cfca891cb8421736082defe1a",
+        "after_hash": "c0015314337b8bd39bd8b59bc925dab23752b9a761f1779f8784a529ac787396"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/SharePermissionDrawer.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          },
+          {
+            "start": 101,
+            "end": 101
+          },
+          {
+            "start": 109,
+            "end": 109
+          },
+          {
+            "start": 117,
+            "end": 117
+          },
+          {
+            "start": 125,
+            "end": 125
+          },
+          {
+            "start": 133,
+            "end": 133
+          },
+          {
+            "start": 141,
+            "end": 141
+          },
+          {
+            "start": 149,
+            "end": 149
+          },
+          {
+            "start": 157,
+            "end": 157
+          },
+          {
+            "start": 165,
+            "end": 165
+          },
+          {
+            "start": 173,
+            "end": 173
+          },
+          {
+            "start": 262,
+            "end": 262
+          },
+          {
+            "start": 276,
+            "end": 276
+          },
+          {
+            "start": 293,
+            "end": 293
+          },
+          {
+            "start": 320,
+            "end": 320
+          }
+        ],
+        "before_hash": "67b4fad337ca1cc0ffad6fa525a6e32774f6d19d01ddc2af9a0610b54bd0c4e1",
+        "after_hash": "db08a81161a397ce691e69f3d9b44e51307af6746782f48ddde2694079964780"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Shares/SharesPageView.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          },
+          {
+            "start": 173,
+            "end": 173
+          },
+          {
+            "start": 181,
+            "end": 181
+          },
+          {
+            "start": 189,
+            "end": 189
+          },
+          {
+            "start": 197,
+            "end": 197
+          },
+          {
+            "start": 205,
+            "end": 205
+          },
+          {
+            "start": 213,
+            "end": 213
+          },
+          {
+            "start": 221,
+            "end": 221
+          },
+          {
+            "start": 229,
+            "end": 229
+          },
+          {
+            "start": 237,
+            "end": 237
+          },
+          {
+            "start": 245,
+            "end": 245
+          },
+          {
+            "start": 253,
+            "end": 253
+          },
+          {
+            "start": 261,
+            "end": 261
+          },
+          {
+            "start": 480,
+            "end": 480
+          },
+          {
+            "start": 501,
+            "end": 501
+          },
+          {
+            "start": 518,
+            "end": 518
+          },
+          {
+            "start": 532,
+            "end": 532
+          }
+        ],
+        "before_hash": "d2892a417ec66914081549c035a8508d7ea3577a09f7a0a8d23e3d93fcef60e2",
+        "after_hash": "79171a10548ee5526552bf188dac591a45281c51d7666451cbb20291e4c11329"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/Views/Users/UsersPageView.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 1
+          },
+          {
+            "start": 229,
+            "end": 229
+          },
+          {
+            "start": 237,
+            "end": 237
+          },
+          {
+            "start": 245,
+            "end": 245
+          },
+          {
+            "start": 253,
+            "end": 253
+          },
+          {
+            "start": 261,
+            "end": 261
+          },
+          {
+            "start": 269,
+            "end": 269
+          },
+          {
+            "start": 277,
+            "end": 277
+          },
+          {
+            "start": 285,
+            "end": 285
+          },
+          {
+            "start": 293,
+            "end": 293
+          },
+          {
+            "start": 301,
+            "end": 301
+          },
+          {
+            "start": 309,
+            "end": 309
+          },
+          {
+            "start": 317,
+            "end": 317
+          },
+          {
+            "start": 531,
+            "end": 531
+          },
+          {
+            "start": 540,
+            "end": 540
+          },
+          {
+            "start": 549,
+            "end": 549
+          },
+          {
+            "start": 558,
+            "end": 558
+          },
+          {
+            "start": 567,
+            "end": 567
+          },
+          {
+            "start": 588,
+            "end": 588
+          },
+          {
+            "start": 636,
+            "end": 636
+          },
+          {
+            "start": 644,
+            "end": 644
+          }
+        ],
+        "before_hash": "e32a245d8be24ae524836ba61f2c6cf0d95eaeb4dc2da87c4771ef583a2a4ebd",
+        "after_hash": "44c7b0290e7ac7d4bd64a3ba78c8c6f99913cc30980c9549d1687e6a1d223785"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.AssemblyInfo.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 24
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "920ae42c59f94783055c0e0cc97c707bafaeef22a58d3f6913a3416ab758dcf5"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App_xttnd0z0_wpftmp.GlobalUsings.g.cs",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 6
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "fe45ea572aadfd1a9b54cf7251405cfa11b748ca88b034f06a724d49758ced2d"
+      },
+      {
+        "file": "net/WinShare.App/obj/x64/Debug/net10.0-windows/WinShare.App.AssemblyInfo.cs",
+        "ranges": [
+          {
+            "start": 16,
+            "end": 16
+          }
+        ],
+        "before_hash": "a40db6ee1e99b1333447b71450316b33473ccce3eea1f473798ed5af4ea270ff",
+        "after_hash": "920ae42c59f94783055c0e0cc97c707bafaeef22a58d3f6913a3416ab758dcf5"
+      },
+      {
+        "file": "net/WinShare.Core.Tests/obj/Debug/net10.0/WinShare.Core.Tests.AssemblyInfo.cs",
+        "ranges": [
+          {
+            "start": 16,
+            "end": 16
+          }
+        ],
+        "before_hash": "ad244a2fefaaa72aa8924fbd46be691ae1ee509e1638abdcd0c26021a0471e07",
+        "after_hash": "b4e169bcb2ea1a5161b44605bc1bce195109899ff57cdb6e47d2c90f4302743f"
+      },
+      {
+        "file": "net/WinShare.Core/obj/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "ranges": [
+          {
+            "start": 16,
+            "end": 16
+          }
+        ],
+        "before_hash": "c0154ac76520483ba92f589d2dff1df800d7fa47836d53ff66ef097b8c6cf8b1",
+        "after_hash": "b219b01e2ad7a6e8031e91a4d8c8a62f32fad5e4874c2c43b5c38b9439e9aaff"
+      },
+      {
+        "file": "net/WinShare.Core/obj/x64/Debug/net10.0/WinShare.Core.AssemblyInfo.cs",
+        "ranges": [
+          {
+            "start": 16,
+            "end": 16
+          }
+        ],
+        "before_hash": "fc1aaf40624166d5837b28b358bc1c286c37a9b3bb3e9c0efe939dc8ed2d7f0d",
+        "after_hash": "b219b01e2ad7a6e8031e91a4d8c8a62f32fad5e4874c2c43b5c38b9439e9aaff"
+      }
+    ]
+  },
+  "timing": {
+    "started_at": "2026-10-31T06:53:00.469Z",
+    "completed_at": "2026-10-31T06:53:03.973Z",
+    "duration_ms": 3504,
+    "measurement": "hook_wall_clock"
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "model_calls": 0,
+    "measurement": "known-zero"
+  },
+  "telemetry": {
+    "schemaVersion": "mimosa-gate-telemetry/v1",
+    "profile": "gate",
+    "operation": "Stop",
+    "outcome": "partial/INCONCLUSIVE",
+    "latencyMs": 3504,
+    "peakMemoryBytes": 102420480,
+    "memoryMeasurement": "max-observed-process-rss",
+    "scannedFiles": 0,
+    "cache": {
+      "hits": 0,
+      "misses": 0,
+      "measurement": "not-applicable"
+    },
+    "denyCount": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "total": 0,
+      "modelCalls": 0,
+      "measurement": "known-zero"
+    }
+  },
+  "finding_count": 0,
+  "rewake_finding_count": 0,
+  "evidence_boundary": {
+    "scan": "candidate",
+    "static_fix_verification": "observed_static_only",
+    "runtime_verification": "not_performed"
+  },
+  "finding_events": [],
+  "findings": [],
+  "artifacts": {
+    "immutable_report": ".mimosa/reports/task-review-sess_1911fef1-7dfe-4256-8704-33081274845c-20261031T065303973Z-29920-da0f43434ca5.json",
+    "latest_report": ".mimosa/reports/task-review-sess_1911fef1-7dfe-4256-8704-33081274845c.json",
+    "history_summary": ".mimosa/history/run-20261031T065303973Z-29920-da0f43434ca5.json"
+  }
+}
