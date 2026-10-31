@@ -151,6 +151,9 @@ jobs:
       - name: Zip WPF artifacts
         shell: pwsh
         run: |
+          # wpf-release 与 Electron release 是两个独立 runner：本机没有 electron-builder
+          # 建好的 release/ 目录，必须先建（v1.5.1 首跑即因此失败）
+          New-Item -ItemType Directory -Path release -Force | Out-Null
           $zip = "release/WinShare.Panel-${{ steps.version.outputs.version }}-win-x64.zip"
           Compress-Archive -Path 'net/WinShare.App/publish/*' -DestinationPath $zip -Force
           Get-Item $zip | Select-Object Name, Length | Format-Table -AutoSize
