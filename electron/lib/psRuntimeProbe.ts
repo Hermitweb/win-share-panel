@@ -80,6 +80,9 @@ export async function probePsVersionAndLog(): Promise<void> {
   const exe = nativePowerShellExe()
   // 裸名（跨平台 / PATH）不探测版本，避免在无 PS 的开发机上误 spawn
   if (!/^[A-Za-z]:[\\/]/.test(exe)) return
+  // 防御性白名单：execFile 不经 shell（无拼接注入面），此处防路径解析回归误 spawn 任意二进制
+  const exeBase = exe.split(/[\\/]/).pop()?.toLowerCase() ?? ''
+  if (exeBase !== 'powershell.exe' && exeBase !== 'pwsh.exe') return
 
   // 最小探测命令：纯读 $PSVersionTable，不加载任何模块，5.1 / 7.x 都能跑
   const info = await probePsVersion({}, async <T>(cmd: string) => {
