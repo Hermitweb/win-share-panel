@@ -51,3 +51,7 @@ shots/
 
 # 大体积日志转储
 .t2d-logdump.txt
+
+# ZCode 会话/插件产物（本机状态，永不入库）
+.mimosa/
+.zcode/

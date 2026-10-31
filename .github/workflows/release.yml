@@ -159,7 +159,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release/WinShare.Panel-${{ steps.version.outputs.version }}-win-x64.zip
-          generate_release_notes: false   # Release notes 由 Electron job 生成，避免重复
+          generate_release_notes: false # Release notes 由 Electron job 生成，避免重复
           draft: false
           prerelease: false
         env:
