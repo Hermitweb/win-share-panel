@@ -14,6 +14,10 @@ public sealed record ConfigPreset
     public string? Risk { get; init; }
     /// <summary>setConfig 白名单可写字段 → 值（键名与契约配置类型属性名一致）。</summary>
     public required Dictionary<string, object?> Values { get; init; }
+
+    // 下拉/选择框显示预设名（ComboBoxSoft 自定义模板对 DisplayMemberPath 的
+    // SelectionBoxItemTemplate 路径不生效，会落到 record ToString——直接重写兜底）
+    public override string ToString() => Name;
 }
 
 public static class ProtocolPresets

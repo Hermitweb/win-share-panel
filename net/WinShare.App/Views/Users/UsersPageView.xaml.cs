@@ -345,13 +345,6 @@ public partial class UsersPageView : UserControl
     // 矩阵 / NTFS / 导出 / 刷新
     // =====================================================================
 
-    async void OnRefresh(object sender, RoutedEventArgs e)
-    {
-        if (_vm is null) return;
-        await _vm.RefreshAsync();
-        ApplyVm();
-    }
-
     async void OnMatrixReload(object sender, RoutedEventArgs e)
     {
         if (_vm is null) return;

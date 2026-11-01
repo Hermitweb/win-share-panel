@@ -24,19 +24,17 @@
             </DockPanel>
         </DataTemplate>
     </UserControl.Resources>
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <Grid Margin="20" Background="Transparent">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <!-- 注意：本页外层是 ScrollViewer，纵向无限测量下 Height="*" 会塌成 0 → 内容不可见，必须用 Auto -->
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
-        <!-- 页头：标题 + 状态提示 + 导出/刷新（对齐 Electron PageHeader：标题在左、操作在右一行） -->
-        <DockPanel Grid.Row="0" Margin="0,0,0,16" LastChildFill="False">
+    <!--
+      滚动与渲染分离的架构（修复「仪表盘无法滚动」+「滚动很卡」）：
+      - 滚动：CanContentScroll=False（像素滚动，非逐项）——WPF 合成器直接平移
+        已光栅化的 ScrollContentPresenter，滚轮 tick 不触发重渲染/重布局。
+      - 渲染：~6 张卡挂载后只渲染一次；用普通 StackPanel（非虚拟化）承载，
+        避免每次滚轮 tick 重新 realize/渲染跨越视口边缘的复杂卡片（图表/进度条）。
+      - 页头固定在滚动区外（标题/导出始终可见）。
+    -->
+    <DockPanel>
+        <!-- 页头：标题 + 状态提示 + 导出（固定不随内容滚动） -->
+        <DockPanel DockPanel.Dock="Top" Margin="20,18,20,12" LastChildFill="False">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="{DynamicResource Dash.Title}" Style="{DynamicResource PageTitle}"
                            VerticalAlignment="Center" />
@@ -48,162 +46,165 @@
                         Style="{DynamicResource DashButton}" Click="OnExportPng" />
                 <Button x:Name="BtnExportCsv" Content="{DynamicResource Dash.ExportCsv}"
                         Style="{DynamicResource DashButton}" Click="OnExportCsv" Margin="8,0,0,0" />
-                <Button x:Name="BtnRefresh" Content="{DynamicResource Dash.Refresh}"
-                        Style="{DynamicResource DashButton}" Click="OnRefresh" Margin="8,0,0,0" />
             </StackPanel>
         </DockPanel>
 
-        <!-- 统计卡 ×4（对齐 antd Row gutter 16 + Statistic；装饰条四卡统一，大数字统一 StatNumber token） -->
-        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,16">
-            <Border Style="{DynamicResource CardStyle}" Margin="0,0,10,0">
-                <StackPanel>
-                    <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
-                            Background="{DynamicResource BrushBrandGradient}" />
-                    <TextBlock Text="{DynamicResource Dash.ShareCount}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
-                    <TextBlock x:Name="TxtShareCount" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
-                </StackPanel>
-            </Border>
-            <Border Style="{DynamicResource CardStyle}" Margin="8,0">
-                <StackPanel>
-                    <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
-                            Background="{DynamicResource BrushBrandGradient}" />
-                    <TextBlock Text="{DynamicResource Dash.ActiveSessions}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
-                    <TextBlock x:Name="TxtSessions" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
-                </StackPanel>
-            </Border>
-            <Border Style="{DynamicResource CardStyle}" Margin="8,0">
-                <StackPanel>
-                    <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10" Background="{DynamicResource BrushBrandGradient}" />
-                    <TextBlock Text="{DynamicResource Dash.OpenFiles}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
-                    <TextBlock x:Name="TxtOpenFiles" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
-                </StackPanel>
-            </Border>
-            <Border Style="{DynamicResource CardStyle}" Margin="8,0,0,0">
-                <StackPanel>
-                    <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
-                            Background="{DynamicResource BrushBrandGradient}" />
-                    <TextBlock Text="{DynamicResource Dash.ServiceStatus}" FontSize="12" Foreground="{DynamicResource BrushFog}" Margin="0,0,0,4" />
-                    <Border x:Name="SvcTag" CornerRadius="{DynamicResource RadiusTag}" Padding="10,2" Height="24"
-                            Background="{DynamicResource BrushInfoBg}" HorizontalAlignment="Left">
-                        <TextBlock x:Name="TxtService" Text="未知" FontSize="13" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource BrushInfoFg}" />
-                    </Border>
-                </StackPanel>
-            </Border>
-        </UniformGrid>
+        <!-- 滚动区：CanContentScroll=False（像素滚动，非逐项）+ 普通 StackPanel。
+             内容（~6 张卡，含图表/进度条）只渲染一次，滚动由 WPF 合成器移动
+             已光栅化的 ScrollContentPresenter——不触发任何重渲染/重布局。
+             这正是「滚动是滚动、渲染是渲染」的分离：与之前的渲染级 Transform
+             平移（每 tick 重新光栅化整页 → 卡顿）不同，这里是 GPU 合成器位移。 -->
+        <ScrollViewer x:Name="PageScroll" CanContentScroll="False" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled" Padding="20,0,20,20">
+            <ItemsControl x:Name="Cards">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel IsItemsHost="True" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
 
-        <!-- 需要关注（告警规则评估；命中项经事件总线 AlertRaised） -->
-        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
-            <!-- 纵向流（同协议分布卡：DockPanel 的 LastChildFill 会挤掉末位之外的内容） -->
-            <StackPanel>
-                <TextBlock Text="{DynamicResource Dash.Attention}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
-                <TextBlock x:Name="AttentionEmpty" Text="{DynamicResource Dash.AttentionEmpty}"
-                           FontSize="12" Foreground="{DynamicResource BrushFog}"
-                           Visibility="Collapsed" HorizontalAlignment="Center" />
-                <ItemsControl x:Name="AttentionList" />
-                <TextBlock x:Name="SkippedNote" FontSize="11" Foreground="{DynamicResource BrushFog}"
-                           TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
-            </StackPanel>
-        </Border>
-
-        <!-- 24h 趋势 + 协议分布 + 磁盘水位 + 热门共享（四张卡纵向流，对齐 TS 卡片顺序） -->
-        <Grid Grid.Row="3" Grid.RowSpan="2">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <!-- 趋势卡（Segmented 三态 + LiveCharts2 接口位，当前 WPF 自绘） -->
-            <Border Grid.Row="0" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
-                <DockPanel>
-                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <TextBlock Text="{DynamicResource Dash.Trend}" FontSize="14" FontWeight="SemiBold" />
-                        <TextBlock Text="{DynamicResource Dash.TrendHint}" FontSize="11"
-                                   Foreground="{DynamicResource BrushFog}" VerticalAlignment="Bottom" Margin="8,0,0,2" />
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                            <RadioButton x:Name="ModeBoth" GroupName="TrendMode" Content="{DynamicResource Dash.Both}"
-                                         IsChecked="True" Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
-                            <RadioButton x:Name="ModeSessions" GroupName="TrendMode" Content="{DynamicResource Dash.SessionsOnly}"
-                                         Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
-                            <RadioButton x:Name="ModeOpenFiles" GroupName="TrendMode" Content="{DynamicResource Dash.OpenFilesOnly}"
-                                         Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
+                <!-- 项 1：统计卡 ×4（对齐 antd Row gutter 16 + Statistic） -->
+                <UniformGrid Columns="4" Margin="0,0,0,16">
+                    <Border Style="{DynamicResource CardStyle}" Margin="0,0,10,0">
+                        <StackPanel>
+                            <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
+                                    Background="{DynamicResource BrushBrandGradient}" />
+                            <TextBlock Text="{DynamicResource Dash.ShareCount}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                            <TextBlock x:Name="TxtShareCount" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
                         </StackPanel>
-                    </StackPanel>
-                    <Grid>
-                        <charts:TrendChartControl x:Name="TrendChart" Height="240" />
-                        <TextBlock x:Name="TrendEmptyAll" Text="{DynamicResource Dash.TrendAllEmpty}"
+                    </Border>
+                    <Border Style="{DynamicResource CardStyle}" Margin="8,0">
+                        <StackPanel>
+                            <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
+                                    Background="{DynamicResource BrushBrandGradient}" />
+                            <TextBlock Text="{DynamicResource Dash.ActiveSessions}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                            <TextBlock x:Name="TxtSessions" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{DynamicResource CardStyle}" Margin="8,0">
+                        <StackPanel>
+                            <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10" Background="{DynamicResource BrushBrandGradient}" />
+                            <TextBlock Text="{DynamicResource Dash.OpenFiles}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                            <TextBlock x:Name="TxtOpenFiles" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{DynamicResource CardStyle}" Margin="8,0,0,0">
+                        <StackPanel>
+                            <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
+                                    Background="{DynamicResource BrushBrandGradient}" />
+                            <TextBlock Text="{DynamicResource Dash.ServiceStatus}" FontSize="12" Foreground="{DynamicResource BrushFog}" Margin="0,0,0,4" />
+                            <Border x:Name="SvcTag" CornerRadius="{DynamicResource RadiusTag}" Padding="10,2" Height="24"
+                                    Background="{DynamicResource BrushInfoBg}" HorizontalAlignment="Left">
+                                <TextBlock x:Name="TxtService" Text="未知" FontSize="13" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource BrushInfoFg}" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <!-- 项 2：需要关注（告警规则评估；命中项经事件总线 AlertRaised） -->
+                <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                    <!-- 纵向流（同协议分布卡：DockPanel 的 LastChildFill 会挤掉末位之外的内容） -->
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Dash.Attention}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBlock x:Name="AttentionEmpty" Text="{DynamicResource Dash.AttentionEmpty}"
                                    FontSize="12" Foreground="{DynamicResource BrushFog}"
-                                   TextWrapping="Wrap" TextAlignment="Center"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   MaxWidth="420" Visibility="Collapsed" />
-                        <TextBlock x:Name="TrendEmptyWindow" FontSize="12" Foreground="{DynamicResource BrushFog}"
-                                   TextWrapping="Wrap" TextAlignment="Center"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   MaxWidth="420" Visibility="Collapsed" />
-                    </Grid>
-                </DockPanel>
-            </Border>
+                                   Visibility="Collapsed" HorizontalAlignment="Center" />
+                        <ItemsControl x:Name="AttentionList" />
+                        <TextBlock x:Name="SkippedNote" FontSize="11" Foreground="{DynamicResource BrushFog}"
+                                   TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
 
-            <!-- 协议分布（对齐 4 列：Tag + 共享数 + 会话；未装提示留 T3b 接 protocolCaps） -->
-            <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
-                <!-- 纵向流：标题 → 空态 → 内容。禁用 DockPanel（LastChildFill 会把末位的空态提示当填充子，
-                     把 UniformGrid 挤到零尺寸 → 「静态可见/动态不可见」的真实根因），见 docs/ROOTCAUSE.md -->
-                <StackPanel>
-                    <TextBlock Text="{DynamicResource Dash.Protocols}"
-                               FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
-                    <TextBlock x:Name="ProtocolEmpty" Visibility="Collapsed"
-                               Text="协议统计暂未取到（本机四类协议均未检出或服务查询未完成）· 点右上「刷新」重试"
-                               FontSize="12" Margin="2,4,0,4" Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
-                    <StackPanel x:Name="ProtocolGrid" />
-                </StackPanel>
-            </Border>
+                <!-- 项 3：24h 趋势（Segmented 三态 + LiveCharts2 接口位，当前 WPF 自绘） -->
+                <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                    <DockPanel>
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <TextBlock Text="{DynamicResource Dash.Trend}" FontSize="14" FontWeight="SemiBold" />
+                            <TextBlock Text="{DynamicResource Dash.TrendHint}" FontSize="11"
+                                       Foreground="{DynamicResource BrushFog}" VerticalAlignment="Bottom" Margin="8,0,0,2" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                <RadioButton x:Name="ModeBoth" GroupName="TrendMode" Content="{DynamicResource Dash.Both}"
+                                             IsChecked="True" Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
+                                <RadioButton x:Name="ModeSessions" GroupName="TrendMode" Content="{DynamicResource Dash.SessionsOnly}"
+                                             Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
+                                <RadioButton x:Name="ModeOpenFiles" GroupName="TrendMode" Content="{DynamicResource Dash.OpenFilesOnly}"
+                                             Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Grid>
+                            <charts:TrendChartControl x:Name="TrendChart" Height="240" />
+                            <TextBlock x:Name="TrendEmptyAll" Text="{DynamicResource Dash.TrendAllEmpty}"
+                                       FontSize="12" Foreground="{DynamicResource BrushFog}"
+                                       TextWrapping="Wrap" TextAlignment="Center"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       MaxWidth="420" Visibility="Collapsed" />
+                            <TextBlock x:Name="TrendEmptyWindow" FontSize="12" Foreground="{DynamicResource BrushFog}"
+                                       TextWrapping="Wrap" TextAlignment="Center"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       MaxWidth="420" Visibility="Collapsed" />
+                        </Grid>
+                    </DockPanel>
+                </Border>
 
-            <!-- 磁盘水位（对齐 TS Dashboard.tsx#546：等级排序 + 进度条 + 剩余/共/百分比 + 三态空态） -->
-            <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
-                <!-- 纵向流：标题 → 空态 → 列表（同协议分布卡，勿改回 DockPanel） -->
-                <StackPanel>
-                    <TextBlock Text="{DynamicResource Dash.Disk}"
-                               FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
-                    <TextBlock x:Name="DiskEmpty" Text="{DynamicResource Dash.DiskEmpty}"
-                               FontSize="12" Foreground="{DynamicResource BrushFog}"
-                               TextWrapping="Wrap"
-                               HorizontalAlignment="Center"
-                               Visibility="Collapsed" />
-                    <ItemsControl x:Name="DiskList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="0,0,0,12">
-                                    <DockPanel Margin="0,0,0,2">
-                                        <TextBlock DockPanel.Dock="Left" Text="{Binding Drive}"
-                                                   FontSize="13" FontWeight="SemiBold" />
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Level, Converter={StaticResource DiskLevelText}}"
-                                                   FontSize="11" VerticalAlignment="Center" />
-                                    </DockPanel>
-                                    <ProgressBar Height="6" Minimum="0" Maximum="100"
-                                                 Value="{Binding UsedPct}"
-                                                 Foreground="{Binding Level, Converter={StaticResource DiskLevelBrush}}" />
-                                    <TextBlock FontSize="11" Foreground="{DynamicResource BrushFog}" Margin="0,3,0,0">
-                                        <Run Text="剩余 " /><Run Text="{Binding FreeGB}" /><Run Text=" GB / 共 " />
-                                        <Run Text="{Binding TotalGB}" /><Run Text=" GB（剩余 " /><Run Text="{Binding FreePct}" /><Run Text="%）" />
-                                    </TextBlock>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
+                <!-- 项 4：协议分布（对齐 4 列：Tag + 共享数 + 会话；未装提示留 T3b 接 protocolCaps） -->
+                <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                    <!-- 纵向流：标题 → 空态 → 内容。禁用 DockPanel（LastChildFill 会把末位的空态提示当填充子，
+                         把 UniformGrid 挤到零尺寸 → 「静态可见/动态不可见」的真实根因），见 docs/ROOTCAUSE.md -->
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Dash.Protocols}"
+                                   FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
+                        <TextBlock x:Name="ProtocolEmpty" Visibility="Collapsed"
+                                   Text="协议统计暂未取到（本机四类协议均未检出或服务查询未完成）· 点右上「刷新」重试"
+                                   FontSize="12" Margin="2,4,0,4" Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
+                        <StackPanel x:Name="ProtocolGrid" />
+                    </StackPanel>
+                </Border>
 
-            <!-- 热门共享连接数（PNG 导出目标区；图表未渲染时提示对齐 TS） -->
-            <Border Grid.Row="3" Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.TopShares}"
-                               FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
-                    <charts:TopSharesChartControl x:Name="TopChart" Height="200" />
-                </DockPanel>
-            </Border>
-        </Grid>
-    </Grid>
-    </ScrollViewer>
+                <!-- 项 5：磁盘水位（对齐 TS Dashboard.tsx#546：等级排序 + 进度条 + 剩余/共/百分比 + 三态空态） -->
+                <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
+                    <!-- 纵向流：标题 → 空态 → 列表（同协议分布卡，勿改回 DockPanel） -->
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Dash.Disk}"
+                                   FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" />
+                        <TextBlock x:Name="DiskEmpty" Text="{DynamicResource Dash.DiskEmpty}"
+                                   FontSize="12" Foreground="{DynamicResource BrushFog}"
+                                   TextWrapping="Wrap"
+                                   HorizontalAlignment="Center"
+                                   Visibility="Collapsed" />
+                        <ItemsControl x:Name="DiskList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,12">
+                                        <DockPanel Margin="0,0,0,2">
+                                            <TextBlock DockPanel.Dock="Left" Text="{Binding Drive}"
+                                                       FontSize="13" FontWeight="SemiBold" />
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Level, Converter={StaticResource DiskLevelText}}"
+                                                       FontSize="11" VerticalAlignment="Center" />
+                                        </DockPanel>
+                                        <ProgressBar Height="6" Minimum="0" Maximum="100"
+                                                     Value="{Binding UsedPct}"
+                                                     Foreground="{Binding Level, Converter={StaticResource DiskLevelBrush}}" />
+                                        <TextBlock FontSize="11" Foreground="{DynamicResource BrushFog}" Margin="0,3,0,0">
+                                            <Run Text="剩余 " /><Run Text="{Binding FreeGB}" /><Run Text=" GB / 共 " />
+                                            <Run Text="{Binding TotalGB}" /><Run Text=" GB（剩余 " /><Run Text="{Binding FreePct}" /><Run Text="%）" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- 项 6：热门共享连接数（PNG 导出目标区；图表未渲染时提示对齐 TS） -->
+                <Border Style="{DynamicResource CardStyle}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="{DynamicResource Dash.TopShares}"
+                                   FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <charts:TopSharesChartControl x:Name="TopChart" Height="200" />
+                    </DockPanel>
+                </Border>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
 </UserControl>

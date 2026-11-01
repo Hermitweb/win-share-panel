@@ -28,7 +28,6 @@
                                Text="提示：拖拽文件夹到本页可快速创建共享 · Ctrl+N 新建 · Del 批量删除 · Space 批量启停 · F5 刷新" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="刷新" Style="{DynamicResource DashButton}" Click="OnRefresh" />
                     <Button Content="导出" Style="{DynamicResource DashButton}" Click="OnExport" Margin="8,0,0,0" />
                     <Button Content="导入" Style="{DynamicResource DashButton}" Click="OnImport" Margin="8,0,0,0" />
                     <Button Content="新建共享" Style="{DynamicResource DashButton}" Click="OnCreate" Margin="8,0,0,0" />

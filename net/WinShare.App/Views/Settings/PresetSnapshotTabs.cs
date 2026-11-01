@@ -66,31 +66,26 @@ public sealed class PresetTabView : UserControl
                 Text = preset.name,
                 FontSize = 12,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-                TextWrapping = TextWrapping.Wrap,
-            });
+            }.Live(TextBlock.ForegroundProperty, "BrushText"));
+
             row.Children.Add(new TextBlock
             {
                 Text = preset.description,
                 FontSize = 12,
-                Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 2, 0, 0),
-            });
+            }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+
             row.Children.Add(new TextBlock
             {
                 Text = preset.builtIn ? "内置" : "自定义",
                 FontSize = 12,
-                Foreground = SettingsUi.Token("BrushPrimary", "#1677FF"),
-                Margin = new Thickness(0, 2, 0, 0),
-            });
+            }.Live(TextBlock.ForegroundProperty, "BrushPrimary"));
+
             row.Children.Add(new TextBlock
             {
                 Text = $"{preset.entries?.Count ?? 0} 条",
                 FontSize = 12,
-                Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
-                Margin = new Thickness(0, 2, 0, 0),
-            });
+            }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+
 
             PermissionPreset captured = preset;
             var viewBtn = SettingsUi.Button("查看", (_, _) => ShowEntries(captured));
@@ -237,8 +232,8 @@ public sealed class SnapshotTabView : UserControl
             {
                 Text = snap.ts,
                 FontSize = 12,
-                Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-            });
+            }.Live(TextBlock.ForegroundProperty, "BrushText"));
+
             SmbSnapshotMeta captured = snap;
             var rollBtn = SettingsUi.Button("回滚到此快照", async (_, _) =>
             {

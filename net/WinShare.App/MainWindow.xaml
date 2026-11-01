@@ -20,9 +20,11 @@
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="16" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
+    <!-- TextElement.Foreground：全应用“未显式着色”的文本继承主题字色，
+         否则暗色下落到 WPF 默认纯黑（仪表盘卡片标题等） -->
     <Border x:Name="WindowFrame" CornerRadius="16" Background="{DynamicResource BrushAppBackdrop}"
             BorderBrush="{DynamicResource BrushGlassStroke}" BorderThickness="1"
-            Effect="{DynamicResource ShadowWindowGlow}">
+            TextElement.Foreground="{DynamicResource BrushText}">
 
         <DockPanel>
             <!-- ===== 自定义标题栏（磨砂玻璃；可拖拽） ===== -->
@@ -150,7 +152,8 @@
 
             <!-- ===== 页面区（承载各路由视图） ===== -->
             <Grid>
-                <ContentControl x:Name="PageHost" Focusable="False" Background="Transparent" />
+                <ContentControl x:Name="PageHost" Focusable="False" Background="Transparent"
+                               HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
                 <!-- 全屏加载遮罩（首次进入页面时的数据拉取：2-3s 的 PowerShell 5.1 调用不可避免，用动效承接） -->
                 <Border x:Name="LoadingOverlay" Background="{DynamicResource BrushGlassStrong}" Visibility="Collapsed">

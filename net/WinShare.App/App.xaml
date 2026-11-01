@@ -17,7 +17,9 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusCard}" />
             <Setter Property="Padding" Value="18,16" />
-            <Setter Property="Effect" Value="{DynamicResource ShadowCard}" />
+            <!-- Effect(ShadowCard) 已移除：DropShadowEffect 使内容走离屏渲染，
+                 实测会破坏 ScrollViewer 的滚动状态（偏移写入被吞），且设置页
+                 早已记录同类问题（整页未测量）。视觉层次由边框+底色承担。 -->
         </Style>
 
         <!-- ===== 横向 Tab（对齐 Electron antd Tabs；规范 §9 布局照搬） ===== -->

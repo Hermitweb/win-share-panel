@@ -51,12 +51,22 @@ public sealed class SettingsPageView : UserControl
         var header = BuildHeader();
         DockPanel.SetDock(header, Dock.Top);
         outer.Children.Add(header);
-        var content = new StackPanel();
-        content.Children.Add(BuildOsCompatCard());
-        content.Children.Add(BuildDiagnoseCard());
-        content.Children.Add(BuildProtocolSections());
-        // 外层不再套 ScrollViewer：页签自己要拿到有限高度才能内部滚动，
-        // 套在 ScrollViewer 里会得到无限高度 → 页签不滚动且无限拉长。
+        // 用 Grid（Auto/Auto/*）承载：StackPanel 给子元素的测量高度是无限的，
+        // TabControl 会被量到自然高度（1200px+）→ 内层 ScrollViewer「无需滚动」→
+        // 页面无法滚动（实测 UIA 全部可滚动元素仅横向）。Star 行把页签约束在剩余高度内。
+        var content = new Grid();
+        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
+        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
+        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        var osCard = BuildOsCompatCard();
+        Grid.SetRow(osCard, 0);
+        var diagCard = BuildDiagnoseCard();
+        Grid.SetRow(diagCard, 1);
+        var sections = BuildProtocolSections();
+        Grid.SetRow(sections, 2);
+        content.Children.Add(osCard);
+        content.Children.Add(diagCard);
+        content.Children.Add(sections);
         outer.Children.Add(content);
         return outer;
     }
@@ -82,7 +92,6 @@ public sealed class SettingsPageView : UserControl
             actions.Children.Add(SettingsUi.FogText("诊断面板尚未就绪（诊断服务未注册），服务实现后此入口自动可用"));
         }
         actions.Children.Add(diagnose);
-        actions.Children.Add(SettingsUi.Button("刷新", async (_, _) => await _vm.RefreshAsync()));
         DockPanel.SetDock(actions, Dock.Right);
         row.Children.Add(actions);
         return row;
@@ -184,9 +193,8 @@ public sealed class SettingsPageView : UserControl
                 Text = $"{item.label}：{item.detail}",
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-                Margin = new Thickness(0, 2, 0, 2),
-            });
+            }.Live(TextBlock.ForegroundProperty, "BrushText"));
+
             if (item.fix is { } fix)
             {
                 var repair = SettingsUi.Button("修复", async (_, _) =>
@@ -209,7 +217,7 @@ public sealed class SettingsPageView : UserControl
         // 六页签：原先 4 个协议的表单全部纵向堆出来 —— 实测 329 个控件、页面高 5415px（约 5 屏），
         // 绝大部分内容在折叠线以下看不到。改页签后同一时刻只有当前页签的内容进入视觉树。
         // GlassTabItem 样式已在「应用设置」页验证过，安全。
-        var tabs = new TabControl { Margin = new Thickness(0, 0, 0, 12) };
+        var tabs = new TabControl { Margin = new Thickness(0, 0, 0, 12), Background = System.Windows.Media.Brushes.Transparent, BorderThickness = new Thickness(0) };
         var tabItemStyle = SettingsUi.Style("GlassTabItem");
         TabItem MakeTab(string headerText, UserControl section)
         {

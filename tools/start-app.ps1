@@ -10,8 +10,12 @@ function Get-RepoRoot {
   return Split-Path -Parent $PSScriptRoot
 }
 $root = Get-RepoRoot
-$exe = Join-Path $root "net/WinShare.App/bin/$Configuration/net10.0-windows/WinShare.App.exe"
-if (-not (Test-Path $exe)) { Write-Output "EXE_NOT_FOUND: $exe"; exit 1 }
+# exe 路径动态发现：输出目录随 TFM 变化（如 net10.0-windows10.0.17763.0），
+# 且本机 Platform=x64 环境变量会出现 bin/x64 变体——取 Debug 下最新的那个
+$exe = Get-ChildItem "$root/net/WinShare.App/bin" -Recurse -Filter WinShare.App.exe -ErrorAction SilentlyContinue |
+  Where-Object { $_.FullName -match [regex]::Escape("/$Configuration/") -or $_.FullName -match [regex]::Escape("\$Configuration\") } |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+if (-not $exe -or -not (Test-Path $exe)) { Write-Output "EXE_NOT_FOUND under $($root)/net/WinShare.App/bin"; exit 1 }
 
 Get-Process -Name 'WinShare*' -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 3

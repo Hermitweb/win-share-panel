@@ -36,8 +36,6 @@
                         Background="{DynamicResource BrushInfoBg}" VerticalAlignment="Center">
                     <TextBlock x:Name="CountdownText" Text="5s" FontSize="12" Foreground="{DynamicResource BrushInfoFg}" />
                 </Border>
-                <Button x:Name="BtnRefresh" Content="刷新" Style="{DynamicResource DashButton}"
-                        Margin="8,0,0,0" Click="OnRefresh" />
             </StackPanel>
         </DockPanel>
 

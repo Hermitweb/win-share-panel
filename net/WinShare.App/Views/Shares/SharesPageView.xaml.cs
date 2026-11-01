@@ -213,13 +213,6 @@ public partial class SharesPageView : UserControl
     }
 
     // ===== 工具栏按钮（转发 VM） =====
-    async void OnRefresh(object sender, RoutedEventArgs e)
-    {
-        if (_vm is null) return;
-        await _vm.LoadAsync();
-        ApplyVm();
-    }
-
     async void OnExport(object sender, RoutedEventArgs e)
     {
         if (_vm is null) return;

@@ -35,6 +35,19 @@ public static class SettingsUi
         return Token(key, fb);
     }
 
+    /// <summary>
+    /// 活引用（SetResourceReference）：控件属性跟随主题 token，热切换实时刷新。
+    /// Token() 是构建期快照——代码生成的 UI 在主题切换后会残留旧色
+    /// （v2.0.1 用户实测：浅色页面残留深色卡片）。**静态外观一律走本方法**；
+    /// Token() 仅保留给「随状态变化的语义色」（每次状态变化时重新解析即可自愈）。
+    /// key 缺失时属性保持 WPF 默认值（仅无主题字典的设计期/单测宿主会发生）。
+    /// </summary>
+    public static T Live<T>(this T el, System.Windows.DependencyProperty dp, string key) where T : FrameworkElement
+    {
+        el.SetResourceReference(dp, key);
+        return el;
+    }
+
     /// <summary>取 App.xaml 里的样式（缺 Application/资源时返回 null，调用方跳过设置）。</summary>
     public static Style? Style(string key)
     {
@@ -55,16 +68,16 @@ public static class SettingsUi
         // 手绘卡片（不用 CardStyle）：CardStyle 的 DropShadowEffect 在这两页 14 张卡上反复离屏渲染，
         // 且实测套上后应用设置页整页未测量（控件 BoundingRectangle=Empty、文字节点消失）。
         // 用玻璃底 + 大圆角 + 边框达到同样的层次感，零 Effect 开销。
-        return new Border
+        var border = new Border
         {
             Child = content,
-            Background = Token("BrushBgMist", "#F4FAFD"),
-            BorderBrush = Token("BrushBorder", "#E4E9F0"),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(16),
             Padding = new Thickness(padding),
             Margin = new Thickness(0, 0, 0, 16),
         };
+        return border.Live(Border.BackgroundProperty, "BrushBgMist")
+                     .Live(Border.BorderBrushProperty, "BrushBorder");
     }
 
     /// <summary>页头标题（i18n 键 → PageTitle 样式；六页统一 22 号 token 字号）。</summary>
@@ -98,33 +111,23 @@ public static class SettingsUi
 
     public static TextBlock FogText(string text, double top = 0, double bottom = 0)
     {
-        return new TextBlock
+        var tb = new TextBlock
         {
             Text = text,
             FontSize = 12,
-            Foreground = Token("BrushFog", "#731F2733"),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, top, 0, bottom),
         };
+        return tb.Live(TextBlock.ForegroundProperty, "BrushFog");
     }
 
     /// <summary>Success/Error 提示面（订阅 VM 结果面；对齐 antd message + 卡片内 Alert 语义）。</summary>
     public static Border MessageStrip(SettingsCardBase vm)
     {
-        var success = new TextBlock
-        {
-            FontSize = 12,
-            Foreground = Token("BrushSuccess", "#52C41A"),
-            TextWrapping = TextWrapping.Wrap,
-            Visibility = Visibility.Collapsed,
-        };
-        var error = new TextBlock
-        {
-            FontSize = 12,
-            Foreground = Token("BrushDanger", "#FF4D4F"),
-            TextWrapping = TextWrapping.Wrap,
-            Visibility = Visibility.Collapsed,
-        };
+        var success = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed }
+            .Live(TextBlock.ForegroundProperty, "BrushSuccess");
+        var error = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed }
+            .Live(TextBlock.ForegroundProperty, "BrushDanger");
         void Update()
         {
             var errText = vm.Error ?? (vm as UpdateCheckerViewModel)?.ErrorText
@@ -147,14 +150,14 @@ public static class SettingsUi
     public static StackPanel HeaderRow(string title, params Control[] extras)
     {
         var p = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
-        p.Children.Add(new TextBlock
+        var tb = new TextBlock
         {
             Text = title,
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
-            Foreground = Token("BrushText", "#1F2733"),
             Margin = new Thickness(0, 0, 0, 4),
-        });
+        }.Live(TextBlock.ForegroundProperty, "BrushText");
+        p.Children.Add(tb);
         foreach (var c in extras)
         {
             c.HorizontalAlignment = HorizontalAlignment.Left;
@@ -174,7 +177,7 @@ public static class SettingsUi
             b.MinHeight = 28;
             if (primary)
             {
-                b.Background = Token("BrushPrimary", "#1677FF");
+                b.Live(System.Windows.Controls.Button.BackgroundProperty, "BrushPrimary");
                 b.Foreground = Brushes.White;
                 b.BorderThickness = new Thickness(0);
             }
@@ -188,7 +191,7 @@ public static class SettingsUi
     {
         var cb = new CheckBox { Content = label, Margin = new Thickness(0, 3, 16, 3) };
         if (Style("CheckBoxSoft") is { } boxStyle) cb.Style = boxStyle;
-        else cb.Foreground = Token("BrushText", "#1F2733");
+        else cb.Live(Control.ForegroundProperty, "BrushText");
         // 不显式设 DataContext：继承宿主面板（_form）的 DataContext（=卡 VM），
         // 表单回填时重置宿主 DataContext 即全量重拉
         _ = vm;
@@ -259,11 +262,10 @@ public static class SettingsUi
         {
             Text = label,
             Width = 150,
-            Foreground = Token("BrushFog", "#731F2733"),
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 12, 0),
-        });
+        }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         control.HorizontalAlignment = HorizontalAlignment.Left;
         control.VerticalAlignment = VerticalAlignment.Center;
         control.Margin = new Thickness(0);
@@ -281,16 +283,12 @@ public static class SettingsUi
         _ = protocolLabel;
         var list = new List<System.Windows.UIElement>
         {
-            new TextBlock
-            {
-                Text = "服务状态",
-                Foreground = Token("BrushFog", "#731F2733"),
-                Margin = new Thickness(0, 0, 0, 2),
-            }
+            new TextBlock { Text = "服务状态", Margin = new Thickness(0, 0, 0, 2) }
+                .Live(TextBlock.ForegroundProperty, "BrushFog")
         };
         if (status is null)
         {
-            list.Add(new TextBlock { Text = "未读取", Foreground = Token("BrushFog", "#731F2733") });
+            list.Add(new TextBlock { Text = "未读取" }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         }
         else
         {
@@ -302,8 +300,8 @@ public static class SettingsUi
                 FontWeight = FontWeights.SemiBold,
                 Margin = new Thickness(0, 0, 0, 2),
             });
-            list.Add(new TextBlock { Text = $"启动类型：{status.startType}", Foreground = Token("BrushFog", "#731F2733"), Margin = new Thickness(0, 0, 0, 2) });
-            list.Add(new TextBlock { Text = $"服务名：{status.name}", Foreground = Token("BrushFog", "#731F2733") });
+            list.Add(new TextBlock { Text = $"启动类型：{status.startType}", Margin = new Thickness(0, 0, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+            list.Add(new TextBlock { Text = $"服务名：{status.name}" }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         }
         return list;
     }
@@ -352,12 +350,11 @@ public static class SettingsUi
             FontSize = 12,
             Height = height,
             Text = string.Join(Environment.NewLine, lines),
-            Background = Token("BrushBg", "#F4FAFD"),
-            Foreground = Token("BrushText", "#1F2733"),
             BorderThickness = new Thickness(1),
-            BorderBrush = Token("BrushBorder", "#E4E9F0"),
         };
-        return tb;
+        return tb.Live(TextBox.BackgroundProperty, "BrushBg")
+                  .Live(TextBox.ForegroundProperty, "BrushText")
+                  .Live(TextBox.BorderBrushProperty, "BrushBorder");
     }
 }
 

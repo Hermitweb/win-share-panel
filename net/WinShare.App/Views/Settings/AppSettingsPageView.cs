@@ -29,7 +29,6 @@ public sealed class AppSettingsPageView : UserControl
     StackPanel? _securityPanel;
     StackPanel? _auditPanel;
     TextBox? _appLogBox;
-    ComboBox? _logFilter;
 
     public AppSettingsPageView()
     {
@@ -99,7 +98,14 @@ public sealed class AppSettingsPageView : UserControl
 
         // 三页签分组：原先 10 张卡纵向堆叠（实测 92% 控件在折叠线以下，用户看到「只有标题」）。
         // 页签后同一时刻只有当前页签内容进入视觉树。
-        var tabs = new TabControl { Margin = new Thickness(0, 4, 0, 0) };
+        // 页签包一层单 Star 行 Grid：Grid 把窗口剩余高度**实际约束**给 TabControl
+        // （DockPanel fill 子元素只有排列约束，量测仍 ∞ → TabControl 内层 ScrollViewer
+        //  拿到无限视口 → 页面无法滚动——实测 UIA 全部可滚动元素仅横向）
+        var tabHost = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+        tabHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        var tabs = new TabControl { Background = System.Windows.Media.Brushes.Transparent, BorderThickness = new Thickness(0) };
+        Grid.SetRow(tabs, 0);
+        tabHost.Children.Add(tabs);
         var tabItemStyle = SettingsUi.Style("GlassTabItem");
         TabItem MakeTab(string headerText, params UIElement[] cards)
         {
@@ -123,7 +129,7 @@ public sealed class AppSettingsPageView : UserControl
         tabs.Items.Add(MakeTab("偏好与运维", BuildUsageModeCard(), BuildAutoStartCard(),
             BuildAlertRulesCard(), BuildFirewallCard(), BuildSecurityCard()));
         tabs.Items.Add(MakeTab("日志与回收站", BuildJournalCard(), BuildAuditCard(), BuildAppLogCard()));
-        outer.Children.Add(tabs); // 最后一个子元素填满剩余空间
+        outer.Children.Add(tabHost); // 最后一个子元素填满剩余空间（内含 Star 行约束 TabControl）
         return outer;
     }
 
@@ -134,9 +140,8 @@ public sealed class AppSettingsPageView : UserControl
             Text = text,
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
-            Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-            Margin = new Thickness(0, 8, 0, 8),
-        };
+        }.Live(TextBlock.ForegroundProperty, "BrushText");
+
     }
 
     // ===== 关于卡（含 G2：UAC 重启入口——系统服务缺席时禁用并写明原因） =====
@@ -182,8 +187,8 @@ public sealed class AppSettingsPageView : UserControl
         row.Children.Add(new TextBlock
         {
             Text = "UAC 重启",
-            Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-        });
+        }.Live(TextBlock.ForegroundProperty, "BrushText"));
+
         relaunch.HorizontalAlignment = HorizontalAlignment.Left;
         row.Children.Add(relaunch);
         rows.Children.Add(row);
@@ -198,17 +203,14 @@ public sealed class AppSettingsPageView : UserControl
         row.Children.Add(new TextBlock
         {
             Text = label,
-            Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-            TextWrapping = TextWrapping.Wrap,
-        });
+        }.Live(TextBlock.ForegroundProperty, "BrushText"));
+
         var right = new StackPanel { Margin = new Thickness(0, 2, 0, 0) };
         right.Children.Add(new TextBlock
         {
             Text = value,
-            Foreground = SettingsUi.Token("BrushPrimary", "#1677FF"),
-            TextWrapping = TextWrapping.Wrap,
-            ToolTip = value,
-        });
+        }.Live(TextBlock.ForegroundProperty, "BrushPrimary"));
+
         if (copyable)
         {
             var copyBtn = SettingsUi.Button("复制", (_, _) =>
@@ -250,8 +252,8 @@ public sealed class AppSettingsPageView : UserControl
         {
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
-        };
+        }.Live(TextBlock.ForegroundProperty, "BrushFog");
+
         void Update()
         {
             var r = _vm.Update.Result;
@@ -264,7 +266,7 @@ public sealed class AppSettingsPageView : UserControl
             else if (r is null)
             {
                 status.Text = "尚未检查。点击「检查更新」查询 GitHub Releases 上的最新版本；只检查，不自动下载安装。";
-                status.Foreground = SettingsUi.Token("BrushFog", "#731F2733");
+                status.Live(TextBlock.ForegroundProperty, "BrushFog");
             }
             else if (r.unavailable)
             {
@@ -306,25 +308,6 @@ public sealed class AppSettingsPageView : UserControl
                 : SettingsUi.TagColor("red");
         };
         return SettingsUi.Card(p);
-    }
-
-    /// <summary>日志/审计导出为 .log 文件（对齐 TS 导出按钮的 download 语义：UTF-8 无 BOM 文本落盘）。</summary>
-    void SaveTextFile(string defaultName, string text)
-    {
-        try
-        {
-            var dlg = new SaveFileDialog
-            {
-                FileName = defaultName,
-                Filter = "日志文件|*.log",
-            };
-            if (dlg.ShowDialog() == true)
-                System.IO.File.WriteAllText(dlg.FileName, text);
-        }
-        catch (Exception e)
-        {
-            MessageBox.Show($"导出失败：{e.Message}");
-        }
     }
 
     void DoExportSettings()
@@ -511,7 +494,7 @@ public sealed class AppSettingsPageView : UserControl
         var vm = _vm.Firewall;
         // 纵向单列：预设下拉 / 起止端口 / 添加按钮 / 规则列表 / 消息条 自上而下逐行排列
         var pickRow = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
-        var combo = new ComboBox { Width = 300, HorizontalAlignment = HorizontalAlignment.Left };
+        var combo = new ComboBox { Style = SettingsUi.Style("ComboBoxSoft"), Width = 300, HorizontalAlignment = HorizontalAlignment.Left };
         combo.ItemsSource = FirewallCardViewModel.Presets.ToList();
         combo.DisplayMemberPath = nameof(FirewallPresetDef.Label);
         vm.PropertyChanged += (_, _) =>
@@ -574,14 +557,13 @@ public sealed class AppSettingsPageView : UserControl
                 row.Children.Add(new TextBlock
                 {
                     Text = r.name,
-                    Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-                    TextWrapping = TextWrapping.Wrap,
-                });
+                }.Live(TextBlock.ForegroundProperty, "BrushText"));
+
                 row.Children.Add(new TextBlock
                 {
                     Text = r.ports,
-                    Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
-                });
+                }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+
                 row.Children.Add(new TextBlock
                 {
                     Text = r.enabled ? "启用" : "已禁用",
@@ -671,9 +653,8 @@ public sealed class AppSettingsPageView : UserControl
                     Text = $"{issue.user}：{issue.issue}",
                     FontSize = 12,
                     TextWrapping = TextWrapping.Wrap,
-                    Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-                    Margin = new Thickness(0, 2, 0, 0),
-                });
+                }.Live(TextBlock.ForegroundProperty, "BrushText"));
+
                 panel.Children.Add(row);
             }
             panel.Children.Add(SettingsUi.FogText("建议：为共享账号设置口令并开启密码过期策略（本地用户页可改），不再使用的账号请禁用。", 4, 0));
@@ -747,15 +728,15 @@ public sealed class AppSettingsPageView : UserControl
                 Text = $"{entry.action} {entry.protocol.ToString().ToUpperInvariant()} {entry.name}",
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = SettingsUi.Token("BrushText", "#1F2733"),
-            });
+            }.Live(TextBlock.ForegroundProperty, "BrushText"));
+
             row.Children.Add(new TextBlock
             {
                 Text = entry.detail ?? "",
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
-            });
+            }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+
             JournalEntry captured = entry;
             var undo = SettingsUi.Button(entry.undoable ? "撤销" : "仅留档", async (_, _) =>
             {
@@ -794,14 +775,6 @@ public sealed class AppSettingsPageView : UserControl
                 var text = string.Join(Environment.NewLine, vm.Rows.Select(r =>
                     $"{(r.Time ?? "")} {r.Action} {r.Target} {r.Result} {(r.Detail ?? "")}"));
                 try { Clipboard.SetText(text); } catch { }
-            }),
-            // TS LogPanels.tsx#125「导出」：audit-{ts}.log 落盘
-            SettingsUi.Button("导出", (_, _) =>
-            {
-                var vm = _vm.Audit;
-                var text = string.Join(Environment.NewLine, vm.Rows.Select(r =>
-                    $"{(r.Time ?? "")} {r.Action} {r.Target} {r.Result} {(r.Detail ?? "")}"));
-                SaveTextFile($"audit-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.log", text);
             })));
         p.Children.Add(SettingsUi.FogText("最近 200 条操作审计（谁做了什么、结果与说明）。运行日志见下方「应用日志」。"));
         _auditPanel = new StackPanel();
@@ -822,26 +795,16 @@ public sealed class AppSettingsPageView : UserControl
             panel.Children.Add(SettingsUi.FogText("暂无审计记录"));
             return;
         }
-        // 结果过滤（对齐任务验收「级别过滤」在审计侧的落点）
-        var filter = new ComboBox { Width = 120, Margin = new Thickness(0, 0, 0, 4) };
-        filter.ItemsSource = new List<string> { "全部", "可撤销", "已应用" };
-        filter.SelectedIndex = 0;
         var list = new StackPanel();
-        void Rebuild(string f)
+        foreach (var r in rows)
         {
-            list.Children.Clear();
-            var shown = f is "全部" or "" ? rows : rows.Where(r => r.Result == f).ToList();
-            foreach (var r in shown)
-            {
                 // 纵向单列：时间 / 操作 / 对象 / 结果 / 说明 各占一行（过滤行为不变）
                 var row = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
                 row.Children.Add(new TextBlock
                 {
                     Text = r.Time ?? "",
-                    Foreground = SettingsUi.Token("BrushFog", "#731F2733"),
-                    FontFamily = new FontFamily("Consolas"),
-                    FontSize = 12,
-                });
+                }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+
                 row.Children.Add(new TextBlock { Text = r.Action ?? "-", FontSize = 12 });
                 row.Children.Add(new TextBlock
                 {
@@ -864,11 +827,7 @@ public sealed class AppSettingsPageView : UserControl
                 });
                 list.Children.Add(row);
             }
-        }
-        filter.SelectionChanged += (_, _) => Rebuild(filter.SelectedItem as string ?? "全部");
-        panel.Children.Add(filter);
-        panel.Children.Add(list);
-        Rebuild("全部");
+            panel.Children.Add(list);
     }
 
     // ===== 应用日志（app.log 最近 300 行；等宽滚动 + 级别过滤） =====
@@ -889,19 +848,9 @@ public sealed class AppSettingsPageView : UserControl
             SettingsUi.Button("复制", (_, _) =>
             {
                 try { Clipboard.SetText(_vm.AppLog.RawText); } catch { }
-            }),
-            // TS LogPanels.tsx#211「导出」：app-{ts}.log 落盘
-            SettingsUi.Button("导出", (_, _) =>
-            {
-                SaveTextFile($"app-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.log", _vm.AppLog.RawText);
             })));
         p.Children.Add(SettingsUi.FogText("显示 app.log 最近 300 行（%APPDATA%\\WinSharePanel\\logs\\）；含主进程运行日志，报错后可在此复制完整堆栈。"));
-        _logFilter = new ComboBox { Width = 120, Margin = new Thickness(0, 0, 0, 4) };
-        _logFilter.ItemsSource = new List<string> { "全部", "info", "warn", "error" };
-        _logFilter.SelectedIndex = 0;
-        _logFilter.SelectionChanged += (_, _) => RefreshAppLog();
         _appLogBox = SettingsUi.MonospaceView(_vm.AppLog.Lines);
-        p.Children.Add(_logFilter);
         p.Children.Add(_appLogBox);
         RefreshAppLog();
         return SettingsUi.Card(p);
@@ -911,7 +860,6 @@ public sealed class AppSettingsPageView : UserControl
     {
         var box = _appLogBox;
         if (box is null) return;
-        var level = _logFilter?.SelectedItem as string ?? "全部";
-        box.Text = string.Join(Environment.NewLine, _vm.AppLog.Filtered(level));
+        box.Text = string.Join(Environment.NewLine, _vm.AppLog.Lines);
     }
 }

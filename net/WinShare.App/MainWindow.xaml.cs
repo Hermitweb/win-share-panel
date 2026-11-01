@@ -28,6 +28,12 @@ public partial class MainWindow : Window
         _nav = nav;
         InitializeComponent();
 
+        // 滚轮跟随鼠标：WPF 把 MouseWheel 路由给键盘焦点元素——启动后焦点在侧栏导航
+        // ListView（仅横向滚动），滚轮从它向上冒泡永远不经过页面内容区的 ScrollViewer
+        // → 全应用滚轮失效（v2.0.1 用户实测「页面无法滚动」）。在窗口 Preview 隧道口
+        // 截获，转发给鼠标下方的第一个 ScrollViewer。
+        PreviewMouseWheel += OnPreviewMouseWheel;
+
         BuildNavDisplays();
 
         // 初始页：仪表板（TS 默认路由 '/'）
@@ -81,6 +87,40 @@ public partial class MainWindow : Window
         NavList.ItemsSource = AppServices.Registry.Pages
             .Select(p => new NavDisplay(p.route, p.glyph, AppServices.I18n.T(p.titleKey)))
             .ToList();
+    }
+
+    /// <summary>
+    /// 滚轮转发：仪表盘走渲染级滚动（其 ScrollViewer 已弃用），其余页面把滚轮
+    /// 原样重抛给鼠标下方的第一个 ScrollViewer，走 WPF 原生滚轮处理。
+    /// </summary>
+    void OnPreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        if (e.Handled) return;
+        for (var d = Mouse.DirectlyOver as System.Windows.DependencyObject;
+             d is not null;
+             d = d is System.Windows.Media.Visual v ? System.Windows.Media.VisualTreeHelper.GetParent(v) : null)
+        {
+            if (d is Views.DashboardPageView dash)
+            {
+                dash.ScrollBy(e.Delta);
+                e.Handled = true;
+                return;
+            }
+            if (d is System.Windows.Controls.ScrollViewer sv && sv.ScrollableHeight > 0)
+            {
+                // 事件转发：把滚轮原样重抛到目标 ScrollViewer，走 WPF 原生滚轮处理
+                // （程序化 ScrollToVerticalOffset/LineDown 在仪表盘的 viewer 上实测不落盘——
+                //  ScrollContentPresenter 状态与属性值脱节，根因待查，见 2.0.2 遗留）
+                var fwd = new System.Windows.Input.MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+                {
+                    RoutedEvent = System.Windows.UIElement.MouseWheelEvent,
+                    Source = e.OriginalSource,
+                };
+                sv.RaiseEvent(fwd);
+                e.Handled = true;
+                return;
+            }
+        }
     }
 
     void OnRouteChanged(string route)

@@ -30,6 +30,18 @@ public partial class DashboardPageView : UserControl
         ChartPngCapture.Register("topshares", TopChart);
     }
 
+    /// <summary>
+    /// 代码级滚动（滚轮由 MainWindow 转发）：滚动与内容渲染彻底分离——
+    /// 内容（~6 张卡）挂载后只渲染一次；CanContentScroll=False 的像素滚动由
+    /// WPF 合成器平移已光栅化的内容（ScrollContentPresenter 的 presentation
+    /// transform），滚轮 tick 不触发任何重渲染/重布局。偏移状态由 ScrollViewer
+    /// 单一代码路径读写（本方法 + 系统滚动条），无其它实现。
+    /// </summary>
+    public void ScrollBy(double delta)
+    {
+        PageScroll.ScrollToVerticalOffset(Math.Max(0, PageScroll.VerticalOffset - delta));
+    }
+
     protected override void OnInitialized(EventArgs e)
     {
         base.OnInitialized(e);
@@ -221,13 +233,6 @@ public partial class DashboardPageView : UserControl
     }
 
     // ===== 命令转发（按钮 → VM） =====
-
-    async void OnRefresh(object sender, RoutedEventArgs e)
-    {
-        if (_vm is null) return;
-        await _vm.RefreshAsync();
-        ApplyVm();
-    }
 
     async void OnExportPng(object sender, RoutedEventArgs e)
     {

@@ -58,7 +58,8 @@ SetupIconFile={#IconFile}
 UninstallDisplayIcon={app}\{#AppExe}
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
+; 简体中文为唯一/默认语言（自备语言包随编译嵌入；缺失消息回退英文）
+Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

@@ -148,13 +148,6 @@ public partial class SessionsPageView : UserControl
         ApplyVm();
     }
 
-    async void OnRefresh(object sender, RoutedEventArgs e)
-    {
-        if (_vm is null) return;
-        await _vm.RefreshNowCommand.ExecuteAsync();
-        ApplyVm();
-    }
-
     void OnProto(object sender, RoutedEventArgs e)
     {
         if (_vm is null) return;

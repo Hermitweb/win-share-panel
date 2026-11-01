@@ -310,11 +310,13 @@ public sealed class SmbService : ISmbService
             string? nv = PsGate.PsNumber(mtp);
             if (nv is not null) parts.Add($"-MaxThreadsPerQueue {nv}");
         }
-        // 枚举字段（白名单校验 + 引号包裹）
+        // 枚举字段 → 布尔：Set-SmbServerConfiguration -RequestCompression 是 [Boolean] 参数，
+        // 引号包裹的字符串（'Off'）无法 String→Boolean 转换（v2.0.2 用户实测 PS 报错，
+        // 预设应用整体失败）。映射：Off=$false，Allow/Require=$true。
         if (config.requestCompression is RequestCompression rc && Can("RequestCompression"))
         {
-            string? ev = PsGate.PsEnum(rc.ToString(), CompressionOptions);
-            if (ev is not null) parts.Add($"-RequestCompression {PsGate.PsQuote(ev)}");
+            var boolLit = rc == RequestCompression.Off ? "$false" : "$true";
+            parts.Add($"-RequestCompression {boolLit}");
         }
         parts.Add("-Force");
         if (skipped.Count > 0)

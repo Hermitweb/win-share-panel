@@ -4,6 +4,38 @@
 
 ## [Unreleased]
 
+## [WPF 2.0.2] - 2026-11-01
+
+用户反馈四项修复 + 安装体验：
+
+- **主题热切换残留修复**：代码生成的 UI 此前用 `SettingsUi.Token()` 在构建期拍主题快照，
+  切换主题后残留旧色（实测浅色页面残留深色卡片、暗色页面残留浅色）。改造为
+  `SetResourceReference` 活引用（新增 `SettingsUi.Live` 扩展）：SettingsUi 全部工厂 +
+  设置页 18 处静态前景全部实时跟随主题；语义状态色保留快照（随数据刷新自愈）
+- **暗色白条修复**：两个设置页的 `TabControl` 默认白底改为透明（暗色下标题与内容间的刺眼白条）
+- **漏样式控件补齐**：审计日志级别过滤、应用日志过滤、备份恢复下拉框套 `ComboBoxSoft`
+  （此前深色下是系统白色下拉）
+- **安装向导默认中文**：新增自维护 `installer/ChineseSimplified.isl`（部分覆盖、缺失回退
+  英文——官方 issrc 已不含简中翻译），安装向导全程中文
+- **页面级刷新按钮精简**：仪表盘/共享/用户/会话/服务配置页头的「刷新」移除——数据刷新
+  统一走顶栏「刷新」/F5/命令面板（审计日志卡内的局部刷新保留）
+- **日志系统精简**：应用日志/审计日志两张卡移除级别/结果过滤下拉与「导出」按钮
+  （复制已覆盖导出语义），保留 打开日志文件夹/刷新/复制 与内容本体
+- **暗色纯黑文字修复**：仪表盘卡片标题等「未显式着色」的文本落到 WPF 默认纯黑——
+  MainWindow 根容器挂 `TextElement.Foreground=BrushText`，全应用未着色文本继承主题字色
+- **配置预设下拉显示 record ToString**（`ConfigPreset { Id = ... }`）：重写
+  `ConfigPreset.ToString()=Name`，下拉正确显示预设名（自定义 ComboBox 模板的
+  SelectionBoxItemTemplate 路径对 DisplayMemberPath 不生效）
+- **滚轮全局失效修复**：WPF 把滚轮路由给键盘焦点元素——启动后焦点在侧栏导航（仅横向
+  滚动），页面 ScrollViewer 永远收不到滚轮。MainWindow `PreviewMouseWheel` 隧道口截获
+  并转发给鼠标下方的 ScrollViewer（应用设置页 UIA+滚轮实测已滚动）；转发优先走原生偏移，
+  写入被吞时自动降级为 TranslateTransform 渲染级滚动（仪表盘 ScrollViewer 的
+  ScrollContentPresenter 状态与属性值脱节的深层异常，已隔离并记录）
+- 页面无数据说明：数据链路已验证正常（探针走应用同款服务栈实测 USERS=8/GROUPS=23、
+  日志 getDashboardStats/adapterList 每轮成功）；0 共享/0 会话为本机真实状态（测试共享
+  已删）+ PS 查询 2~4s 启动延迟。**若安装版持续无数据：火绒会拦截未签名 exe 的
+  PowerShell 子进程调用，请将 WinShare.App.exe 加入信任区**（App.xaml.cs 注释同源）
+
 ## [WPF 2.0.1] - 2026-11-01
 
 WPF 版本线独立发版：`wpf-v*` tag 触发专属流水线，版本自 wpf-1.3.0 跳 **2.0.0**（与 Electron
