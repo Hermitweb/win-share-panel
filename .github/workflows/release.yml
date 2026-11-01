@@ -193,6 +193,7 @@ jobs:
             "/DArchLabel=$label",
             "/DPublishDir=$PWD/publish/$label",
             "/DOutputDir=$PWD/release",
+            "/DIconFile=$PWD/resources/icon.ico",
             'net/WinShare.App/installer/wpf.iss'
           )
           & $iscc @isccArgs

@@ -49,8 +49,12 @@ WizardStyle=modern
 DisableProgramGroupPage=yes
 ; 共享管理需要管理员令牌（与“以管理员身份重启”语义一致）
 PrivilegesRequired=admin
-; 图标：iss 位于 net/WinShare.App/installer/，仓库根资源在其上两级
-SetupIconFile=..\..\resources\icon.ico
+; 图标：绝对路径由流水线 /DIconFile 注入（Inno 会把相对路径解析到进程 CWD 而非
+; iss 所在目录——CI 上该相对路径曾报“找不到路径”，勿改回相对写法）
+#ifndef IconFile
+#define IconFile "icon.ico"
+#endif
+SetupIconFile={#IconFile}
 UninstallDisplayIcon={app}\{#AppExe}
 
 [Languages]
