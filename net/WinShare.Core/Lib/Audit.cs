@@ -98,4 +98,28 @@ public static class Audit
             return "";
         }
     }
+
+    /// <summary>
+    /// 清空审计日志（v2.1 面板解锁：「审计日志」卡清空按钮；调用方需先二次确认）。
+    /// 当前 audit.log 截断为空；已轮转归档保留。返回是否成功（失败由调用方提示）。
+    /// </summary>
+    public static bool Clear()
+    {
+        lock (Gate)
+        {
+            try
+            {
+                string file = LogFile();
+                if (File.Exists(file))
+                {
+                    using var fs = new FileStream(file, FileMode.Truncate, FileAccess.Write, FileShare.ReadWrite);
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 }

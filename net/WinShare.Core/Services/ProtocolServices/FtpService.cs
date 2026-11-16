@@ -211,6 +211,16 @@ public sealed class FtpService : IFtpService
         }
     }
 
+    /// <summary>修改服务启动类型（v2.1 面板解锁；Set-Service -StartupType + 回读校验）。</summary>
+    public async Task SetServiceStartTypeAsync(string startType)
+    {
+        if (!await ServiceExistsAsync())
+        {
+            throw Errors.CommandFailed("ftpsvc 服务未安装，请先安装 FTP 角色服务");
+        }
+        await ServiceStartType.SetAsync(_ps, ServiceName, startType, "FTP");
+    }
+
     /// <summary>
     /// TS: ensureFtpSectionsUnlocked()——overrideModeDefault=Deny 的节需 appcmd unlock 后才能在服务器级 Set；
     /// 同时解锁 authorization 供 ftpAdapter 站点级 setPermissions 复用。

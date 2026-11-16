@@ -11,7 +11,8 @@ public static class Transfer
     public const int MaxJsonBytes = 512 * 1024;
 }
 
-/// <summary>设置导出负载（TS: transfer.ts SettingsPayload；刻意不含 dashboardHistory/journal）。</summary>
+/// <summary>设置导出负载（TS: transfer.ts SettingsPayload；刻意不含 dashboardHistory/journal）。
+/// v2.1：advanced 为可选扩展段（旧导出文件无此键 → 导入忽略；新文件在 Electron 版导入时未知键被其 normalize 忽略）。</summary>
 public record SettingsPayload
 {
     public ThemeMode theme { get; init; }
@@ -19,6 +20,8 @@ public record SettingsPayload
     public IReadOnlyList<string> pinned { get; init; }
     public AlertRules alertRules { get; init; }
     public bool autoStart { get; init; }
+    /// <summary>v2.1：高级设置（更新源/密码阈值/日志轮转/FTP 被动段）。</summary>
+    public AdvancedSettings? advanced { get; init; }
 }
 
 /// <summary>设置导出包（TS: transfer.ts SettingsBundle）。</summary>

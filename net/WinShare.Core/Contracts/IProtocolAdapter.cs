@@ -32,6 +32,8 @@ public interface IProtocolAdapter
     Task RestartServiceAsync();
     /// <summary>TS: 原版无此成员（UI「停止」按钮当时被禁用）；补齐服务层能力后启用。</summary>
     Task StopServiceAsync();
+    /// <summary>修改服务启动类型（v2.1 面板解锁：Set-Service -StartupType；白名单 Automatic/Manual/Disabled）。</summary>
+    Task SetServiceStartTypeAsync(string startType);
     Task<object?> GetConfigAsync();
     Task SetConfigAsync(object? config);
     /// <summary>TS: defaultConfig?()（同步默认配置对象，供 UI 表单初始化/重置预填）。</summary>

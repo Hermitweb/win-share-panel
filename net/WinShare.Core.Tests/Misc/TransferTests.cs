@@ -170,13 +170,13 @@ public class TransferTests
 
     // ===== importSettings：逐字段收敛（合法应用、非法忽略）=====
 
-    // [Source: transfer.test.ts#importSettings：逐字段收敛 > 完整文件：apply 全部五项，并把 patch 交给 saveState]
+    // [Source: transfer.test.ts#importSettings：逐字段收敛 > 完整文件：apply 全部可识别项（v2.1 起 5+1=6，含 advanced），并把 patch 交给 saveState]
     [Fact]
     public void Import_FullFileAppliesAllFive()
     {
         _store.Saved.Clear();
         SettingsImportResult r = _svc.ImportSettings(_svc.ExportSettings());
-        Assert.Equal(new[] { "theme", "advancedMode", "pinned", "alertRules", "autoStart" }, r.applied.ToArray());
+        Assert.Equal(new[] { "theme", "advancedMode", "pinned", "alertRules", "autoStart", "advanced" }, r.applied.ToArray());
         Assert.Single(_store.Saved);
         AppStatePatch p = _store.Saved[0];
         Assert.Equal(ThemeMode.Dark, p.theme);
@@ -188,14 +188,18 @@ public class TransferTests
         Assert.True(p.alertRules.weakPasswordAlert);
         Assert.Equal(5, p.alertRules.diskLowGb);
         Assert.Equal(true, p.autoStart);
+        // v2.1：advanced 段随导出导入（此处导出为默认值）
+        Assert.NotNull(p.advanced);
+        Assert.Equal("Hermitweb/win-share-panel", p.advanced!.updateRepo);
+        Assert.Equal(180, p.advanced.passwordAgeWarnDays);
     }
 
-    // [Source: transfer.test.ts#importSettings：逐字段收敛 > 往返幂等：export → import 得到的 patch 与当前设置一致]
+    // [Source: transfer.test.ts#importSettings：逐字段收敛 > 往返幂等：export → import 得到的 patch 与当前设置一致（v2.1 起 6 项）]
     [Fact]
     public void Import_RoundTripIdempotent()
     {
         SettingsImportResult r = _svc.ImportSettings(_svc.ExportSettings());
-        Assert.Equal(5, r.applied.Count);
+        Assert.Equal(6, r.applied.Count);
         AppStatePatch p = _store.Saved[0];
         Assert.Equal(ThemeMode.Dark, p.theme);
         Assert.Equal(false, p.advancedMode);

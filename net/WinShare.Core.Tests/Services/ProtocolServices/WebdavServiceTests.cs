@@ -279,7 +279,8 @@ public class WebdavServiceTests
             ps.LastVoid.Command);
     }
 
-    // [Source: webdav.ts#setConfig —— 只读字段（globalAuthoringRulesCount/压缩/requireSSL）不写入]
+    // [v2.1 语义变更：压缩/requireSSL 由只读升级为可写（12 字段表 + sslFlags 专用分支 = 13 段写入）；
+    // 派生计数 globalAuthoringRulesCount 仍不参与写入]
     [Fact]
     public async Task SetConfig_FullConfig_SkipsReadOnlyFields()
     {
@@ -288,11 +289,11 @@ public class WebdavServiceTests
         await svc.SetConfigAsync(svc.DefaultConfig());
 
         string cmd = ps.LastVoid.Command;
-        Assert.Equal(10, PsCount.Of(cmd, "Set-WebConfigurationProperty"));
+        Assert.Equal(13, PsCount.Of(cmd, "Set-WebConfigurationProperty"));
         Assert.DoesNotContain("globalAuthoringRulesCount", cmd, StringComparison.Ordinal);
-        Assert.DoesNotContain("requireSSL", cmd, StringComparison.Ordinal);
-        Assert.DoesNotContain("doStaticCompression", cmd, StringComparison.Ordinal);
-        Assert.DoesNotContain("doDynamicCompression", cmd, StringComparison.Ordinal);
+        Assert.Contains("-Name doStaticCompression -Value $true", cmd, StringComparison.Ordinal);
+        Assert.Contains("-Name doDynamicCompression -Value $false", cmd, StringComparison.Ordinal);
+        Assert.Contains("-Name sslFlags -Value 'None'", cmd, StringComparison.Ordinal);
         Assert.Contains("-Name maxAllowedContentLength -Value 30000000", cmd, StringComparison.Ordinal);
         Assert.Contains("-Name enabled -Value $false", cmd, StringComparison.Ordinal);
     }
@@ -310,17 +311,76 @@ public class WebdavServiceTests
         Assert.Contains("unlock config", ps.VoidCalls[0].Command, StringComparison.Ordinal);
     }
 
-    // [Source: webdav.ts#restoreDefault —— 写默认配置（全 10 可写字段）并回传默认值]
+    // [Source: webdav.ts#restoreDefault —— 写默认配置（v2.1：全 12 可写字段 + sslFlags 分支）并回传默认值]
     [Fact]
     public async Task RestoreDefault_WritesAllWritableFieldsAndReturnsDefaults()
     {
         var ps = new PsRecorder();
         WebdavServerConfig c = await Make(ps).RestoreDefaultAsync();
 
-        Assert.Equal(10, PsCount.Of(ps.LastVoid.Command, "Set-WebConfigurationProperty"));
+        Assert.Equal(13, PsCount.Of(ps.LastVoid.Command, "Set-WebConfigurationProperty"));
         Assert.Contains("-Name maxUrl -Value 260", ps.LastVoid.Command, StringComparison.Ordinal);
         Assert.Equal(260, c.maxUrlLength);
         Assert.Equal(30000000L, c.maxAllowedContentLength);
         Assert.True(c.windowsEnabled);
+        Assert.True(c.enableStaticCompression);
+        Assert.False(c.requireSSL);
+    }
+
+    // ===== v2.1：全局 Authoring 规则管理（入参门禁 + 命令串 + access 收敛） =====
+
+    // 扩展名/路径含非法字符 → 拒绝且不触 PS
+    [Theory]
+    [InlineData("tx;t")]
+    [InlineData(".t$(x)")]
+    [InlineData("")]
+    public async Task AddAuthoringRule_InvalidToken_RejectedBeforePs(string ext)
+    {
+        var ps = new PsRecorder();
+        AppException ex = await Assert.ThrowsAsync<AppException>(
+            () => Make(ps).AddAuthoringRuleAsync(new WebdavAuthoringRuleOpts { extension = ext, path = "*", access = "Read", users = "*" }));
+        Assert.Equal("INVALID_PARAM", ex.Code);
+        Assert.Empty(ps.VoidCalls);
+    }
+
+    // access 白名单收敛：非法 token 剔除、拼写规范化；命令含引号包裹的整段 -Value
+    [Fact]
+    public async Task AddAuthoringRule_NormalizesAccessAndBuildsCommand()
+    {
+        var ps = new PsRecorder();
+        await Make(ps).AddAuthoringRuleAsync(new WebdavAuthoringRuleOpts
+        {
+            extension = ".txt",
+            path = "*",
+            access = "read,BANANA,Write",
+            users = "*",
+        });
+        Assert.Equal(2, ps.VoidCalls.Count); // 先解锁再添加
+        string cmd = ps.LastVoid.Command;
+        Assert.Contains("Add-WebConfigurationProperty", cmd, StringComparison.Ordinal);
+        Assert.Contains("'Read,Write'", cmd, StringComparison.Ordinal);
+        Assert.Contains("'.txt'", cmd, StringComparison.Ordinal);
+        Assert.DoesNotContain("BANANA", cmd, StringComparison.Ordinal);
+    }
+
+    // 删除规则按 extension+path 定位（-AtElement）
+    [Fact]
+    public async Task RemoveAuthoringRule_BuildsAtElementCommand()
+    {
+        var ps = new PsRecorder();
+        await Make(ps).RemoveAuthoringRuleAsync("*", "*");
+        Assert.Equal(2, ps.VoidCalls.Count);
+        Assert.Contains("Remove-WebConfigurationProperty", ps.LastVoid.Command, StringComparison.Ordinal);
+        Assert.Contains("-AtElement @{extension='*'; path='*'}", ps.LastVoid.Command, StringComparison.Ordinal);
+    }
+
+    // requireSSL 特殊分支：勾选写 'Ssl'，取消写 'None'（集合语义不走通用布尔门禁）
+    [Fact]
+    public async Task SetConfig_RequireSslOnly_WritesSslFlagsToken()
+    {
+        var ps = new PsRecorder();
+        await Make(ps).SetConfigAsync(new WebdavConfigPatch { requireSSL = true });
+        Assert.Equal(2, ps.VoidCalls.Count);
+        Assert.Contains("-Name sslFlags -Value 'Ssl'", ps.LastVoid.Command, StringComparison.Ordinal);
     }
 }

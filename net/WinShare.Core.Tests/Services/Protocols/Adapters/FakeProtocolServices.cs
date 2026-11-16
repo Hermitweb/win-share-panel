@@ -21,6 +21,7 @@ internal sealed class FakeNfsService : INfsService
     public Task RestartServiceAsync() { RestartCalls++; return Task.CompletedTask; }
     public Task StartServiceAsync() => Task.CompletedTask;
     public Task StopServiceAsync() => Task.CompletedTask;
+    public Task SetServiceStartTypeAsync(string startType) => Task.CompletedTask;
 }
 
 internal sealed class FakeFtpService : IFtpService
@@ -37,6 +38,7 @@ internal sealed class FakeFtpService : IFtpService
     public Task RestartServiceAsync() { RestartCalls++; return Task.CompletedTask; }
     public Task StartServiceAsync() => Task.CompletedTask;
     public Task StopServiceAsync() => Task.CompletedTask;
+    public Task SetServiceStartTypeAsync(string startType) => Task.CompletedTask;
     public FtpServerConfig DefaultConfig() => Default;
     public Task EnsureFtpSectionsUnlockedAsync() { UnlockCalls++; return Task.CompletedTask; }
     public Task<FtpServerConfig> GetConfigAsync() => Task.FromResult(Config);
@@ -58,9 +60,13 @@ internal sealed class FakeWebdavService : IWebdavService
     public Task RestartServiceAsync() { RestartCalls++; return Task.CompletedTask; }
     public Task StartServiceAsync() => Task.CompletedTask;
     public Task StopServiceAsync() => Task.CompletedTask;
+    public Task SetServiceStartTypeAsync(string startType) => Task.CompletedTask;
     public WebdavServerConfig DefaultConfig() => Default;
     public Task EnsureWebdavSectionsUnlockedAsync() { UnlockCalls++; return Task.CompletedTask; }
     public Task<WebdavServerConfig> GetConfigAsync() => Task.FromResult(Config);
     public Task SetConfigAsync(WebdavServerConfig config) { AppliedConfig = config; return Task.CompletedTask; }
     public Task<WebdavServerConfig> RestoreDefaultAsync() => Task.FromResult(Restored);
+    public Task<IReadOnlyList<WebdavAuthoringRule>> ListAuthoringRulesAsync() => Task.FromResult<IReadOnlyList<WebdavAuthoringRule>>(Array.Empty<WebdavAuthoringRule>());
+    public Task AddAuthoringRuleAsync(WebdavAuthoringRuleOpts rule) => Task.CompletedTask;
+    public Task RemoveAuthoringRuleAsync(string extension, string path) => Task.CompletedTask;
 }

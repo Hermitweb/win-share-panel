@@ -198,6 +198,40 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>v2.1 面板解锁：关闭单个打开文件（TS closeFile(fileId)；经 SMB adapter 通道，成功后连带刷新）。</summary>
+    public async Task<string> CloseFileAsync(string fileId)
+    {
+        if (_protocol is null) return "关闭打开文件需要协议路由契约服务（未接入）";
+        try
+        {
+            await _protocol.GetAdapter(Protocol.Smb).CloseFileAsync(fileId);
+            await RefreshOpenFilesAsync();
+            await RefreshConnectionsAsync();
+            return "已关闭该打开文件";
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+    }
+
+    /// <summary>v2.1 面板解锁：断开单个连接（TS closeSession(clientUserName)；经 SMB adapter 通道，成功后连带刷新）。</summary>
+    public async Task<string> DisconnectConnectionAsync(string clientUserName)
+    {
+        if (_protocol is null) return "断开连接需要协议路由契约服务（未接入）";
+        try
+        {
+            await _protocol.GetAdapter(Protocol.Smb).CloseSessionAsync(clientUserName);
+            await RefreshConnectionsAsync();
+            await RefreshOpenFilesAsync();
+            return $"已断开 {clientUserName} 的连接";
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+    }
+
     // ===== 站点配置（非 SMB；TS handleProtoSave → adapter.update(UpdateShareInput)） =====
     public string SslPolicyText { get; set; }
     public string AuthModeText { get; set; }

@@ -23,6 +23,8 @@ public static class SettingsServiceSlots
     public static IPresetService? PresetService { get; set; }
     /// <summary>SMB 服务（ISmbService，快照历史 Tab 数据源）。</summary>
     public static ISmbService? SmbService { get; set; }
+    /// <summary>WebDAV 服务（IWebdavService，v2.1：服务器级 Authoring 规则管理数据源）。</summary>
+    public static IWebdavService? WebdavService { get; set; }
 
     /// <summary>测试钩子：全部槽位复位为 null（对齐契约服务缺席的出厂态）。</summary>
     public static void ResetForTesting()
@@ -37,5 +39,6 @@ public static class SettingsServiceSlots
         JournalService = null;
         PresetService = null;
         SmbService = null;
+        WebdavService = null;
     }
 }

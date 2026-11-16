@@ -277,8 +277,12 @@ public static class SettingsUi
     /// 服务状态面的子元素序列（刷新用：调用方 Clear 自身面板后 Add 这些**新构造**的子元素。
     /// 切勿把「另一个已挂载面板」的 Children 逐个搬过来——WPF 逻辑父唯一，会抛
     /// InvalidOperationException「指定的元素已经是另一元素的逻辑子元素」）。
+    /// applyStartType 非空时「启动类型」行升级为下拉+应用按钮（v2.1 面板解锁）；
+    /// 传 null 保持纯展示（测试/降级路径）。
     /// </summary>
-    public static List<System.Windows.UIElement> SvcStatusStripChildren(WinShare.Core.Contracts.ServiceStatus? status, string protocolLabel)
+    public static List<System.Windows.UIElement> SvcStatusStripChildren(
+        WinShare.Core.Contracts.ServiceStatus? status, string protocolLabel,
+        Func<string, Task>? applyStartType = null)
     {
         _ = protocolLabel;
         var list = new List<System.Windows.UIElement>
@@ -300,10 +304,66 @@ public static class SettingsUi
                 FontWeight = FontWeights.SemiBold,
                 Margin = new Thickness(0, 0, 0, 2),
             });
-            list.Add(new TextBlock { Text = $"启动类型：{status.startType}", Margin = new Thickness(0, 0, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+            list.Add(BuildStartTypeRow(status.startType, applyStartType));
             list.Add(new TextBlock { Text = $"服务名：{status.name}" }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         }
         return list;
+    }
+
+    /// <summary>启动类型行：applyStartType 缺席 → 纯文本；否则下拉（自动/手动/禁用）+ 应用按钮。</summary>
+    private static System.Windows.UIElement BuildStartTypeRow(string startType, Func<string, Task>? applyStartType)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
+        row.Children.Add(new TextBlock
+        {
+            Text = $"启动类型：{startType}",
+            VerticalAlignment = VerticalAlignment.Center,
+        }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+        if (applyStartType is null) return row;
+
+        ComboBox cb = new()
+        {
+            Style = (Style?)System.Windows.Application.Current?.TryFindResource("ComboBoxSoft"),
+            Width = 90,
+            Margin = new Thickness(8, 0, 6, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "选择后点击「应用」写入服务启动类型（对运行中的服务下次启动生效）",
+        };
+        foreach (var (label, token) in new[] { ("自动", "Automatic"), ("手动", "Manual"), ("禁用", "Disabled") })
+        {
+            cb.Items.Add(new ComboBoxItem { Content = label, Tag = token });
+        }
+        foreach (ComboBoxItem item in cb.Items)
+        {
+            if (string.Equals((string?)item.Tag, startType, StringComparison.OrdinalIgnoreCase))
+            {
+                cb.SelectedItem = item;
+                break;
+            }
+        }
+        row.Children.Add(cb);
+
+        var apply = new Button
+        {
+            Content = "应用",
+            Style = (Style?)System.Windows.Application.Current?.TryFindResource("DashButton"),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        apply.Click += async (_, _) =>
+        {
+            if (cb.SelectedItem is not ComboBoxItem sel) return;
+            string token = (string)sel.Tag;
+            if (token == "Disabled")
+            {
+                var ok = System.Windows.MessageBox.Show(
+                    "禁用自启动后服务将不再随系统启动（现存连接不受影响），继续？",
+                    "启动类型确认", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (ok != System.Windows.MessageBoxResult.Yes) return;
+            }
+            await applyStartType(token);
+        };
+        row.Children.Add(apply);
+        return row;
     }
 
     /// <summary>

@@ -60,6 +60,9 @@ public sealed class StubUserService : IUserService
         MaybeFail("Ntfs:" + path);
         return Task.FromResult(Ntfs ?? new NtfsAcl { path = path, entries = Array.Empty<NtfsAclEntry>() });
     }
+    public Task GrantNtfsAsync(string path, string account, string rights, bool inheritDirs, bool inheritFiles) { MaybeFail($"NtfsGrant:{path}:{account}"); return Task.CompletedTask; }
+    public Task RevokeNtfsAsync(string path, string account) { MaybeFail($"NtfsRevoke:{path}:{account}"); return Task.CompletedTask; }
+    public Task SetNtfsInheritanceAsync(string path, bool enabled) { MaybeFail($"NtfsInherit:{path}:{enabled}"); return Task.CompletedTask; }
 }
 
 /// <summary>IShareService 最小 stub（矩阵共享列 + 权限）。</summary>

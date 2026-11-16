@@ -176,6 +176,8 @@ public class TrendSamplerTests
         public Task<bool> IsAdminAsync() => throw new NotImplementedException();
         public Task RelaunchAsAdminAsync() => throw new NotImplementedException();
         public Task<string> GetAuditLogAsync() => throw new NotImplementedException();
+        public Task<bool> ClearAppLogAsync() => throw new NotImplementedException();
+        public Task<bool> ClearAuditLogAsync() => throw new NotImplementedException();
         public Task<HealthCheckResult> HealthCheckAsync() => throw new NotImplementedException();
         public Task<OsInfo> GetOsInfoAsync(OsInfoOptions? opts = null) => throw new NotImplementedException();
         public AppState LoadState() => throw new NotImplementedException();

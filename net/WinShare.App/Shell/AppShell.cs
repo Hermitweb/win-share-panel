@@ -51,24 +51,23 @@ public static class AppShell
 
     /// <summary>
     /// 在资源管理器中打开应用日志目录。原 App/MainWindow/CommandPalette/AppSettings 四处
-    /// 各持一份同构 Process.Start 复制，现统一收口；目录不存在则先创建。
-    /// 进程经参数列表（ArgumentList）启动，不经 shell 拼接；打开失败静默（对齐 TS catch 语义）。
+    /// 各持一份同构打开逻辑复制，现统一收口；目录不存在则先创建。
+    /// v2.1.0 审计加固：Process.Start（含 ArgumentList 加固形态）被安全扫描判为命令注入高危，
+    /// 改走 WinRT Launcher——由系统组件解析并打开路径，无进程参数注入面。
+    /// LaunchFolderPathAsync 为 17134+ API（SupportedOSPlatformVersion=14393 → 版本守卫消平台警告）；
+    /// 打开失败静默（对齐 TS catch 语义）。
     /// </summary>
-    public static void OpenLogDirectory()
+    public static async void OpenLogDirectory()
     {
         try
         {
             var dir = LogSink.LogDir();
             System.IO.Directory.CreateDirectory(dir);
             if (!System.IO.Directory.Exists(dir)) return;
-            var psi = new System.Diagnostics.ProcessStartInfo
+            if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17134))
             {
-                FileName = "explorer.exe",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-            psi.ArgumentList.Add(dir);
-            System.Diagnostics.Process.Start(psi);
+                await Windows.System.Launcher.LaunchFolderPathAsync(dir);
+            }
         }
         catch
         {

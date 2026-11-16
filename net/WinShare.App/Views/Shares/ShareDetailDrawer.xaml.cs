@@ -168,6 +168,37 @@ public partial class ShareDetailDrawer : UserControl
         RefreshDynamicVm();
     }
 
+    /// <summary>v2.1 面板解锁：逐行关闭打开文件（行 DataContext=SmbOpenFile，含 fileId）。</summary>
+    async void OnCloseFile(object sender, RoutedEventArgs e)
+    {
+        if (_vm is not { } vm) return;
+        if ((sender as FrameworkElement)?.DataContext is not SmbOpenFile file) return;
+        if (string.IsNullOrEmpty(file.fileId))
+        {
+            LSaveSmbMsg.Text = "该文件缺少 fileId，无法关闭";
+            return;
+        }
+        var res = MessageBox.Show(
+            $"关闭 {file.clientUserName} 打开的文件？\n{file.path}\n\n可能导致客户端数据丢失",
+            "确认关闭", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (res != MessageBoxResult.OK) return;
+        LSaveSmbMsg.Text = await vm.CloseFileAsync(file.fileId);
+        RefreshDynamicVm();
+    }
+
+    /// <summary>v2.1 面板解锁：逐行断开连接（行 DataContext=ClientConnection，按 clientUserName 关会话）。</summary>
+    async void OnDisconnectConn(object sender, RoutedEventArgs e)
+    {
+        if (_vm is not { } vm) return;
+        if ((sender as FrameworkElement)?.DataContext is not ClientConnection conn) return;
+        var res = MessageBox.Show(
+            $"断开 {conn.clientUserName} 的会话？该用户打开的 {conn.openFiles} 个文件将被强制关闭。",
+            "确认断开", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (res != MessageBoxResult.OK) return;
+        LSaveSmbMsg.Text = await vm.DisconnectConnectionAsync(conn.clientUserName);
+        RefreshDynamicVm();
+    }
+
     // ===== 站点配置（TS handleProtoSave） =====
     void OnSiteBrowse(object sender, RoutedEventArgs e)
     {

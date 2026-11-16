@@ -99,6 +99,81 @@ public partial class SharePermissionDrawer : UserControl
         NtfsGrid.ItemsSource = vm.Ntfs?.entries.ToList();
         var has = vm.Ntfs?.entries is { Count: > 0 };
         NtfsEmpty.Visibility = has ? Visibility.Collapsed : Visibility.Visible;
-        NtfsEmpty.Text = msg.Length > 0 ? msg : "点击「加载」查看 NTFS ACL（只读）";
+        NtfsEmpty.Text = msg.Length > 0 ? msg : "点击「加载」查看 NTFS ACL";
+        if (_vm is not null) FillNtfsAccountBox();
+    }
+
+    // ===== NTFS ACL 编辑（v2.1 面板解锁：icacls 通道；结果写 NtfsMsg 并重读网格） =====
+
+    /// <summary>账号下拉预填本地用户+组（保留用户手输文本；IsEditable 语义）。</summary>
+    void FillNtfsAccountBox()
+    {
+        var feed = WinShare.App.Users.UsersModule.UserService;
+        if (feed is null || NtfsAccountBox is null) return;
+        string typed = NtfsAccountBox.Text;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var users = await feed.ListUsersAsync();
+                var groups = await feed.ListGroupsAsync();
+                var names = users.Select(u => u.name).Concat(groups.Select(g => g.name))
+                    .Where(n => !string.IsNullOrEmpty(n)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                Dispatcher.BeginInvoke(() =>
+                {
+                    NtfsAccountBox.ItemsSource = names;
+                    if (!string.IsNullOrEmpty(typed)) NtfsAccountBox.Text = typed;
+                });
+            }
+            catch { }
+        });
+    }
+
+    async void OnNtfsGrant(object sender, RoutedEventArgs e)
+    {
+        if (_vm is not { } vm) return;
+        string account = NtfsAccountBox?.Text?.Trim() ?? "";
+        string rights = (NtfsRightsBox?.SelectedItem as ComboBoxItem)?.Tag as string ?? "RX";
+        var msg = await vm.GrantNtfsAsync(account, rights, NtfsCiBox.IsChecked == true, NtfsOiBox.IsChecked == true);
+        ShowNtfsMsg(msg);
+        NtfsGrid.ItemsSource = vm.Ntfs?.entries.ToList();
+    }
+
+    async void OnNtfsRevoke(object sender, RoutedEventArgs e)
+    {
+        if (_vm is not { } vm) return;
+        if ((sender as FrameworkElement)?.DataContext is not NtfsAclEntry entry) return;
+        if (string.IsNullOrEmpty(entry.account)) return;
+        var res = MessageBox.Show($"移除「{entry.account}」在该共享路径的全部授权？", "移除确认",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (res != MessageBoxResult.Yes) return;
+        var msg = await vm.RevokeNtfsAsync(entry.account);
+        ShowNtfsMsg(msg);
+        NtfsGrid.ItemsSource = vm.Ntfs?.entries.ToList();
+    }
+
+    async void OnNtfsInheritOn(object sender, RoutedEventArgs e)
+    {
+        if (_vm is not { } vm) return;
+        ShowNtfsMsg(await vm.SetNtfsInheritanceAsync(enabled: true));
+        NtfsGrid.ItemsSource = vm.Ntfs?.entries.ToList();
+    }
+
+    async void OnNtfsInheritOff(object sender, RoutedEventArgs e)
+    {
+        if (_vm is not { } vm) return;
+        var res = MessageBox.Show(
+            "禁用继承会把从父目录继承的权限复制为显式权限（之后可单独编辑），继续？",
+            "禁用继承", MessageBoxButton.YesNo, MessageBoxImage.Information);
+        if (res != MessageBoxResult.Yes) return;
+        ShowNtfsMsg(await vm.SetNtfsInheritanceAsync(enabled: false));
+        NtfsGrid.ItemsSource = vm.Ntfs?.entries.ToList();
+    }
+
+    void ShowNtfsMsg(string msg)
+    {
+        if (string.IsNullOrEmpty(msg)) { NtfsMsg.Visibility = Visibility.Collapsed; return; }
+        NtfsMsg.Text = msg;
+        NtfsMsg.Visibility = Visibility.Visible;
     }
 }

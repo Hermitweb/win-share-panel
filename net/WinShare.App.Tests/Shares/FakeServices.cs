@@ -148,6 +148,9 @@ public sealed class FakeUserService : IUserService
     }
     public Task<NtfsAcl> GetNtfsPermissionsAsync(string path) => Task.FromResult(
         Ntfs ?? new NtfsAcl { path = path, entries = Array.Empty<NtfsAclEntry>() });
+    public Task GrantNtfsAsync(string path, string account, string rights, bool inheritDirs, bool inheritFiles) => Task.CompletedTask;
+    public Task RevokeNtfsAsync(string path, string account) => Task.CompletedTask;
+    public Task SetNtfsInheritanceAsync(string path, bool enabled) => Task.CompletedTask;
 }
 
 /// <summary>IDiskService stub。</summary>

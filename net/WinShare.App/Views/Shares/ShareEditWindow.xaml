@@ -9,12 +9,10 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0">
-            <TextBlock Text="共享名（不可改）" FontSize="12" Margin="0,0,0,4" />
-            <TextBox x:Name="TxtName" IsReadOnly="True" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12"
-                     Foreground="{DynamicResource BrushFog}" />
-            <TextBlock Text="路径（不可改）" FontSize="12" Margin="0,0,0,4" />
-            <TextBox x:Name="TxtPath" IsReadOnly="True" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12"
-                     Foreground="{DynamicResource BrushFog}" />
+            <TextBlock Text="共享名（改名将重建共享，权限保留）" FontSize="12" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtName" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12" />
+            <TextBlock Text="路径（改路径将重建共享，权限保留）" FontSize="12" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtPath" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12" />
             <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4" />
             <TextBox x:Name="TxtDescription" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12" />
 

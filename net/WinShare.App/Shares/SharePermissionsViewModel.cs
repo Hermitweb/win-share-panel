@@ -9,7 +9,7 @@ namespace WinShare.App.Shares;
 ///   保存时 Deny → NoAccess+deny=true（TS toPerm）
 /// - 添加账号三护栏：空账号/已存在（TS handleAdd 逐条对齐）
 /// - 候选账号 = 本地用户 + 本地组（TS loadCandidates，前 12 个提示 + "等"）
-/// - NTFS Tab：只读 ACL 视图，点了加载才读（TS loadNtfs 事件路径语义）
+/// - NTFS Tab：ACL 视图 + 编辑（v2.1 解锁：添加/移除授权、继承控制，icacls 通道；TS loadNtfs 事件路径语义）
 /// 服务缺席时走占位降级（如实报"未接入"）。
 /// </summary>
 public sealed class SharePermissionsViewModel : INotifyPropertyChanged
@@ -128,6 +128,57 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
         {
             NtfsLoading = false;
             RaiseAll();
+        }
+    }
+
+    // ===== NTFS ACL 编辑（v2.1 面板解锁：icacls 通道；写入后重读 ACL，返回提示文案） =====
+
+    /// <summary>添加授权（rights 白名单 F/M/RX/R/W；inheritDirs/inheritFiles → (CI)/(OI)）。"" = 成功。</summary>
+    public async Task<string> GrantNtfsAsync(string account, string rights, bool inheritDirs, bool inheritFiles)
+    {
+        if (_user is null) return "NTFS 编辑需要用户契约服务（未接入）";
+        if (string.IsNullOrWhiteSpace(account)) return "请输入或选择账号";
+        try
+        {
+            await _user.GrantNtfsAsync(Share.path, account.Trim(), rights, inheritDirs, inheritFiles);
+            await LoadNtfsAsync();
+            return $"已为 {account.Trim()} 添加 {rights} 授权";
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+    }
+
+    /// <summary>移除账号在该共享路径的全部授权（Allow/Deny 一并移除）。"" = 成功。</summary>
+    public async Task<string> RevokeNtfsAsync(string account)
+    {
+        if (_user is null) return "NTFS 编辑需要用户契约服务（未接入）";
+        try
+        {
+            await _user.RevokeNtfsAsync(Share.path, account.Trim());
+            await LoadNtfsAsync();
+            return $"已移除 {account.Trim()} 的授权";
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+    }
+
+    /// <summary>启用/禁用继承（禁用=继承项复制为显式项）。"" = 成功。</summary>
+    public async Task<string> SetNtfsInheritanceAsync(bool enabled)
+    {
+        if (_user is null) return "NTFS 编辑需要用户契约服务（未接入）";
+        try
+        {
+            await _user.SetNtfsInheritanceAsync(Share.path, enabled);
+            await LoadNtfsAsync();
+            return enabled ? "已启用继承" : "已禁用继承（继承项已复制为显式项）";
+        }
+        catch (Exception e)
+        {
+            return e.Message;
         }
     }
 

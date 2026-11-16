@@ -94,7 +94,13 @@ public sealed class SmbAdapter : IProtocolAdapter
         Logger.Info("adapter:smbAdapter", $"[updateShare:smb] 更新共享: {name}");
         try
         {
-            Share result = await _share.UpdateShareAsync(name, new UpdateShareOpts { description = input.description });
+            // v2.1 面板解锁：newName/physicalPath（新路径）透传给 ShareService 重建通道
+            Share result = await _share.UpdateShareAsync(name, new UpdateShareOpts
+            {
+                description = input.description,
+                newName = input.newName,
+                path = input.physicalPath,
+            });
             Logger.Info("adapter:smbAdapter", $"[updateShare:smb] 更新成功: {name}");
             return result;
         }
@@ -223,6 +229,9 @@ public sealed class SmbAdapter : IProtocolAdapter
             throw;
         }
     }
+
+    /// <summary>修改服务启动类型（v2.1 面板解锁；委托 SmbService）。</summary>
+    public Task SetServiceStartTypeAsync(string startType) => _smb.SetServiceStartTypeAsync(startType);
 
     // TS: getConfig()/setConfig()/defaultConfig()/restoreDefault() —— 同步转调 smb.*
     public async Task<object?> GetConfigAsync() => await _smb.GetConfigAsync();

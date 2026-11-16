@@ -42,9 +42,13 @@ public sealed class NfsService : INfsService
         restartConnectionTimeout = 60,
         maxConcurrentConnectionsPerUser = 0,
         directoryCacheExpiry = 60,
-        // 身份映射（只读）
+        // 身份映射（WMI 直写）
         anonymousUid = -2,
         anonymousGid = -2,
+        // 协议版本开关（探测失败回落值；真实值以 Get-NfsServerConfiguration 为准）
+        enableNfsV2 = false,
+        enableNfsV3 = true,
+        enableNfsV4 = false,
     };
 
     /// <summary>TS: getConfig()——未装 NFS 时返回默认配置，避免 Settings Tab 弹错。</summary>
@@ -70,9 +74,13 @@ public sealed class NfsService : INfsService
                 restartConnectionTimeout = ConfigJson.Int(r, "RestartConnectionTimeout", def.restartConnectionTimeout),
                 maxConcurrentConnectionsPerUser = ConfigJson.Int(r, "MaxConcurrentConnectionsPerUser", def.maxConcurrentConnectionsPerUser),
                 directoryCacheExpiry = ConfigJson.Int(r, "DirectoryCacheExpiry", def.directoryCacheExpiry),
-                // 身份映射（只读）
+                // 身份映射（WMI 直写）
                 anonymousUid = ConfigJson.Int(r, "AnonymousUid", def.anonymousUid),
                 anonymousGid = ConfigJson.Int(r, "AnonymousGid", def.anonymousGid),
+                // 协议版本开关（best-effort：缺失字段回落默认）
+                enableNfsV2 = ConfigJson.Bool(r, "EnableNFSV2", def.enableNfsV2),
+                enableNfsV3 = ConfigJson.Bool(r, "EnableNFSV3", def.enableNfsV3),
+                enableNfsV4 = ConfigJson.Bool(r, "EnableNFSV4", def.enableNfsV4),
             };
         }
         catch
@@ -86,9 +94,10 @@ public sealed class NfsService : INfsService
     public Task SetConfigAsync(NfsServerConfig config) => SetConfigAsync(NfsConfigPatch.FromFull(config));
 
     /// <summary>
-    /// TS: setConfig(config: Partial&lt;NfsServerConfig&gt;)——刻意不写回 gatewayCharacterSet /
-    /// protocolVersion / anonymousUid / anonymousGid：这些是服务器只读状态（Set-NfsServerConfiguration
-    /// 亦不接受这些参数）。静默跳过是正确语义而非遗漏（TS 审计 M-1 复核结论）。
+    /// TS: setConfig(config: Partial&lt;NfsServerConfig&gt;)。
+    /// 协议版本开关走 Set-NfsServerConfiguration（-EnableNFSV2/-V3/-V4）；
+    /// 身份映射三字段（anonymousUid/Gid/gatewayCharacterSet）Set-NfsServerConfiguration 不接受，
+    /// 改经 MSFT_NfsServerConfig WMI 直写：与现值相同则跳过，提供程序拒绝时抛明确错误（不静默）。
     /// </summary>
     public async Task SetConfigAsync(NfsConfigPatch config)
     {
@@ -98,6 +107,9 @@ public sealed class NfsService : INfsService
         AddBool(parts, "-LogActivity", config.logActivity);
         AddBool(parts, "-EnableUnmappedAccess", config.enableUnmappedAccess);
         AddBool(parts, "-EnableAuthenticationRenegotiation", config.enableAuthenticationRenegotiation);
+        AddBool(parts, "-EnableNFSV2", config.enableNfsV2);
+        AddBool(parts, "-EnableNFSV3", config.enableNfsV3);
+        AddBool(parts, "-EnableNFSV4", config.enableNfsV4);
         // 数值字段：同上门禁（TS 侧 '0' 为 truthy，故 0 也会写入）
         AddNumber(parts, "-TcpConnectionTimeout", config.tcpConnectionTimeout);
         AddNumber(parts, "-UdpConnectionTimeout", config.udpConnectionTimeout);
@@ -105,8 +117,18 @@ public sealed class NfsService : INfsService
         AddNumber(parts, "-MaxConcurrentConnectionsPerUser", config.maxConcurrentConnectionsPerUser);
         AddNumber(parts, "-DirectoryCacheExpiry", config.directoryCacheExpiry);
         parts.Add("-Confirm:$false");
-        if (parts.Count <= 2) throw Errors.InvalidParam("未提供任何配置项");
-        await _ps.RunVoidAsync(string.Join(' ', parts), 15000, PsRunner.DefaultRetries);
+        bool hasIdentity = config.anonymousUid is not null || config.anonymousGid is not null
+            || !string.IsNullOrEmpty(config.gatewayCharacterSet);
+        if (parts.Count <= 2 && !hasIdentity) throw Errors.InvalidParam("未提供任何配置项");
+        if (parts.Count > 2)
+        {
+            await _ps.RunVoidAsync(string.Join(' ', parts), 15000, PsRunner.DefaultRetries);
+        }
+        // 身份映射/网关：与现值 diff 后 WMI 直写（全量保存未改动时为 no-op，不因提供程序差异阻断保存）
+        if (hasIdentity)
+        {
+            await WriteIdentityAsync(config);
+        }
     }
 
     /// <summary>TS: restoreDefault()。</summary>
@@ -116,6 +138,65 @@ public sealed class NfsService : INfsService
         await SetConfigAsync(def);
         return def;
     }
+
+    // === 身份映射 WMI 直写（匿名 UID/GID、网关字符集）===
+
+    /// <summary>
+    /// 与服务器现值逐字段 diff，仅对发生变化的字段经 Set-CimInstance 写入并回读校验。
+    /// 未提供（null）/ 未变化 → 不触发 WMI；写入失败或回读不一致 → 明确报错（不静默吞掉）。
+    /// </summary>
+    private async Task WriteIdentityAsync(NfsConfigPatch config)
+    {
+        bool hasUid = config.anonymousUid is not null;
+        bool hasGid = config.anonymousGid is not null;
+        bool hasCharset = !string.IsNullOrEmpty(config.gatewayCharacterSet);
+        if (!hasUid && !hasGid && !hasCharset) return;
+
+        NfsServerConfig current = await GetConfigAsync();
+        List<string> props = new();
+        if (hasUid && current.anonymousUid != config.anonymousUid) props.Add($"AnonymousUid = {UidPsValue(config.anonymousUid!.Value)}");
+        if (hasGid && current.anonymousGid != config.anonymousGid) props.Add($"AnonymousGid = {UidPsValue(config.anonymousGid!.Value)}");
+        string? charset = hasCharset ? config.gatewayCharacterSet!.Trim() : null;
+        if (charset is not null && !string.Equals(current.gatewayCharacterSet, charset, StringComparison.OrdinalIgnoreCase))
+        {
+            props.Add($"GatewayCharacterSet = {PsGate.PsQuote(charset)}");
+        }
+        if (props.Count == 0) return; // 全部与现值一致：无需写入
+
+        string cmd = "$p = @{" + string.Join("; ", props) + "}; " +
+            "Set-CimInstance -Namespace root/Microsoft/Windows/NFS " +
+            "-Query 'SELECT * FROM MSFT_NfsServerConfig' -Property $p -ErrorAction Stop";
+        try
+        {
+            await _ps.RunVoidAsync(cmd, 15000, 0);
+        }
+        catch (Exception e)
+        {
+            throw Errors.CommandFailed(
+                $"写入 NFS 身份映射失败（Windows NFS 提供程序可能不支持该字段）：{Slice(e.Message, 200)}");
+        }
+        await VerifyIdentityAsync(config);
+    }
+
+    /// <summary>回读校验：Get-NfsServerConfiguration 重新取值，与请求值比对（UID 兼容带符号/无符号两种表示）。</summary>
+    private async Task VerifyIdentityAsync(NfsConfigPatch config)
+    {
+        NfsServerConfig fresh = await GetConfigAsync();
+        bool UidOk(int? requested, int actual) =>
+            requested is null || actual == requested || (uint)actual == (uint)requested.Value;
+        bool ok = UidOk(config.anonymousUid, fresh.anonymousUid)
+            && UidOk(config.anonymousGid, fresh.anonymousGid)
+            && (string.IsNullOrEmpty(config.gatewayCharacterSet)
+                || string.Equals(fresh.gatewayCharacterSet, config.gatewayCharacterSet!.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (!ok)
+        {
+            throw Errors.CommandFailed("NFS 身份映射写入后回读不一致：Windows NFS 提供程序可能拒绝了该字段（写入未生效）");
+        }
+    }
+
+    /// <summary>UID/GID 的 PS 字面量：负值按 UInt32 回绕表示（-2 → 4294967294），经 PsGate 数值门禁。</summary>
+    private static string? UidPsValue(int v) =>
+        PsGate.PsNumber(v < 0 ? v + 4294967296L : (long)v);
 
     /// <summary>TS: getNfsServiceName()——一次查询两个候选名，返回存在的那个（优先 NfsService）。</summary>
     private async Task<string?> GetNfsServiceNameAsync()
@@ -221,6 +302,13 @@ public sealed class NfsService : INfsService
         }
     }
 
+    /// <summary>修改服务启动类型（v2.1 面板解锁；NFS 服务名运行时解析，NfsService/NfsClnt 二选一）。</summary>
+    public async Task SetServiceStartTypeAsync(string startType)
+    {
+        string? name = await GetNfsServiceNameAsync();
+        await ServiceStartType.SetAsync(_ps, name, startType, "NFS");
+    }
+
     // === 命令拼接助手（TS: parts.push(`-${name} ${pretty}`) 的闸门版）===
 
     private static void AddBool(List<string> parts, string flag, bool? value)
@@ -244,6 +332,7 @@ public sealed class NfsService : INfsService
 /// <summary>
 /// TS: setConfig(config: Partial&lt;NfsServerConfig&gt;) 的部分配置入参（未提供 = null = 不写入）。
 /// 契约面 <see cref="INfsService.SetConfigAsync(NfsServerConfig)"/> 收完整配置，内部经 <see cref="FromFull"/> 转换。
+/// 身份映射三字段（anonymousUid/Gid/gatewayCharacterSet）经 WMI 直写；protocolVersion 为服务器报告值不参与写入。
 /// </summary>
 public sealed record NfsConfigPatch
 {
@@ -256,8 +345,14 @@ public sealed record NfsConfigPatch
     public int? restartConnectionTimeout { get; init; }
     public int? maxConcurrentConnectionsPerUser { get; init; }
     public int? directoryCacheExpiry { get; init; }
+    public bool? enableNfsV2 { get; init; }
+    public bool? enableNfsV3 { get; init; }
+    public bool? enableNfsV4 { get; init; }
+    public int? anonymousUid { get; init; }
+    public int? anonymousGid { get; init; }
+    public string? gatewayCharacterSet { get; init; }
 
-    /// <summary>完整配置 → 全字段提供（只读字段天然不在补丁里）。</summary>
+    /// <summary>完整配置 → 全字段提供（protocolVersion 不参与写入）。</summary>
     public static NfsConfigPatch FromFull(NfsServerConfig config) => new()
     {
         gracefulUnmount = config.gracefulUnmount,
@@ -269,5 +364,11 @@ public sealed record NfsConfigPatch
         restartConnectionTimeout = config.restartConnectionTimeout,
         maxConcurrentConnectionsPerUser = config.maxConcurrentConnectionsPerUser,
         directoryCacheExpiry = config.directoryCacheExpiry,
+        enableNfsV2 = config.enableNfsV2,
+        enableNfsV3 = config.enableNfsV3,
+        enableNfsV4 = config.enableNfsV4,
+        anonymousUid = config.anonymousUid,
+        anonymousGid = config.anonymousGid,
+        gatewayCharacterSet = config.gatewayCharacterSet,
     };
 }

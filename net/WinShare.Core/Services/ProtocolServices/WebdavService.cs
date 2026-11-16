@@ -66,6 +66,11 @@ public sealed class WebdavService : IWebdavService
         new("windowsEnabled", WindowsAuthFilter, "enabled", FieldType.Boolean),
         new("maxUrlLength", RequestFilteringFilter + "/requestLimits", "maxUrl", FieldType.Number),
         new("maxQueryStringLength", RequestFilteringFilter + "/requestLimits", "maxQueryString", FieldType.Number),
+        // v2.1：压缩从只读升级为可写（urlCompression）。requireSSL 不进字段表：
+        // sslFlags 是集合语义（'None'/'Ssl'/…），通用 Truthy 读取会把 'None' 误判为真，
+        // 读取保留 readOnlyParts 专用段、写入走 SetConfigAsync 专用分支。
+        new("enableStaticCompression", UrlCompressionFilter, "doStaticCompression", FieldType.Boolean),
+        new("enableDynamicCompression", UrlCompressionFilter, "doDynamicCompression", FieldType.Boolean),
     };
 
     private readonly IPsInvoker _ps;
@@ -85,7 +90,7 @@ public sealed class WebdavService : IWebdavService
         windowsEnabled = true,
         maxUrlLength = 260,
         maxQueryStringLength = 2048,
-        // 只读信息
+        // 服务器级状态/规则（计数为派生值；压缩与 SSL 可写）
         globalAuthoringRulesCount = 0,
         enableStaticCompression = true,
         enableDynamicCompression = false,
@@ -186,6 +191,16 @@ public sealed class WebdavService : IWebdavService
         }
     }
 
+    /// <summary>修改服务启动类型（v2.1 面板解锁；Set-Service -StartupType + 回读校验）。</summary>
+    public async Task SetServiceStartTypeAsync(string startType)
+    {
+        if (!await ServiceExistsAsync())
+        {
+            throw Errors.CommandFailed("W3SVC 服务未安装，请先安装 IIS 角色");
+        }
+        await ServiceStartType.SetAsync(_ps, ServiceName, startType, "WebDAV");
+    }
+
     /// <summary>
     /// TS: ensureWebdavSectionsUnlocked()——overrideModeDefault=Deny 的节需 appcmd unlock 后才能在服务器级 Set；
     /// 同时解锁 authoring/authoringRules 供 webdavAdapter 站点级写入复用。
@@ -215,15 +230,14 @@ public sealed class WebdavService : IWebdavService
                 $"(Get-WebConfigurationProperty -Filter '{f.filter}' -PSPath 'MACHINE/WEBROOT/APPHOST' " +
                 $"-Name {f.psName} -ErrorAction Stop) }} catch {{}}"));
 
-            // 只读字段：globalAuthoringRulesCount（authoringRules 计数）、压缩、SSL
+            // 只读字段：globalAuthoringRulesCount（authoringRules 计数）；requireSSL 读取走专用段
+            //（sslFlags 是集合语义，直接 Truthy 会把 'None' 误判为真，故不进通用字段表读取）
             string[] readOnlyParts =
             {
                 $"try {{ $r | Add-Member -MemberType NoteProperty -Name globalAuthoringRulesCount -Value " +
                 $"@(Get-WebConfiguration -Filter '{AuthoringRulesFilter}/*' -PSPath 'MACHINE/WEBROOT/APPHOST' " +
                 "-ErrorAction Stop).Count } catch { $r | Add-Member -MemberType NoteProperty " +
                 "-Name globalAuthoringRulesCount -Value 0 }",
-                ReadOnlyPart("enableStaticCompression", "doStaticCompression"),
-                ReadOnlyPart("enableDynamicCompression", "doDynamicCompression"),
                 $"try {{ $f = (Get-WebConfigurationProperty -Filter '{AccessFilter}' " +
                 "-PSPath 'MACHINE/WEBROOT/APPHOST' -Name sslFlags -ErrorAction Stop); " +
                 "$r | Add-Member -MemberType NoteProperty -Name requireSSL -Value " +
@@ -270,7 +284,7 @@ public sealed class WebdavService : IWebdavService
         }
     }
 
-    /// <summary>TS: setConfig(config)——per-field try/catch，部分节锁定不阻断其他字段写入；只读字段不可写。</summary>
+    /// <summary>TS: setConfig(config)——per-field try/catch，部分节锁定不阻断其他字段写入。</summary>
     public Task SetConfigAsync(WebdavServerConfig config) => SetConfigAsync(WebdavConfigPatch.FromFull(config));
 
     /// <summary>TS: setConfig(config: Partial&lt;WebdavServerConfig&gt;)。</summary>
@@ -289,6 +303,13 @@ public sealed class WebdavService : IWebdavService
                 $"try {{ Set-WebConfigurationProperty -Filter '{f.filter}' -PSPath 'MACHINE/WEBROOT/APPHOST' " +
                 $"-Name {f.psName} -Value {psVal} -ErrorAction Stop }} catch {{}}");
         }
+        // 要求 SSL：sslFlags 集合语义（勾选='Ssl'，取消='None'），不走通用字段表
+        if (config.requireSSL is bool reqSsl)
+        {
+            writeParts.Add(
+                $"try {{ Set-WebConfigurationProperty -Filter '{AccessFilter}' -PSPath 'MACHINE/WEBROOT/APPHOST' " +
+                $"-Name sslFlags -Value {(reqSsl ? "'Ssl'" : "'None'")} -ErrorAction Stop }} catch {{}}");
+        }
         if (writeParts.Count == 0) throw Errors.InvalidParam("未提供任何配置项");
         await _ps.RunVoidAsync(string.Join("; ", writeParts), IisTimeoutMs, 0);
     }
@@ -299,6 +320,111 @@ public sealed class WebdavService : IWebdavService
         WebdavServerConfig def = DefaultConfig();
         await SetConfigAsync(def);
         return def;
+    }
+
+    // === 服务器级 Authoring 规则管理（authoringRules 集合增删查；v2.1 面板解锁） ===
+
+    /// <summary>Authoring 规则列表（Get-WebConfiguration 逐条取标量属性；未装 IIS/无规则返回空）。</summary>
+    public async Task<IReadOnlyList<WebdavAuthoringRule>> ListAuthoringRulesAsync()
+    {
+        try
+        {
+            string cmd = $"Import-Module WebAdministration; " +
+                $"Get-WebConfiguration -Filter '{AuthoringRulesFilter}/*' -PSPath 'MACHINE/WEBROOT/APPHOST' -ErrorAction Stop | " +
+                "Select-Object extension, path, access, users, roles";
+            JsonElement raw = await _ps.RunJsonAsync(cmd, 15000, 0);
+            var list = new List<WebdavAuthoringRule>();
+            if (raw.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement e in raw.EnumerateArray()) AddRule(list, e);
+            }
+            else if (raw.ValueKind == JsonValueKind.Object)
+            {
+                AddRule(list, raw); // 单条规则时 ConvertTo-Json 输出对象而非数组
+            }
+            return list;
+        }
+        catch
+        {
+            return Array.Empty<WebdavAuthoringRule>(); // 未装 IIS / 节不存在 → 空列表（对齐 TS 空态语义）
+        }
+    }
+
+    private static void AddRule(List<WebdavAuthoringRule> list, JsonElement e)
+    {
+        string ext = ConfigJson.Str(e, "extension") ?? "";
+        string path = ConfigJson.Str(e, "path") ?? "";
+        if (ext.Length == 0 && path.Length == 0) return;
+        list.Add(new WebdavAuthoringRule
+        {
+            extension = ext,
+            path = path,
+            access = ConfigJson.Str(e, "access") ?? "",
+            users = ConfigJson.Str(e, "users") ?? "",
+            roles = ConfigJson.Str(e, "roles") ?? "",
+        });
+    }
+
+    /// <summary>新增规则（Add-WebConfigurationProperty；写前解锁）。access/users/roles 空串走 IIS 默认。</summary>
+    public async Task AddAuthoringRuleAsync(WebdavAuthoringRuleOpts rule)
+    {
+        string ext = ValidateRuleToken(rule.extension, "扩展名", RuleExtensionPattern, 40);
+        string path = ValidateRuleToken(rule.path ?? "*", "路径", RulePathPattern, 260);
+        string access = NormalizeAccess(rule.access);
+        string users = ValidateRuleToken(string.IsNullOrEmpty(rule.users) ? "*" : rule.users, "用户", RuleAccountPattern, 200);
+        // roles 允许为空（IIS 默认不限定组）
+        string roles = string.IsNullOrEmpty(rule.roles) ? "" : ValidateRuleToken(rule.roles, "组", RuleAccountPattern, 200);
+        await EnsureWebdavSectionsUnlockedAsync();
+        string cmd = $"Import-Module WebAdministration; " +
+            $"Add-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter '{AuthoringRulesFilter}' -Name '.' " +
+            $"-Value @{{extension={PsGate.PsQuote(ext)}; path={PsGate.PsQuote(path)}; access={PsGate.PsQuote(access)}; " +
+            $"users={PsGate.PsQuote(users)}; roles={PsGate.PsQuote(roles)}}} -ErrorAction Stop";
+        await _ps.RunVoidAsync(cmd, IisTimeoutMs, 0);
+    }
+
+    /// <summary>删除规则（extension+path 定位一条；Remove-WebConfigurationProperty -AtElement）。</summary>
+    public async Task RemoveAuthoringRuleAsync(string extension, string path)
+    {
+        string ext = ValidateRuleToken(extension, "扩展名", RuleExtensionPattern, 40);
+        string p = ValidateRuleToken(path, "路径", RulePathPattern, 260);
+        await EnsureWebdavSectionsUnlockedAsync();
+        string cmd = $"Import-Module WebAdministration; " +
+            $"Remove-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter '{AuthoringRulesFilter}' -Name '.' " +
+            $"-AtElement @{{extension={PsGate.PsQuote(ext)}; path={PsGate.PsQuote(p)}}} -ErrorAction Stop";
+        await _ps.RunVoidAsync(cmd, IisTimeoutMs, 0);
+    }
+
+    // === Authoring 规则入参门禁（正则白名单 + PsQuote 双层防注入） ===
+
+    private static readonly Regex RuleExtensionPattern = new(@"^[A-Za-z0-9.*_\-]{1,40}$", RegexOptions.Compiled);
+    private static readonly Regex RulePathPattern = new(@"^[A-Za-z0-9.*_\-/\\]{1,260}$", RegexOptions.Compiled);
+    private static readonly Regex RuleAccountPattern = new(@"^[A-Za-z0-9.*_\-\\@,]{1,200}$", RegexOptions.Compiled);
+    private static readonly HashSet<string> AccessTokens = new(StringComparer.OrdinalIgnoreCase)
+        { "Read", "Write", "Source" };
+
+    private static string ValidateRuleToken(string? value, string label, Regex pattern, int maxLen)
+    {
+        if (string.IsNullOrEmpty(value)) throw Errors.InvalidParam($"{label}不能为空");
+        if (value.Length > maxLen || !pattern.IsMatch(value))
+        {
+            throw Errors.InvalidParam($"{label}格式非法（仅允许字母/数字/点/星号/下划线/连字符等安全字符）");
+        }
+        return value;
+    }
+
+    /// <summary>access 收敛为 Read/Write/Source 规范拼写逗号串（非法 token 剔除；全非法回落 Read,Write）。</summary>
+    private static string NormalizeAccess(string? access)
+    {
+        IEnumerable<string> tokens = (access ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var valid = new List<string>();
+        foreach (string canonical in new[] { "Read", "Write", "Source" })
+        {
+            if (tokens.Any(t => AccessTokens.Contains(t) && string.Equals(t, canonical, StringComparison.OrdinalIgnoreCase)))
+            {
+                valid.Add(canonical);
+            }
+        }
+        return valid.Count > 0 ? string.Join(",", valid) : "Read,Write";
     }
 
     // TS: 压缩只读字段读取段（两段同构，仅 note 名不同）
@@ -318,7 +444,7 @@ public sealed class WebdavService : IWebdavService
 
 /// <summary>
 /// TS: setConfig(config: Partial&lt;WebdavServerConfig&gt;) 的部分配置入参（未提供 = null = 不写入）。
-/// 只读字段（globalAuthoringRulesCount / 压缩 / requireSSL）不可写，故不在本类型里。
+/// globalAuthoringRulesCount 为派生计数不参与写入；压缩与 requireSSL 可写。
 /// </summary>
 public sealed record WebdavConfigPatch
 {
@@ -332,6 +458,9 @@ public sealed record WebdavConfigPatch
     public bool? windowsEnabled { get; init; }
     public int? maxUrlLength { get; init; }
     public int? maxQueryStringLength { get; init; }
+    public bool? enableStaticCompression { get; init; }
+    public bool? enableDynamicCompression { get; init; }
+    public bool? requireSSL { get; init; }
 
     /// <summary>按 tsField 取值（null = 未提供）。</summary>
     public object? this[string tsField] => tsField switch
@@ -346,6 +475,8 @@ public sealed record WebdavConfigPatch
         "windowsEnabled" => windowsEnabled,
         "maxUrlLength" => maxUrlLength,
         "maxQueryStringLength" => maxQueryStringLength,
+        "enableStaticCompression" => enableStaticCompression,
+        "enableDynamicCompression" => enableDynamicCompression,
         _ => null,
     };
 
@@ -362,5 +493,8 @@ public sealed record WebdavConfigPatch
         windowsEnabled = c.windowsEnabled,
         maxUrlLength = c.maxUrlLength,
         maxQueryStringLength = c.maxQueryStringLength,
+        enableStaticCompression = c.enableStaticCompression,
+        enableDynamicCompression = c.enableDynamicCompression,
+        requireSSL = c.requireSSL,
     };
 }

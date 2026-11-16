@@ -39,6 +39,7 @@ public sealed class TransferService : ITransferService
                     diskLowGb = s.alertRules.diskLowGb,
                 },
                 autoStart = s.autoStart,
+                advanced = s.advanced,
             },
         };
         // TS: JSON.stringify(bundle, null, 2)
@@ -137,6 +138,12 @@ public sealed class TransferService : ITransferService
             patch = patch with { autoStart = asEl.GetBoolean() };
             applied.Add("autoStart");
         }
+        // v2.1：高级设置段（可选；旧导出文件无此键 → 忽略）
+        if (raw.TryGetProperty("advanced", out var advEl) && advEl.ValueKind == JsonValueKind.Object)
+        {
+            patch = patch with { advanced = Lib.StateStore.NormalizeAdvanced(ReadAdvancedFromJson(advEl)) };
+            applied.Add("advanced");
+        }
 
         if (applied.Count == 0) throw Errors.InvalidParam("文件里没有任何可识别的设置项");
 
@@ -166,4 +173,25 @@ public sealed class TransferService : ITransferService
 
     private static bool BoolProp(JsonElement parent, string key, bool fallback) =>
         parent.TryGetProperty(key, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False ? v.GetBoolean() : fallback;
+
+    /// <summary>v2.1：导出文件 advanced 段 → DTO（缺失键回落默认；越界值由 NormalizeAdvanced 收敛）。</summary>
+    private static AdvancedSettings ReadAdvancedFromJson(JsonElement adv)
+    {
+        var d = new AdvancedSettings();
+        return new AdvancedSettings
+        {
+            updateRepo = adv.TryGetProperty("updateRepo", out var ur) && ur.ValueKind == JsonValueKind.String
+                ? ur.GetString() ?? "" : d.updateRepo,
+            passwordAgeWarnDays = adv.TryGetProperty("passwordAgeWarnDays", out var p) && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out int pd)
+                ? pd : d.passwordAgeWarnDays,
+            logMaxSizeMb = adv.TryGetProperty("logMaxSizeMb", out var lm) && lm.ValueKind == JsonValueKind.Number && lm.TryGetInt32(out int ls)
+                ? ls : d.logMaxSizeMb,
+            logMaxFiles = adv.TryGetProperty("logMaxFiles", out var lf) && lf.ValueKind == JsonValueKind.Number && lf.TryGetInt32(out int ln)
+                ? ln : d.logMaxFiles,
+            ftpPassiveFrom = adv.TryGetProperty("ftpPassiveFrom", out var ff) && ff.ValueKind == JsonValueKind.Number && ff.TryGetInt32(out int fr)
+                ? fr : d.ftpPassiveFrom,
+            ftpPassiveTo = adv.TryGetProperty("ftpPassiveTo", out var ft) && ft.ValueKind == JsonValueKind.Number && ft.TryGetInt32(out int to)
+                ? to : d.ftpPassiveTo,
+        };
+    }
 }

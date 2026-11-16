@@ -200,10 +200,24 @@ public sealed class ShareService : IShareService
         }
     }
 
-    /// <summary>TS: updateShare(name, opts)。</summary>
+    /// <summary>
+    /// TS: updateShare(name, opts)。
+    /// v2.1 面板解锁：newName/path 与现值不同 → 走「快照→移除→重建」通道
+    /// （Set-SmbShare 不支持改名/改路径）；其余属性仍走原 Set-SmbShare 逐项更新。
+    /// </summary>
     public async Task<Share> UpdateShareAsync(string name, UpdateShareOpts opts)
     {
         if (!PsGate.ValidateShareName(name)) throw Errors.InvalidParam("共享名非法");
+        string? newName = opts.newName;
+        if (newName is not null && !string.Equals(newName, name, StringComparison.Ordinal))
+        {
+            if (!PsGate.ValidateShareName(newName)) throw Errors.InvalidParam("新共享名非法");
+            if (SystemSpecialShares.Contains(newName)) throw Errors.InvalidParam($"系统特殊共享 {newName} 不允许使用");
+        }
+        if (newName is not null || opts.path is not null)
+        {
+            return await RecreateShareAsync(name, newName ?? name, opts);
+        }
         List<string> parts = new() { "Set-SmbShare", $"-Name {PsGate.PsQuote(name)}" };
         if (opts.description is not null) parts.Add($"-Description {PsGate.PsQuote(opts.description)}");
         if (opts.concurrentUserLimit is not null)
@@ -236,6 +250,117 @@ public sealed class ShareService : IShareService
         await _ps.RunVoidAsync(string.Join(' ', parts), 15000, 2);
         JsonElement raw = await _ps.RunJsonAsync($"Get-SmbShare -Name {PsGate.PsQuote(name)}", 15000, 2);
         return MapShare(PsGate.FirstOrNull(raw) ?? raw);
+    }
+
+    /// <summary>
+    /// v2.1 改名/改路径的重建通道：快照旧共享（含授权/高级属性）→ Remove-SmbShare →
+    /// 按新名/新路径 CreateShareAsync（复用现有创建回读守卫与孤儿清理）→ 回放 deny 授权 →
+    /// journal 记 Delete 语义快照（撤销=恢复旧名旧路径；新名共享保留，需自行删除）。
+    /// 重建失败时尽力按快照恢复旧共享再上抛，避免"删了没建成"的中间态。
+    /// </summary>
+    private async Task<Share> RecreateShareAsync(string name, string newName, UpdateShareOpts opts)
+    {
+        // 1) 快照旧共享全量状态（授权失败时拒绝重建：重建通道的目的是保留授权）
+        IReadOnlyList<Share> shares = await ListSharesAsync();
+        Share? old = shares.FirstOrDefault(x => string.Equals(x.name, name, StringComparison.Ordinal));
+        if (old is null) throw Errors.ShareNotFound(name);
+        if (opts.path is not null && !PsGate.ValidatePath(opts.path)) throw Errors.InvalidParam("路径非法");
+        bool pathChanged = opts.path is not null && !string.Equals(opts.path, old.path, StringComparison.OrdinalIgnoreCase);
+        if (newName == name && !pathChanged)
+        {
+            return old; // 名与路径均未变化：不触发破坏性重建
+        }
+        IReadOnlyList<SharePermission> perms = await GetSharePermissionsAsync(name);
+        ShareAdvanced advanced = await GetShareAdvancedAsync(name);
+        var snapshot = new ShareSnapshot
+        {
+            name = name,
+            path = old.path,
+            description = old.description,
+            permissions = perms,
+            encrypted = old.encrypted,
+            concurrentUserLimit = advanced.concurrentUserLimit,
+            cachingMode = advanced.cachingMode,
+            folderEnumerationMode = advanced.folderEnumerationMode,
+        };
+
+        // 2) 移除旧共享
+        await _ps.RunVoidAsync($"Remove-SmbShare -Name {PsGate.PsQuote(name)} -Force", 15000, 2);
+        Logger.Info("share", "[updateShare:smb] 重建通道：旧共享已移除，开始按新名/新路径重建:", name, "→", newName);
+
+        // 3) 重建（失败 → 尽力恢复旧共享）
+        try
+        {
+            IReadOnlyList<SharePermission> allow = perms.Where(p => !p.deny).ToList();
+            await CreateShareAsync(new CreateShareOpts
+            {
+                name = newName,
+                path = opts.path ?? old.path,
+                description = opts.description ?? old.description,
+                fullAccess = allow.Where(p => p.access == ShareAccess.Full).Select(p => p.account).ToList(),
+                changeAccess = allow.Where(p => p.access == ShareAccess.Change).Select(p => p.account).ToList(),
+                readAccess = allow.Where(p => p.access == ShareAccess.Read).Select(p => p.account).ToList(),
+                encrypted = old.encrypted,
+                concurrentUserLimit = opts.concurrentUserLimit ?? advanced.concurrentUserLimit,
+                cachingMode = opts.cachingMode ?? advanced.cachingMode,
+                folderEnumerationMode = opts.folderEnumerationMode ?? advanced.folderEnumerationMode,
+            });
+            // 4) 回放 deny 授权（同 RestoreShareAsync：New-SmbShare 仅支持 allow 列表）
+            foreach (SharePermission p in perms.Where(p => p.deny && !string.IsNullOrEmpty(p.account)))
+            {
+                try
+                {
+                    await _ps.RunVoidAsync(
+                        $"Block-SmbShareAccess -Name {PsGate.PsQuote(newName)} -AccountName {PsGate.PsQuote(p.account)} -Force -Confirm:$false",
+                        15000, 2);
+                }
+                catch
+                {
+                    // 单条 deny 回放失败不阻断重建（与 RestoreShareAsync 同语义）
+                }
+            }
+            // 隐藏共享属性：Set-SmbShare 通道之外，重建后补回
+            if (old.hidden || opts.hidden == true)
+            {
+                try
+                {
+                    await _ps.RunVoidAsync(
+                        $"Set-SmbShare -Name {PsGate.PsQuote(newName)} -Hidden $true -Force", 15000, 2);
+                }
+                catch
+                {
+                    // 属性补回失败不阻断
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Error("share", "[updateShare:smb] 重建失败，尝试按快照恢复旧共享:", newName, e.Message);
+            try
+            {
+                await RestoreShareAsync(snapshot);
+            }
+            catch
+            {
+                // 恢复失败不掩盖原始错误
+            }
+            throw;
+        }
+
+        // 5) journal（Delete 语义：撤销=按快照恢复旧名旧路径的共享）
+        string change = newName != name ? $"改名 {name}→{newName}" : "重建共享";
+        if (pathChanged) change += $"{(newName != name ? "，" : "")}改路径 {old.path}→{opts.path}";
+        AddJournal(JournalAction.Delete, name,
+            $"{change}；撤销将按快照恢复原共享（新共享不受影响，无需时可删除）",
+            undoable: true, snapshot: snapshot);
+
+        JsonElement raw = await _ps.RunJsonAsync($"Get-SmbShare -Name {PsGate.PsQuote(newName)}", 15000, 2);
+        JsonElement? one = PsGate.FirstOrNull(raw);
+        if (one is null || string.IsNullOrEmpty(Str(one.Value, "Name")))
+        {
+            throw Errors.CommandFailed($"共享重建完成但未能回读 {newName}，请刷新共享列表确认");
+        }
+        return MapShare(one.Value);
     }
 
     /// <summary>TS: deleteShare(name)。</summary>

@@ -83,6 +83,7 @@ internal sealed class FakeSmb : ISmbService
     public Task StartServiceAsync() { StartCalls++; return Task.CompletedTask; }
     public Task StopServiceAsync() => Task.CompletedTask;
     public Task RestartServiceAsync() => Task.CompletedTask;
+    public Task SetServiceStartTypeAsync(string startType) => Task.CompletedTask;
     public SmbServerConfig DefaultConfig() => new();
     public Task SetConfigAsync(SmbServerConfig config) => Task.CompletedTask;
     public Task<SmbServerConfig> RestoreDefaultAsync() => Task.FromResult(new SmbServerConfig());
@@ -118,6 +119,9 @@ internal sealed class FakeUser : IUserService
     public Task RenameGroupAsync(string name, string newName) => Task.CompletedTask;
     public Task AddGroupMemberAsync(string group, string member) => Task.CompletedTask;
     public Task RemoveGroupMemberAsync(string group, string member) => Task.CompletedTask;
+    public Task GrantNtfsAsync(string path, string account, string rights, bool inheritDirs, bool inheritFiles) => Task.CompletedTask;
+    public Task RevokeNtfsAsync(string path, string account) => Task.CompletedTask;
+    public Task SetNtfsInheritanceAsync(string path, bool enabled) => Task.CompletedTask;
 }
 
 /// <summary>TS: vi.mock('./firewall') —— listManagedRules / ensureRules。</summary>

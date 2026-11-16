@@ -13,8 +13,9 @@ namespace WinShare.Core.Lib;
 public static class Logger
 {
     private static readonly string[] Levels = ["debug", "info", "warn", "error"];
-    private const int MaxSize = 2 * 1024 * 1024;
-    private const int MaxFiles = 3;
+    // v2.1：轮转上限可配置（高级设置 advanced.logMaxSizeMb/logMaxFiles；ConfigureRotation 热生效）
+    private static int _maxSizeBytes = 2 * 1024 * 1024;
+    private static int _maxFiles = 3;
     private const int MaxLineLen = 8000;
     private const int TailCap = 1024 * 1024;
     private static readonly object Gate = new();
@@ -126,7 +127,7 @@ public static class Logger
                 _sizeCheckCounter = 0;
                 _cachedSize = File.Exists(file) ? new FileInfo(file).Length : 0;
             }
-            if (_cachedSize > MaxSize)
+            if (_cachedSize > _maxSizeBytes)
             {
                 Rotate(file);
                 _cachedSize = 0;
@@ -145,13 +146,27 @@ public static class Logger
         get { lock (Gate) { return _fileEnabled; } }
     }
 
+    /// <summary>
+    /// 配置轮转上限（v2.1 高级设置；保存后即时热生效，无需重启）。
+    /// sizeMb 收敛 1..1024，maxFiles 收敛 1..50（越界回落默认 2MB/3）。
+    /// </summary>
+    public static void ConfigureRotation(int sizeMb, int maxFiles)
+    {
+        lock (Gate)
+        {
+            _maxSizeBytes = sizeMb is > 0 and <= 1024 ? sizeMb * 1024 * 1024 : 2 * 1024 * 1024;
+            _maxFiles = maxFiles is > 0 and <= 50 ? maxFiles : 3;
+        }
+    }
+
     private static void Rotate(string file)
     {
         try
         {
             // 触顶删除最旧归档，然后 .2→.3、.1→.2、app.log→.1
-            if (File.Exists($"{file}.{MaxFiles}")) File.Delete($"{file}.{MaxFiles}");
-            for (int i = MaxFiles - 1; i >= 1; i--)
+            int maxFiles = _maxFiles;
+            if (File.Exists($"{file}.{maxFiles}")) File.Delete($"{file}.{maxFiles}");
+            for (int i = maxFiles - 1; i >= 1; i--)
             {
                 if (File.Exists($"{file}.{i}")) File.Move($"{file}.{i}", $"{file}.{i + 1}");
             }
@@ -160,6 +175,33 @@ public static class Logger
         catch
         {
             /* 轮转失败不阻塞写入 */
+        }
+    }
+
+    /// <summary>
+    /// 清空应用日志（v2.1 面板解锁：「应用日志」卡清空按钮）。
+    /// 当前 app.log 截断为空；已轮转归档保留（历史可查，需要全清手动删 logs 目录）。
+    /// 返回是否成功（失败由调用方提示）。
+    /// </summary>
+    public static bool Clear()
+    {
+        lock (Gate)
+        {
+            try
+            {
+                string file = LogFile();
+                if (File.Exists(file))
+                {
+                    // FileShare.ReadWrite：并发写入方（含本进程）不阻塞
+                    using var fs = new FileStream(file, FileMode.Truncate, FileAccess.Write, FileShare.ReadWrite);
+                }
+                _cachedSize = 0;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 

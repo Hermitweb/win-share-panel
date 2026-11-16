@@ -724,10 +724,18 @@ public sealed class UserEditDialog : Window
         var permRefresh = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "刷新", MinWidth = 60 };
         permRefresh.Click += async (_, _) =>
             _permGrid.ItemsSource = await _vm.LoadUserSharePermsAsync(_userName);
+        // v2.1 面板解锁：选中行就地调整该用户在此共享的授权（含移除），无需跳转共享管理页
+        var permAccessCombo = new ComboBox { Style = (Style?)TryFindResource("ComboBoxSoft"), FontSize = 12, Width = 130, SelectedIndex = 2 };
+        foreach (var (label, tag) in new[] { ("完全控制", "Full"), ("更改", "Change"), ("只读", "Read"), ("拒绝", "Deny"), ("移除授权", "Remove") })
+        {
+            permAccessCombo.Items.Add(new ComboBoxItem { Content = label, Tag = tag });
+        }
+        var permApply = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "应用到选中共享", MinWidth = 110 };
+        permApply.Click += async (_, _) => await ApplySelectedPermAsync(permAccessCombo);
         var permsPanel = new StackPanel();
         permsPanel.Children.Add(new TextBlock
         {
-            Text = "该用户在各共享上的访问权限（点击「刷新」加载）",
+            Text = "该用户在各共享上的访问权限（选中一行后可直接调整级别或移除授权）",
             FontSize = 12,
             Margin = new Thickness(0, 0, 0, 4),
         });
@@ -736,9 +744,14 @@ public sealed class UserEditDialog : Window
         permRefresh.HorizontalAlignment = HorizontalAlignment.Left;
         permRefresh.Margin = new Thickness(0, 8, 0, 0);
         permsPanel.Children.Add(permRefresh);
+        var permEditRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        permEditRow.Children.Add(new TextBlock { Text = "调整为：", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+        permEditRow.Children.Add(permAccessCombo);
+        permEditRow.Children.Add(permApply);
+        permsPanel.Children.Add(permEditRow);
         permsPanel.Children.Add(new TextBlock
         {
-            Text = "权限来源为 SMB 共享级别授权。NTFS 级别权限请在「共享管理」页对单个共享编辑。",
+            Text = "权限来源为 SMB 共享级别授权。NTFS 级别权限请在「用户权限」页 NTFS 面板或共享详情中编辑。",
             FontSize = 12,
             Foreground = (Brush?)TryFindResource("BrushFog"),
             Margin = new Thickness(0, 4, 0, 0),
@@ -793,6 +806,73 @@ public sealed class UserEditDialog : Window
             // 对齐 TS：availableGroups 空但 groups 非空 → 提示
         }
     }
+
+    /// <summary>v2.1：把选中的共享权限行调整为指定级别（或移除授权）；覆盖确认后写回并重载。</summary>
+    private async Task ApplySelectedPermAsync(ComboBox permAccessCombo)
+    {
+        if (_permGrid.SelectedItem is not UserPermRow row)
+        {
+            MessageBox.Show("请先在表格中选择要调整的共享权限行", "未选择");
+            return;
+        }
+        var svc = WinShare.App.Users.UsersModule.UserService;
+        if (svc is null)
+        {
+            MessageBox.Show("用户契约服务未注册，权限调整不可用", "服务缺席");
+            return;
+        }
+        string target = (permAccessCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "Read";
+        try
+        {
+            var perms = (await svc.GetSharePermissionsAsync(row.perm.shareName)).ToList();
+            List<SharePermission> updated;
+            if (target == "Remove")
+            {
+                updated = perms
+                    .Where(p => !string.Equals(p.account, row.perm.account, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            else
+            {
+                bool deny = target == "Deny";
+                var mapped = perms.Select(p => string.Equals(p.account, row.perm.account, StringComparison.OrdinalIgnoreCase)
+                    ? p with { access = ParsePermAccess(target), deny = deny }
+                    : p).ToList();
+                if (mapped.TrueForAll(p => !string.Equals(p.account, row.perm.account, StringComparison.OrdinalIgnoreCase)))
+                {
+                    mapped.Add(new SharePermission
+                    {
+                        shareName = row.perm.shareName,
+                        account = row.perm.account,
+                        accountType = row.perm.accountType,
+                        access = ParsePermAccess(target),
+                        deny = deny,
+                    });
+                }
+                updated = mapped;
+            }
+            MessageBoxResult ok = MessageBox.Show(
+                $"覆盖共享「{row.perm.shareName}」的全部授权（该共享其他账号的授权保持不变）？",
+                "调整权限", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (ok != MessageBoxResult.Yes) return;
+            await svc.SetSharePermissionsAsync(row.perm.shareName, updated);
+            Operated = true;
+            await _vm.RefreshAsync();
+            _permGrid.ItemsSource = await _vm.LoadUserSharePermsAsync(_userName);
+            MessageBox.Show("已调整该用户在此共享的授权", "调整权限");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "调整失败");
+        }
+    }
+
+    static ShareAccess ParsePermAccess(string target) => target switch
+    {
+        "Full" => ShareAccess.Full,
+        "Change" => ShareAccess.Change,
+        _ => ShareAccess.Read,
+    };
 
     void UpdateStrength()
     {

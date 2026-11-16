@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using WinShare.Core.Contracts;
 using WinShare.Core.Lib;
 using WinShare.Core.Ps;
+using WinShare.Core.Services.ProtocolServices; // ServiceStartType：启动类型写回助手（v2.1）
 
 namespace WinShare.Core.Services.Shares;
 
@@ -455,6 +456,10 @@ public sealed class SmbService : ISmbService
 
     /// <summary>TS: stopService()。</summary>
     public Task StopServiceAsync() => _ps.RunVoidAsync("Stop-Service -Name LanmanServer -Force", 15000, 2);
+
+    /// <summary>修改服务启动类型（v2.1 面板解锁；Set-Service -StartupType + 回读校验）。</summary>
+    public Task SetServiceStartTypeAsync(string startType) =>
+        ServiceStartType.SetAsync(_ps, "LanmanServer", startType, "SMB");
 
     // === TS: tsToFilename —— ISO 时间戳作文件名需替换 : 为 -（Windows 不允许 :） ===
     internal static string TsToFilename(string ts) => Regex.Replace(ts, "[:.]", "-");

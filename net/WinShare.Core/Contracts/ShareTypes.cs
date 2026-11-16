@@ -62,7 +62,8 @@ public record CreateShareOpts
     public bool? shareShadowCopy { get; init; }
 }
 
-/// <summary>SMB 更新共享入参（TS: types.ts UpdateShareOpts）。</summary>
+/// <summary>SMB 更新共享入参（TS: types.ts UpdateShareOpts）。
+/// v2.1 面板解锁：newName/path 非空且与现值不同 → 走「快照→移除→重建」通道（Set-SmbShare 不支持改名/改路径）。</summary>
 public record UpdateShareOpts
 {
     public string? description { get; init; }
@@ -72,6 +73,10 @@ public record UpdateShareOpts
     public CachingMode? cachingMode { get; init; }
     public bool? encryptData { get; init; }
     public bool? hidden { get; init; }
+    /// <summary>新共享名（与现名不同时触发重建改名）。</summary>
+    public string? newName { get; init; }
+    /// <summary>新路径（与现路径不同时触发重建改路径）。</summary>
+    public string? path { get; init; }
 }
 
 /// <summary>统一创建共享入参（TS: types.ts CreateShareInput，按 protocol 分支使用各协议字段）。</summary>
@@ -107,7 +112,8 @@ public record CreateShareInput
     public bool? anonymousEnabled { get; init; }
 }
 
-/// <summary>统一更新共享入参（TS: types.ts UpdateShareInput）。</summary>
+/// <summary>统一更新共享入参（TS: types.ts UpdateShareInput）。
+/// v2.1 面板解锁：newName 支持改名；path 改用 physicalPath 通道承载（SMB/NFS 重建，FTP/WebDAV 经 appcmd/Set-ItemProperty）。</summary>
 public record UpdateShareInput
 {
     public Protocol protocol { get; init; }
@@ -123,6 +129,8 @@ public record UpdateShareInput
     // WebDAV 可改
     public bool? anonymousEnabled { get; init; }
     public bool? authoringEnabled { get; init; }
+    // v2.1：新名称（与现名不同时触发各协议改名逻辑）
+    public string? newName { get; init; }
 }
 
 /// <summary>

@@ -262,6 +262,12 @@ public sealed class SystemService : ISystemService
     /// <summary>TS: getAuditLog() = readAuditLog()。</summary>
     public Task<string> GetAuditLogAsync() => Task.FromResult(Audit.ReadAuditLog());
 
+    /// <summary>v2.1 面板解锁：清空应用日志（Logger.Clear；截断 app.log，归档保留）。</summary>
+    public Task<bool> ClearAppLogAsync() => Task.FromResult(Logger.Clear());
+
+    /// <summary>v2.1 面板解锁：清空审计日志（Audit.Clear；截断 audit.log，归档保留）。</summary>
+    public Task<bool> ClearAuditLogAsync() => Task.FromResult(Audit.Clear());
+
     /// <summary>TS: healthCheck() —— Get-Command Get-SmbShare 探测 PowerShell SMB 模块可用性。</summary>
     public async Task<HealthCheckResult> HealthCheckAsync()
     {
@@ -442,6 +448,7 @@ public sealed class SystemService : ISystemService
         public Task RestartServiceAsync() => Task.FromException(Errors.CommandFailed("SMB 服务未注入"));
         public Task StartServiceAsync() => Task.FromException(Errors.CommandFailed("SMB 服务未注入"));
         public Task StopServiceAsync() => Task.FromException(Errors.CommandFailed("SMB 服务未注入"));
+        public Task SetServiceStartTypeAsync(string startType) => Task.FromException(Errors.CommandFailed("SMB 服务未注入"));
     }
 
     private sealed class NullProtocolService : IProtocolService

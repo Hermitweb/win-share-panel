@@ -184,6 +184,11 @@ public abstract class ProtocolConfigCardViewModel<TConfig> : SettingsCardBase
     /// <summary>停止服务（契约已补 IProtocolAdapter.StopServiceAsync）。</summary>
     public async Task StopAsync() => await ServiceActionAsync("停止", a => a.StopServiceAsync(), s => $"{s} 服务已停止");
 
+    /// <summary>修改服务启动类型（v2.1 面板解锁：Set-Service -StartupType；对运行中的服务下次启动生效）。</summary>
+    public Task SetServiceStartTypeAsync(string startType) =>
+        ServiceActionAsync("启动类型", a => a.SetServiceStartTypeAsync(startType),
+            s => $"{s} 服务启动类型已更新（对运行中的服务下次启动生效）");
+
     async Task ServiceActionAsync(string verb, Func<IProtocolAdapter, Task> action, Func<string, string> text)
     {
         var adapter = Adapter;
@@ -388,7 +393,7 @@ public sealed class SmbConfigCardViewModel : ProtocolConfigCardViewModel<SmbServ
     }
 }
 
-/// <summary>NFS 配置卡（基础 + 连接与超时；匿名 UID/GID、网关字符集、协议版本只读）。</summary>
+/// <summary>NFS 配置卡（基础 + 连接与超时 + 协议版本开关；身份映射/网关字符集经 WMI 直写）。</summary>
 public sealed class NfsConfigCardViewModel : ProtocolConfigCardViewModel<NfsServerConfig>
 {
     public bool GracefulUnmount { get => C().gracefulUnmount; set { Config = C() with { gracefulUnmount = value }; Raise(); } }
@@ -400,10 +405,15 @@ public sealed class NfsConfigCardViewModel : ProtocolConfigCardViewModel<NfsServ
     public int RestartTimeout { get => C().restartConnectionTimeout; set { Config = C() with { restartConnectionTimeout = value }; Raise(); } }
     public int MaxConcurrentPerUser { get => C().maxConcurrentConnectionsPerUser; set { Config = C() with { maxConcurrentConnectionsPerUser = value }; Raise(); } }
     public int DirectoryCacheExpiry { get => C().directoryCacheExpiry; set { Config = C() with { directoryCacheExpiry = value }; Raise(); } }
-    // 只读展示（不参与补丁）
-    public int AnonymousUid => C().anonymousUid;
-    public int AnonymousGid => C().anonymousGid;
-    public string GatewayCharacterSet => C().gatewayCharacterSet;
+    // 协议版本开关（Set-NfsServerConfiguration -EnableNFSV2/-V3/-V4）
+    public bool EnableNfsV2 { get => C().enableNfsV2; set { Config = C() with { enableNfsV2 = value }; Raise(); } }
+    public bool EnableNfsV3 { get => C().enableNfsV3; set { Config = C() with { enableNfsV3 = value }; Raise(); } }
+    public bool EnableNfsV4 { get => C().enableNfsV4; set { Config = C() with { enableNfsV4 = value }; Raise(); } }
+    // 身份映射 / 网关（服务侧与现值 diff 后 WMI 直写；未变化不触发写入）
+    public int AnonymousUid { get => C().anonymousUid; set { Config = C() with { anonymousUid = value }; Raise(); } }
+    public int AnonymousGid { get => C().anonymousGid; set { Config = C() with { anonymousGid = value }; Raise(); } }
+    public string GatewayCharacterSet { get => C().gatewayCharacterSet; set { Config = C() with { gatewayCharacterSet = value }; Raise(); } }
+    /// <summary>服务器报告的协议版本（仅展示）。</summary>
     public string ProtocolVersion => C().protocolVersion;
 
     public NfsConfigCardViewModel(IProtocolService? svc, bool advancedMode)
@@ -428,6 +438,12 @@ public sealed class NfsConfigCardViewModel : ProtocolConfigCardViewModel<NfsServ
             ["restartConnectionTimeout"] = c.restartConnectionTimeout,
             ["maxConcurrentConnectionsPerUser"] = c.maxConcurrentConnectionsPerUser,
             ["directoryCacheExpiry"] = c.directoryCacheExpiry,
+            ["enableNfsV2"] = c.enableNfsV2,
+            ["enableNfsV3"] = c.enableNfsV3,
+            ["enableNfsV4"] = c.enableNfsV4,
+            ["anonymousUid"] = c.anonymousUid,
+            ["anonymousGid"] = c.anonymousGid,
+            ["gatewayCharacterSet"] = c.gatewayCharacterSet,
         };
     }
 }
@@ -552,7 +568,7 @@ public sealed class FtpConfigCardViewModel : ProtocolConfigCardViewModel<FtpServ
     }
 }
 
-/// <summary>WebDAV 配置卡（IIS system.webServer；服务器级只读状态单列展示）。</summary>
+/// <summary>WebDAV 配置卡（IIS system.webServer；v2.1：压缩/SSL 可写，规则计数为派生展示）。</summary>
 public sealed class WebdavConfigCardViewModel : ProtocolConfigCardViewModel<WebdavServerConfig>
 {
     public bool AuthoringEnabled { get => C().authoringEnabled; set { Config = C() with { authoringEnabled = value }; Raise(); } }
@@ -565,11 +581,12 @@ public sealed class WebdavConfigCardViewModel : ProtocolConfigCardViewModel<Webd
     public bool WindowsAuth { get => C().windowsEnabled; set { Config = C() with { windowsEnabled = value }; Raise(); } }
     public int MaxUrlLength { get => C().maxUrlLength; set { Config = C() with { maxUrlLength = value }; Raise(); } }
     public int MaxQueryStringLength { get => C().maxQueryStringLength; set { Config = C() with { maxQueryStringLength = value }; Raise(); } }
-    // 只读展示（服务器级状态）
+    // 压缩与 SSL（v2.1 由只读升级为可写）
+    public bool StaticCompression { get => C().enableStaticCompression; set { Config = C() with { enableStaticCompression = value }; Raise(); } }
+    public bool DynamicCompression { get => C().enableDynamicCompression; set { Config = C() with { enableDynamicCompression = value }; Raise(); } }
+    public bool RequireSsl { get => C().requireSSL; set { Config = C() with { requireSSL = value }; Raise(); } }
+    // 服务器级状态（派生计数，仅展示）
     public int GlobalRulesCount => C().globalAuthoringRulesCount;
-    public bool StaticCompression => C().enableStaticCompression;
-    public bool DynamicCompression => C().enableDynamicCompression;
-    public bool RequireSsl => C().requireSSL;
 
     public WebdavConfigCardViewModel(IProtocolService? svc, bool advancedMode)
         : base(Protocol.Webdav, svc, advancedMode)
@@ -594,6 +611,9 @@ public sealed class WebdavConfigCardViewModel : ProtocolConfigCardViewModel<Webd
             ["windowsEnabled"] = c.windowsEnabled,
             ["maxUrlLength"] = c.maxUrlLength,
             ["maxQueryStringLength"] = c.maxQueryStringLength,
+            ["enableStaticCompression"] = c.enableStaticCompression,
+            ["enableDynamicCompression"] = c.enableDynamicCompression,
+            ["requireSSL"] = c.requireSSL,
         };
     }
 }

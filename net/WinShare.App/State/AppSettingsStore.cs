@@ -80,16 +80,8 @@ public sealed class AppSettingsStore
             var list = s.dashboardHistory?.ToList() ?? new List<HistoryPoint>();
             list.Add(point);
             if (list.Count > HistoryMax) list.RemoveRange(0, list.Count - HistoryMax);
-            _cache = Normalize(new AppState
-            {
-                theme = s.theme,
-                advancedMode = s.advancedMode,
-                pinned = s.pinned,
-                alertRules = s.alertRules,
-                autoStart = s.autoStart,
-                dashboardHistory = list,
-                journal = s.journal,
-            });
+            // `with` 保留其余字段（含 v2.1 advanced）——新建 AppState 会把未列字段静默重置为默认
+            _cache = Normalize(s with { dashboardHistory = list });
             Persist(_cache);
         }
     }
@@ -279,6 +271,29 @@ public sealed class AppSettingsStore
         };
 
         string? theme = obj.TryGetProperty("theme", out var th) && th.ValueKind == JsonValueKind.String ? th.GetString() : null;
+
+        // v2.1 高级设置（缺字段/脏值逐键回默认；收敛规则复用 Core StateStore.NormalizeAdvanced 防漂移）
+        AdvancedSettings advanced = new();
+        if (obj.TryGetProperty("advanced", out var adv) && adv.ValueKind == JsonValueKind.Object)
+        {
+            advanced = WinShare.Core.Lib.StateStore.NormalizeAdvanced(new AdvancedSettings
+            {
+                updateRepo = adv.TryGetProperty("updateRepo", out var ur) && ur.ValueKind == JsonValueKind.String
+                    ? ur.GetString() ?? ""
+                    : advanced.updateRepo,
+                passwordAgeWarnDays = adv.TryGetProperty("passwordAgeWarnDays", out var pwd) && pwd.ValueKind == JsonValueKind.Number
+                    ? pwd.GetInt32() : advanced.passwordAgeWarnDays,
+                logMaxSizeMb = adv.TryGetProperty("logMaxSizeMb", out var lm) && lm.ValueKind == JsonValueKind.Number
+                    ? lm.GetInt32() : advanced.logMaxSizeMb,
+                logMaxFiles = adv.TryGetProperty("logMaxFiles", out var lf) && lf.ValueKind == JsonValueKind.Number
+                    ? lf.GetInt32() : advanced.logMaxFiles,
+                ftpPassiveFrom = adv.TryGetProperty("ftpPassiveFrom", out var ff) && ff.ValueKind == JsonValueKind.Number
+                    ? ff.GetInt32() : advanced.ftpPassiveFrom,
+                ftpPassiveTo = adv.TryGetProperty("ftpPassiveTo", out var ft) && ft.ValueKind == JsonValueKind.Number
+                    ? ft.GetInt32() : advanced.ftpPassiveTo,
+            });
+        }
+
         return new AppState
         {
             theme = theme == "dark" ? ThemeMode.Dark : ThemeMode.Light,
@@ -288,6 +303,7 @@ public sealed class AppSettingsStore
             autoStart = GetBool("autoStart", false),
             dashboardHistory = history,
             journal = journal,
+            advanced = advanced,
         };
     }
 
@@ -338,6 +354,7 @@ public sealed class AppSettingsStore
                 ?? d.dashboardHistory,
             journal = raw.journal?.Where(j => !string.IsNullOrEmpty(j.id)).TakeLast(JournalMax).ToList()
                 ?? d.journal,
+            advanced = WinShare.Core.Lib.StateStore.NormalizeAdvanced(raw.advanced),
         };
     }
 
@@ -359,6 +376,7 @@ public sealed class AppSettingsStore
             autoStart = patch.autoStart ?? prev.autoStart,
             dashboardHistory = patch.dashboardHistory ?? prev.dashboardHistory,
             journal = patch.journal ?? prev.journal,
+            advanced = patch.advanced ?? prev.advanced,
         };
     }
 
@@ -377,6 +395,7 @@ public sealed class AppSettingsStore
                 autoStart = state.autoStart,
                 dashboardHistory = state.dashboardHistory,
                 journal = state.journal,
+                advanced = state.advanced, // v2.1：高级设置落盘（显式拷贝，防默认值静默覆盖）
                 refreshInterval = _refreshInterval,
             };
             var json = JsonSerializer.Serialize(file, JsonOpts);

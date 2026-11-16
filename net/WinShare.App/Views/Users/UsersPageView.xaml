@@ -222,6 +222,35 @@
                         <Button x:Name="BtnNtfsView" Content="查看" Style="{DynamicResource DashButton}"
                                 Margin="8,0,0,0" Click="OnNtfsView" />
                     </StackPanel>
+                    <!-- 编辑授权（v2.1 解锁：添加/移除授权 + 继承控制，icacls 通道） -->
+                    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                        <TextBlock Text="编辑授权：选择账号与级别后「添加授权」；行内「移除」删除该账号全部授权；" FontSize="12"
+                                   Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="账号：" FontSize="12" VerticalAlignment="Center" />
+                            <ComboBox x:Name="NtfsAccountBox" Width="200" IsEditable="True" FontSize="12"
+                                      Style="{DynamicResource ComboBoxSoft}"
+                                      ToolTip="可从下拉选择本地用户/组，或直接输入（支持 DOMAIN\user）" />
+                            <TextBlock Text="级别：" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0" />
+                            <ComboBox x:Name="NtfsRightsBox" Width="120" FontSize="12" SelectedIndex="1"
+                                      Style="{DynamicResource ComboBoxSoft}">
+                                <ComboBoxItem Content="读取" Tag="R" />
+                                <ComboBoxItem Content="读取和执行" Tag="RX" />
+                                <ComboBoxItem Content="写入" Tag="W" />
+                                <ComboBoxItem Content="修改" Tag="M" />
+                                <ComboBoxItem Content="完全控制" Tag="F" />
+                            </ComboBox>
+                            <CheckBox x:Name="NtfsOiBox" Content="应用到文件(OI)" IsChecked="True" FontSize="12"
+                                      Style="{DynamicResource CheckBoxSoft}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <CheckBox x:Name="NtfsCiBox" Content="应用到子目录(CI)" IsChecked="True" FontSize="12"
+                                      Style="{DynamicResource CheckBoxSoft}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <Button Content="添加授权" Style="{DynamicResource DashButton}" Margin="10,0,0,0" Click="OnNtfsGrant" />
+                            <Button Content="启用继承" Style="{DynamicResource DashButton}" Margin="10,0,0,0"
+                                    Click="OnNtfsInheritOn" ToolTip="恢复从父目录继承（icacls /inheritance:e）" />
+                            <Button Content="禁用继承" Style="{DynamicResource DashButton}" Margin="8,0,0,0"
+                                    Click="OnNtfsInheritOff" ToolTip="继承项复制为显式项，可安全编辑（icacls /inheritance:d）" />
+                        </StackPanel>
+                    </StackPanel>
                     <DataGrid x:Name="NtfsGrid" Style="{DynamicResource SoftDataGrid}"
                               AutoGenerateColumns="False" IsReadOnly="True"
                               CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="13">
@@ -230,6 +259,15 @@
                             <DataGridTextColumn Header="权限" Binding="{Binding entry.rights}" Width="*" />
                             <DataGridTextColumn Header="类型" Binding="{Binding TypeText}" Width="60" />
                             <DataGridTextColumn Header="继承" Binding="{Binding entry.inherited}" Width="60" />
+                            <DataGridTemplateColumn Width="80">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="移除" Style="{DynamicResource RowActionButtonDanger}"
+                                                Padding="6,1" Margin="2,0" Click="OnNtfsRevoke"
+                                                ToolTip="移除该账号在此路径的全部授权（icacls /remove）" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>

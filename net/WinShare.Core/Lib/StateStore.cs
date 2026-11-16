@@ -27,6 +27,7 @@ public sealed class StateStore : IStateStore
         autoStart = false,
         dashboardHistory = Array.Empty<HistoryPoint>(),
         journal = Array.Empty<JournalEntry>(),
+        advanced = new AdvancedSettings(),
     };
 
     private readonly object _gate = new();
@@ -159,6 +160,7 @@ public sealed class StateStore : IStateStore
         autoStart = patch.autoStart ?? prev.autoStart,
         dashboardHistory = patch.dashboardHistory ?? prev.dashboardHistory,
         journal = patch.journal ?? prev.journal,
+        advanced = patch.advanced ?? prev.advanced,
     };
 
     /// <summary>
@@ -175,6 +177,28 @@ public sealed class StateStore : IStateStore
             smb1Alert = patch.smb1Alert,
             weakPasswordAlert = patch.weakPasswordAlert,
             diskLowGb = patch.diskLowGb,
+        };
+    }
+
+    /// <summary>v2.1 高级设置收敛（脏值逐键回默认：仓库空回默认、数值越界回默认）。公开供两版 store 复用（防漂移）。</summary>
+    public static AdvancedSettings NormalizeAdvanced(AdvancedSettings? a)
+    {
+        var d = new AdvancedSettings();
+        if (a is null) return d;
+        string repo = string.IsNullOrWhiteSpace(a.updateRepo) ? d.updateRepo : a.updateRepo.Trim();
+        // owner/repo 形态守卫（GitHub 仓库路径：字母数字._- 组成，恰一个 /）
+        if (!System.Text.RegularExpressions.Regex.IsMatch(repo, @"^[A-Za-z0-9._\-]+/[A-Za-z0-9._\-]+$"))
+        {
+            repo = d.updateRepo;
+        }
+        return new AdvancedSettings
+        {
+            updateRepo = repo,
+            passwordAgeWarnDays = a.passwordAgeWarnDays is > 0 and <= 3650 ? a.passwordAgeWarnDays : d.passwordAgeWarnDays,
+            logMaxSizeMb = a.logMaxSizeMb is > 0 and <= 1024 ? a.logMaxSizeMb : d.logMaxSizeMb,
+            logMaxFiles = a.logMaxFiles is > 0 and <= 50 ? a.logMaxFiles : d.logMaxFiles,
+            ftpPassiveFrom = a.ftpPassiveFrom is >= 1024 and <= 65535 ? a.ftpPassiveFrom : d.ftpPassiveFrom,
+            ftpPassiveTo = a.ftpPassiveTo is >= 1024 and <= 65535 ? a.ftpPassiveTo : d.ftpPassiveTo,
         };
     }
 
@@ -200,6 +224,7 @@ public sealed class StateStore : IStateStore
             autoStart = s.autoStart,
             dashboardHistory = (s.dashboardHistory ?? Array.Empty<HistoryPoint>()).TakeLast(HistoryMax).ToList(),
             journal = (s.journal ?? Array.Empty<JournalEntry>()).TakeLast(JournalMax).ToList(),
+            advanced = NormalizeAdvanced(s.advanced),
         };
     }
 
@@ -312,6 +337,23 @@ public sealed class StateStore : IStateStore
             }
         }
 
+        // v2.1 高级设置（缺字段/脏值逐键回默认；owner/repo 形态守卫复用 NormalizeAdvanced）
+        AdvancedSettings advanced = d.advanced;
+        if (root.TryGetProperty("advanced", out var advEl) && advEl.ValueKind == JsonValueKind.Object)
+        {
+            advanced = NormalizeAdvanced(new AdvancedSettings
+            {
+                updateRepo = advEl.TryGetProperty("updateRepo", out var ur) && ur.ValueKind == JsonValueKind.String
+                    ? ur.GetString() ?? ""
+                    : d.advanced.updateRepo,
+                passwordAgeWarnDays = IntInRange(advEl, "passwordAgeWarnDays", d.advanced.passwordAgeWarnDays, 1, 3650),
+                logMaxSizeMb = IntInRange(advEl, "logMaxSizeMb", d.advanced.logMaxSizeMb, 1, 1024),
+                logMaxFiles = IntInRange(advEl, "logMaxFiles", d.advanced.logMaxFiles, 1, 50),
+                ftpPassiveFrom = IntInRange(advEl, "ftpPassiveFrom", d.advanced.ftpPassiveFrom, 1024, 65535),
+                ftpPassiveTo = IntInRange(advEl, "ftpPassiveTo", d.advanced.ftpPassiveTo, 1024, 65535),
+            });
+        }
+
         return new AppState
         {
             theme = theme,
@@ -321,7 +363,19 @@ public sealed class StateStore : IStateStore
             autoStart = autoStart,
             dashboardHistory = hist.TakeLast(HistoryMax).ToList(),
             journal = journal.TakeLast(JournalMax).ToList(),
+            advanced = advanced,
         };
+    }
+
+    /// <summary>数值键读取：缺失/非数值 → fallback；越界 → fallback（v2.1 advanced 键专用）。</summary>
+    private static int IntInRange(JsonElement parent, string key, int fallback, int min, int max)
+    {
+        if (parent.ValueKind != JsonValueKind.Object || !parent.TryGetProperty(key, out var v)
+            || v.ValueKind != JsonValueKind.Number || !v.TryGetInt32(out int n))
+        {
+            return fallback;
+        }
+        return n >= min && n <= max ? n : fallback;
     }
 
     private static double? ArNumber(JsonElement ar, string key) =>
@@ -413,6 +467,15 @@ public sealed class StateStore : IStateStore
                     ["openFiles"] = h.openFiles
                 }).ToArray()),
             ["journal"] = new JsonArray(s.journal.Select(JournalToJson).ToArray()),
+            ["advanced"] = new JsonObject
+            {
+                ["updateRepo"] = s.advanced.updateRepo,
+                ["passwordAgeWarnDays"] = s.advanced.passwordAgeWarnDays,
+                ["logMaxSizeMb"] = s.advanced.logMaxSizeMb,
+                ["logMaxFiles"] = s.advanced.logMaxFiles,
+                ["ftpPassiveFrom"] = s.advanced.ftpPassiveFrom,
+                ["ftpPassiveTo"] = s.advanced.ftpPassiveTo,
+            },
         };
         return o;
     }
@@ -468,6 +531,7 @@ public sealed class StateStore : IStateStore
         autoStart = s.autoStart,
         dashboardHistory = s.dashboardHistory.ToList(),
         journal = s.journal.ToList(),
+        advanced = s.advanced,
     };
 
     /// <summary>JS Math.round 等价（half-up）；.NET Math.Round 为 banker's rounding，不能直接用。</summary>

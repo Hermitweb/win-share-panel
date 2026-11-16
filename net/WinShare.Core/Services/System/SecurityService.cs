@@ -11,11 +11,34 @@ namespace WinShare.Core.Services.Host;
 public sealed class SecurityService : ISecurityService
 {
     private readonly IPsInvoker _ps;
+    private readonly IStateStore? _store;
 
-    public SecurityService(IPsInvoker? ps = null) => _ps = ps ?? PsRunner.Default;
+    /// <summary>v2.1：弱密码审计阈值可配置（高级设置 advanced.passwordAgeWarnDays；默认 180 天）。</summary>
+    public SecurityService(IPsInvoker? ps = null, IStateStore? store = null)
+    {
+        _ps = ps ?? PsRunner.Default;
+        _store = store;
+    }
 
     /// <summary>TS: const DAY = 24 * 3600 * 1000。</summary>
     private const double DayMs = 24 * 3600 * 1000;
+
+    /// <summary>TS: 180*DAY 的阈值来源（高级设置可改；normalize 已收敛 1..3650，异常再兜底 180）。</summary>
+    private int PasswordAgeWarnDays
+    {
+        get
+        {
+            try
+            {
+                int days = _store?.LoadState().advanced.passwordAgeWarnDays ?? 180;
+                return days is > 0 and <= 3650 ? days : 180;
+            }
+            catch
+            {
+                return 180;
+            }
+        }
+    }
 
     /// <summary>
     /// TS: securityReport() —— Get-LocalUser 一次查询后本地判级（不发第二个命令）。
@@ -65,17 +88,19 @@ public sealed class SecurityService : ISecurityService
             }
 
             // TS: if (u.PasswordLastSet) { set = Date.parse(...); if (!isNaN(set) && now - set > 180*DAY) warn }
+            // v2.1：180*DAY 阈值改自高级设置（passwordAgeWarnDays），文案随实际天数
+            int warnDays = PasswordAgeWarnDays;
             string? lastSet = SystemJsCompat.NonEmptyStringProp(u, "PasswordLastSet");
             if (lastSet is not null)
             {
                 double set = SystemJsCompat.DateParseMs(lastSet);
-                if (SystemJsCompat.IsFiniteNumber(set) && now - set > 180 * DayMs)
+                if (SystemJsCompat.IsFiniteNumber(set) && now - set > warnDays * DayMs)
                 {
                     issues.Add(new SecurityIssue
                     {
                         user = name,
                         level = SecurityLevel.Warn,
-                        issue = $"密码超过 180 天未修改（{SystemJsCompat.IsoDate(set)}）",
+                        issue = $"密码超过 {warnDays} 天未修改（{SystemJsCompat.IsoDate(set)}）",
                     });
                 }
             }

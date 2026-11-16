@@ -172,6 +172,11 @@ public sealed class NfsAdapter : IProtocolAdapter
         Logger.Info("adapter:nfsAdapter", "[updateShare:nfs] 更新共享:", name,
             PermText(input.nfsPermission), input.allowRootAccess, input.enableUnmappedAccess);
         if (!PsGate.ValidateName(name)) throw Errors.InvalidParam("共享名非法");
+        // v2.1 面板解锁：改名/改路径走「移除→重建→授权回放」通道（Set-NfsShare 不支持改名/改路径）
+        if (input.newName is not null || input.physicalPath is not null)
+        {
+            return await RecreateNfsShareAsync(name, input);
+        }
         List<string> parts = new() { "Set-NfsShare", $"-Name {PsGate.PsQuote(name)}" };
         if (PsGate.PsEnum(PermOrNull(input.nfsPermission), NfsPermissions) is string perm) parts.Add($"-Permission {perm}");
         if (PsGate.PsBool(input.allowRootAccess) is string ra) parts.Add($"-AllowRootAccess {ra}");
@@ -194,6 +199,82 @@ public sealed class NfsAdapter : IProtocolAdapter
             throw;
         }
     }
+
+    /// <summary>
+    /// v2.1 改名/改路径的重建通道：快照旧共享参数与授权 → Remove-NfsShare →
+    /// 按新名/新路径 New-NfsShare（沿用旧认证/权限/UID 映射，入参优先）→ 客户端授权回放（best-effort）。
+    /// 重建失败时尽力按旧参数恢复原共享再上抛；journal 留档（NFS 无一键撤销通道，undoable=false）。
+    /// </summary>
+    private async Task<Share> RecreateNfsShareAsync(string name, UpdateShareInput input)
+    {
+        string newName = input.newName ?? name;
+        if (newName != name)
+        {
+            if (!PsGate.ValidateName(newName)) throw Errors.InvalidParam("新共享名非法");
+        }
+        IReadOnlyList<Share> all = await ListSharesAsync();
+        Share? old = all.FirstOrDefault(x => string.Equals(x.name, name, StringComparison.Ordinal));
+        if (old is null) throw Errors.ShareNotFound(name);
+        string newPath = input.physicalPath ?? old.path;
+        if (input.physicalPath is not null && !PsGate.ValidatePath(input.physicalPath)) throw Errors.InvalidParam("路径非法");
+        if (newName == name && newPath == old.path)
+        {
+            return old; // 名与路径均未变化：不触发破坏性重建
+        }
+        // 客户端授权回放底料（快照失败不阻断重建，只丢失回放）
+        IReadOnlyList<SharePermission> perms = Array.Empty<SharePermission>();
+        try { perms = await GetPermissionsAsync(name); } catch (Exception e) { Logger.Error("adapter:nfsAdapter", "[updateShare:nfs] 快照授权失败:", e.Message); }
+
+        Logger.Info("adapter:nfsAdapter", "[updateShare:nfs] 重建通道:", name, "→", newName, newPath);
+        try
+        {
+            await DeleteShareAsync(name);
+            Share created = await CreateShareAsync(BuildNfsCreateInput(old, newName, newPath, input));
+            // 客户端级授权回放（best-effort）
+            if (perms.Count > 0)
+            {
+                try { await SetPermissionsAsync(newName, perms); }
+                catch (Exception e) { Logger.Error("adapter:nfsAdapter", "[updateShare:nfs] 授权回放失败（可手工补配）:", e.Message); }
+            }
+            _store.AddJournal(new JournalEntryDraft
+            {
+                action = JournalAction.Create,
+                protocol = Protocol.Nfs,
+                name = newName,
+                detail = $"由「{name}」重建（{(newName != name ? $"改名，" : "")}路径 {newPath}；NFS 重建不支持一键撤销）",
+                undoable = false,
+            });
+            return created;
+        }
+        catch (Exception e)
+        {
+            Logger.Error("adapter:nfsAdapter", "[updateShare:nfs] 重建失败，尝试恢复原共享:", newName, e.Message);
+            try
+            {
+                await CreateShareAsync(BuildNfsCreateInput(old, name, old.path, new UpdateShareInput()));
+            }
+            catch
+            {
+                // 恢复失败不掩盖原始错误
+            }
+            throw;
+        }
+    }
+
+    /// <summary>由旧共享参数组装重建入参（入参显式提供的字段优先）。</summary>
+    private static CreateShareInput BuildNfsCreateInput(Share old, string name, string path, UpdateShareInput input) => new()
+    {
+        protocol = Protocol.Nfs,
+        name = name,
+        path = path,
+        description = input.description ?? old.description,
+        authentication = old.authentication,
+        nfsPermission = input.nfsPermission ?? old.nfsPermission,
+        allowRootAccess = input.allowRootAccess ?? old.allowRootAccess,
+        enableUnmappedAccess = input.enableUnmappedAccess ?? old.enableUnmappedAccess,
+        anonymousUid = old.anonymousUid,
+        anonymousGid = old.anonymousGid,
+    };
 
     public async Task<IReadOnlyList<SharePermission>> GetPermissionsAsync(string name)
     {
@@ -385,6 +466,9 @@ public sealed class NfsAdapter : IProtocolAdapter
             throw;
         }
     }
+
+    /// <summary>修改服务启动类型（v2.1 面板解锁；委托 NfsService）。</summary>
+    public Task SetServiceStartTypeAsync(string startType) => _nfs.SetServiceStartTypeAsync(startType);
 
     public async Task<object?> GetConfigAsync() => await _nfs.GetConfigAsync();
 

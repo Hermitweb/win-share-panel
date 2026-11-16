@@ -58,8 +58,10 @@ SetupIconFile={#IconFile}
 UninstallDisplayIcon={app}\{#AppExe}
 
 [Languages]
-; 简体中文为唯一/默认语言（自备语言包随编译嵌入；缺失消息回退英文）
-Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
+; Default.isl 前置兜底（英文），ChineseSimplified.isl 覆盖中文键——
+; 部分覆盖语言包若未兜底 Default.isl，未覆盖键（CreateDesktopIcon 等）会报
+; "has not been defined"（v2.0.2 首跑三架构全挂的真实原因）
+Name: "chinesesimplified"; MessagesFile: "compiler:Default.isl,ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

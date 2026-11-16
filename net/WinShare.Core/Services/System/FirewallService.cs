@@ -31,8 +31,14 @@ public sealed class FirewallService : IFirewallService
     private static readonly Regex PortsRegex = new(@"^[\d,-]+$", RegexOptions.CultureInvariant);
 
     private readonly IPsInvoker _ps;
+    private readonly IStateStore? _store;
 
-    public FirewallService(IPsInvoker? ps = null) => _ps = ps ?? PsRunner.Default;
+    /// <summary>v2.1：FTP 被动段默认可配置（高级设置 advanced.ftpPassiveFrom/To；UI 显式传入仍优先）。</summary>
+    public FirewallService(IPsInvoker? ps = null, IStateStore? store = null)
+    {
+        _ps = ps ?? PsRunner.Default;
+        _store = store;
+    }
 
     /// <summary>TS: validateDesired(r) —— 先全量校验再写入；校验入参而非归一化结果（契约收紧）。</summary>
     private static FwProtocol ValidateDesired(DesiredRule r)
@@ -151,8 +157,10 @@ public sealed class FirewallService : IFirewallService
             case "ftpPassive":
                 {
                     // TS: Number.isInteger(opts?.passiveFrom) ? opts.passiveFrom : 50000（非整数静默回落默认）
-                    int from = opts?.passiveFrom is int f && IsInteger(f) ? f : 50000;
-                    int to = opts?.passiveTo is int t && IsInteger(t) ? t : 51000;
+                    // v2.1：默认值改自高级设置（ftpPassiveFrom/To；normalize 已收敛 1024..65535）
+                    (int DefFrom, int DefTo) defaults = PassiveDefaults();
+                    int from = opts?.passiveFrom is int f && IsInteger(f) ? f : defaults.DefFrom;
+                    int to = opts?.passiveTo is int t && IsInteger(t) ? t : defaults.DefTo;
                     if (from < 1 || to > 65535 || from > to) throw Errors.InvalidParam("被动端口范围非法");
                     return new[]
                     {
@@ -173,6 +181,22 @@ public sealed class FirewallService : IFirewallService
             default:
                 // TS: `未知防火墙预设：${validateName(kind) ? kind : '***'}`
                 throw Errors.InvalidParam($"未知防火墙预设：{(PsArgs.ValidateName(kind) ? kind : "***")}");
+        }
+    }
+
+    /// <summary>v2.1：FTP 被动段默认值（高级设置；读取失败/越界回落内置 50000/51000）。</summary>
+    private (int DefFrom, int DefTo) PassiveDefaults()
+    {
+        try
+        {
+            var adv = _store?.LoadState().advanced;
+            int from = adv?.ftpPassiveFrom ?? 50000;
+            int to = adv?.ftpPassiveTo ?? 51000;
+            return (from is >= 1024 and <= 65535 ? from : 50000, to is >= 1024 and <= 65535 ? to : 51000);
+        }
+        catch
+        {
+            return (50000, 51000);
         }
     }
 

@@ -5,8 +5,8 @@ using WinShare.App.Shares;
 namespace WinShare.App.Views.Shares;
 
 /// <summary>
-/// 编辑共享窗口（对齐 Shares.tsx 编辑 Modal：名称/路径只读，协议专有可改项；
-/// root 访问属深水区——新手模式不渲染也不提交）。
+/// 编辑共享窗口（对齐 Shares.tsx 编辑 Modal；v2.1 面板解锁：名称/路径可改——
+/// 改名/改路径会经重建通道保留授权，保存前弹确认；root 访问属深水区——新手模式不渲染也不提交）。
 /// </summary>
 public partial class ShareEditWindow : Window
 {
@@ -54,6 +54,8 @@ public partial class ShareEditWindow : Window
 
     void SyncToForm()
     {
+        _form.NewName = TxtName.Text.Trim();
+        _form.NewPath = TxtPath.Text.Trim();
         _form.Description = TxtDescription.Text;
         _form.NfsPermission = RadEditRo.IsChecked == true ? "ro" : "rw";
         _form.AllowRootAccess = ChkEditRoot.IsChecked == true;
@@ -66,9 +68,23 @@ public partial class ShareEditWindow : Window
 
     async void OnSave(object sender, RoutedEventArgs e)
     {
+        string newName = TxtName.Text.Trim();
+        string newPath = TxtPath.Text.Trim();
+        // v2.1：改名/改路径会走重建通道（移除→按新值重建→授权回放），中断现存连接，保存前确认
+        bool rename = !string.IsNullOrEmpty(newName) && newName != _form.Name;
+        bool move = !string.IsNullOrEmpty(newPath) && newPath != _form.Path;
+        if (rename || move)
+        {
+            string what = rename && move ? "共享名与路径" : rename ? "共享名" : "路径";
+            MessageBoxResult ok = MessageBox.Show(
+                $"修改{what}需要重建共享：现存连接将中断，共享授权与高级属性会按快照回放。继续？",
+                "重建确认", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (ok != MessageBoxResult.Yes) return;
+        }
         SyncToForm();
         var result = await _vm.SaveEditAsync();
-        if (string.IsNullOrEmpty(result))
+        // SaveEditAsync 契约：成功返回"已保存"（并同步 StatusMsg），失败返回错误文案
+        if (string.IsNullOrEmpty(result) || result == "已保存")
         {
             Close();
         }

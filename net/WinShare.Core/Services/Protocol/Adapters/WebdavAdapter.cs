@@ -232,6 +232,24 @@ public sealed class WebdavAdapter : IProtocolAdapter
         if (!PsGate.ValidateName(name)) throw Errors.InvalidParam("站点名非法");
         try
         {
+            // v2.1 面板解锁：站点改名（走 appcmd set site /name:）与物理路径修改（Set-ItemProperty）
+            if (input.newName is not null && input.newName != name)
+            {
+                if (!PsGate.ValidateName(input.newName)) throw Errors.InvalidParam("新站点名非法");
+                Logger.Info("adapter:webdavAdapter", "[updateShare:webdav] 站点改名:", name, "→", input.newName);
+                await _ps.RunVoidAsync(
+                    $"& $env:windir\\system32\\inetsrv\\appcmd.exe set site {PsGate.PsQuote(name)} /name:{PsGate.PsQuote(input.newName)}",
+                    Timeout, 0);
+                name = input.newName; // 后续配置写入以新名定位
+            }
+            if (input.physicalPath is not null)
+            {
+                if (!PsGate.ValidatePath(input.physicalPath)) throw Errors.InvalidParam("路径非法");
+                Logger.Info("adapter:webdavAdapter", "[updateShare:webdav] 更新物理路径:", name, "→", input.physicalPath);
+                await _ps.RunVoidAsync(
+                    $"Import-Module WebAdministration; Set-ItemProperty {AdapterHelpers.IisPath(name)} -Name physicalPath -Value {PsGate.PsQuote(input.physicalPath)}",
+                    Timeout, 0);
+            }
             if (input.anonymousEnabled is not null)
             {
                 string? anon = PsGate.PsBool(input.anonymousEnabled);
@@ -431,7 +449,7 @@ public sealed class WebdavAdapter : IProtocolAdapter
 
     public async Task StopServiceAsync()
     {
-        Logger.Info("adapter:webdavAdapter", "[stopService:webdav] 停止服务...");
+        Logger.Info("adapter:webdavAdapter", "[stopService:webdav] 停止 W3SVC 服务...");
         try
         {
             await _webdav.StopServiceAsync();
@@ -443,6 +461,10 @@ public sealed class WebdavAdapter : IProtocolAdapter
             throw;
         }
     }
+
+    /// <summary>修改服务启动类型（v2.1 面板解锁；委托 WebdavService）。</summary>
+    public Task SetServiceStartTypeAsync(string startType) => _webdav.SetServiceStartTypeAsync(startType);
+
 
     public async Task<object?> GetConfigAsync() => await _webdav.GetConfigAsync();
 

@@ -119,6 +119,7 @@ public sealed class StubProtocolAdapter : IProtocolAdapter
         StopCalls++;
         return Task.CompletedTask;
     }
+    public Task SetServiceStartTypeAsync(string startType) => Task.CompletedTask;
     public int StopCalls { get; private set; }
     public Task<object?> GetConfigAsync()
     {

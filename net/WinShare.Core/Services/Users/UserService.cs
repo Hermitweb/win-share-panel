@@ -621,4 +621,53 @@ public sealed class UserService : IUserService
         }
         return new NtfsAcl { path = path, entries = entries };
     }
+
+    // === v2.1 NTFS ACL 编辑（icacls 通道；参数一律过闸门，account 经单引号上下文嵌入） ===
+
+    // icacls 简单权限白名单（映射见 UI：R=读取 RX=读取和执行 W=写入 M=修改 F=完全控制）
+    private static readonly HashSet<string> NtfsRightsTokens = new(StringComparer.OrdinalIgnoreCase)
+        { "F", "M", "RX", "R", "W" };
+
+    private static string NtfsGuard(string path, string account, string? rights = null)
+    {
+        if (!PsArgs.ValidatePath(path)) throw Errors.InvalidParam("路径非法");
+        if (!PsArgs.ValidateAccountName(account)) throw Errors.InvalidParam($"账号名非法：{account}");
+        if (rights is not null && !NtfsRightsTokens.Contains(rights))
+        {
+            throw Errors.InvalidParam("权限级别非法（仅允许 F/M/RX/R/W）");
+        }
+        return account; // 已过 ValidateAccountName 白名单（无引号/元字符），调用点再整体 PsQuote
+    }
+
+    public async Task GrantNtfsAsync(string path, string account, string rights, bool inheritDirs, bool inheritFiles)
+    {
+        _ = NtfsGuard(path, account, rights);
+        // icacls /grant "账号:(OI)(CI)级别" —— 账号+级别为单个引号参数（PS 单引号内无插值语义）
+        string flags = inheritDirs && inheritFiles ? "(OI)(CI)"
+            : inheritDirs ? "(CI)"
+            : inheritFiles ? "(OI)"
+            : "";
+        string grantArg = PsArgs.PsQuote($"{account}:{flags}{rights.ToUpperInvariant()}");
+        string cmd = $"& icacls.exe {PsArgs.PsQuote(path)} /grant {grantArg} /nologo";
+        Logger.Info("user", "[ntfs:grant] PowerShell 命令:", cmd);
+        await _ps.RunVoidAsync(cmd, 15000, 2);
+    }
+
+    public Task RevokeNtfsAsync(string path, string account)
+    {
+        _ = NtfsGuard(path, account);
+        // /remove 移除该账号的全部 Allow/Deny 项（继承项由 /inheritance 控制）
+        string cmd = $"& icacls.exe {PsArgs.PsQuote(path)} /remove {PsArgs.PsQuote(account)} /nologo";
+        Logger.Info("user", "[ntfs:revoke] PowerShell 命令:", cmd);
+        return _ps.RunVoidAsync(cmd, 15000, 2);
+    }
+
+    public Task SetNtfsInheritanceAsync(string path, bool enabled)
+    {
+        if (!PsArgs.ValidatePath(path)) throw Errors.InvalidParam("路径非法");
+        // e=启用继承；d=禁用（继承项复制为显式项，可安全编辑）
+        string cmd = $"& icacls.exe {PsArgs.PsQuote(path)} /inheritance:{(enabled ? "e" : "d")} /nologo";
+        Logger.Info("user", "[ntfs:inheritance] PowerShell 命令:", cmd);
+        return _ps.RunVoidAsync(cmd, 15000, 2);
+    }
 }

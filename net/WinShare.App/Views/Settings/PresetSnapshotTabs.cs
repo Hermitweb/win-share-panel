@@ -9,7 +9,7 @@ using WinShare.Core.Contracts;
 
 namespace WinShare.App.Views.Settings;
 
-/// <summary>权限模板 Tab（[Source: Settings.tsx#权限模板 Tab]）。</summary>
+/// <summary>权限模板 Tab（[Source: Settings.tsx#权限模板 Tab]；v2.1 补齐编辑器与新建空白模板）。</summary>
 public sealed class PresetTabView : UserControl
 {
     private readonly StackPanel _list = new();
@@ -20,15 +20,54 @@ public sealed class PresetTabView : UserControl
         var root = new StackPanel { Margin = new Thickness(16) };
         root.Children.Add(SettingsUi.HeaderRow("权限模板",
             SettingsUi.Button("刷新", (_, _) => Reload()),
+            SettingsUi.Button("新建空白模板", (_, _) => _ = NewBlankAsync()),
             SettingsUi.Button("导出", async (_, _) => await ExportAsync()),
             SettingsUi.Button("导入", async (_, _) => await ImportAsync(), primary: true)));
         root.Children.Add(SettingsUi.FogText(
-            "内置模板不可删除（可复制）。应用到共享时按「覆盖」写入全部授权，失败自动回滚到改前权限。"));
+            "内置模板不可删除（可复制或「复制并编辑」为自定义副本）。自定义模板可直接编辑。" +
+            "应用到共享时按「覆盖」写入全部授权，失败自动回滚到改前权限。"));
         root.Children.Add(_list);
         root.Children.Add(SettingsUi.HeaderRow("条目预览"));
         root.Children.Add(_entriesBox);
         Content = new ScrollViewer { Content = root };
         Loaded += (_, _) => Reload();
+    }
+
+    /// <summary>v2.1：新建空白模板（编辑器 → SavePresetAsync）。</summary>
+    private async Task NewBlankAsync()
+    {
+        IPresetService? svc = SettingsServiceSlots.PresetService;
+        if (svc is null) { MessageBox.Show("权限模板服务未注册", "新建失败"); return; }
+        var win = new PresetEditorWindow(svc, null) { Owner = Window.GetWindow(this) };
+        if (win.ShowDialog() == true) Reload();
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// v2.1：编辑模板。自定义 → 直接进入编辑器（UpdatePresetAsync）；
+    /// 内置 → 先 DuplicatePresetAsync 成副本再进入编辑器（内置保护语义不变）。
+    /// </summary>
+    private async Task EditAsync(IPresetService svc, PermissionPreset preset)
+    {
+        PermissionPreset target = preset;
+        if (preset.builtIn)
+        {
+            try
+            {
+                target = await svc.DuplicatePresetAsync(preset.id);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "复制内置模板失败");
+                return;
+            }
+        }
+        var win = new PresetEditorWindow(svc, target) { Owner = Window.GetWindow(this) };
+        if (win.ShowDialog() == true)
+        {
+            Reload();
+            MessageBox.Show($"模板「{target.name}」已保存", "权限模板");
+        }
     }
 
     private async void Reload()
@@ -91,6 +130,20 @@ public sealed class PresetTabView : UserControl
             var viewBtn = SettingsUi.Button("查看", (_, _) => ShowEntries(captured));
             viewBtn.HorizontalAlignment = HorizontalAlignment.Left;
             row.Children.Add(viewBtn);
+            // v2.1：编辑入口（自定义直接编辑；内置自动复制为自定义副本后编辑）
+            var editBtn = SettingsUi.Button(preset.builtIn ? "复制并编辑" : "编辑", async (_, _) =>
+            {
+                try
+                {
+                    await EditAsync(svc, captured);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "编辑失败");
+                }
+            });
+            editBtn.HorizontalAlignment = HorizontalAlignment.Left;
+            row.Children.Add(editBtn);
             var copyBtn = SettingsUi.Button("复制", async (_, _) =>
             {
                 try
@@ -122,6 +175,7 @@ public sealed class PresetTabView : UserControl
             });
             del.HorizontalAlignment = HorizontalAlignment.Left;
             del.IsEnabled = !preset.builtIn;
+            del.ToolTip = preset.builtIn ? "内置模板不可删除（可复制为自定义）" : null;
             row.Children.Add(del);
             _list.Children.Add(row);
         }

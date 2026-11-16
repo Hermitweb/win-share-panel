@@ -24,6 +24,12 @@ public interface ISystemService
     /// <summary>TS: getAuditLog()（审计日志文本）。</summary>
     Task<string> GetAuditLogAsync();
 
+    /// <summary>v2.1 面板解锁：清空应用日志（app.log 截断；轮转归档保留）。返回是否成功。</summary>
+    Task<bool> ClearAppLogAsync();
+
+    /// <summary>v2.1 面板解锁：清空审计日志（audit.log 截断；轮转归档保留）。返回是否成功。</summary>
+    Task<bool> ClearAuditLogAsync();
+
     Task<HealthCheckResult> HealthCheckAsync();
 
     /// <summary>TS: getOsInfo(opts: { refresh?: boolean })。</summary>

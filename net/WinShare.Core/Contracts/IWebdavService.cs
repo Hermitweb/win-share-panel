@@ -13,6 +13,9 @@ public interface IWebdavService
     Task StartServiceAsync();
     Task StopServiceAsync();
 
+    /// <summary>修改服务启动类型（Set-Service -StartupType，白名单 Automatic/Manual/Disabled；写后回读校验）。</summary>
+    Task SetServiceStartTypeAsync(string startType);
+
     /// <summary>TS: defaultConfig()（同步）。</summary>
     WebdavServerConfig DefaultConfig();
 
@@ -24,4 +27,13 @@ public interface IWebdavService
     Task SetConfigAsync(WebdavServerConfig config);
 
     Task<WebdavServerConfig> RestoreDefaultAsync();
+
+    /// <summary>服务器级 Authoring 规则列表（authoringRules 集合；面板可查看/增删）。</summary>
+    Task<IReadOnlyList<WebdavAuthoringRule>> ListAuthoringRulesAsync();
+
+    /// <summary>新增 Authoring 规则（Add-WebConfigurationProperty；写前解锁配置节）。</summary>
+    Task AddAuthoringRuleAsync(WebdavAuthoringRuleOpts rule);
+
+    /// <summary>删除 Authoring 规则（按 extension+path 定位；Remove-WebConfigurationProperty -AtElement）。</summary>
+    Task RemoveAuthoringRuleAsync(string extension, string path);
 }

@@ -80,10 +80,26 @@ public sealed class AppSettingsViewModel
     /// <summary>运行时描述（关于卡「运行时」行；.NET 桌面版替代 electron 的 Chromium/Node 双值）。</summary>
     public string RuntimeDescription { get; }
 
-    /// <summary>项目地址三件套（对齐 src/utils/appMeta.ts 常量）。</summary>
-    public string ProjectUrl { get; } = "https://github.com/Hermitweb/win-share-panel";
-    public string IssuesUrl { get; } = "https://github.com/Hermitweb/win-share-panel/issues";
-    public string ReleasesUrl { get; } = "https://github.com/Hermitweb/win-share-panel/releases/latest";
+    /// <summary>项目地址三件套（v2.1：随高级设置 advanced.updateRepo 热跟随；服务缺席回落内置默认）。</summary>
+    public string ProjectUrl => $"https://github.com/{CurrentRepo}";
+    public string IssuesUrl => $"https://github.com/{CurrentRepo}/issues";
+    public string ReleasesUrl => $"https://github.com/{CurrentRepo}/releases/latest";
+
+    static string CurrentRepo
+    {
+        get
+        {
+            try
+            {
+                string repo = SettingsServiceSlots.UpdateService?.UpdateRepo ?? "";
+                return string.IsNullOrWhiteSpace(repo) ? "Hermitweb/win-share-panel" : repo.Trim();
+            }
+            catch
+            {
+                return "Hermitweb/win-share-panel";
+            }
+        }
+    }
 
     public AppSettingsViewModel(
         SettingsPageDependencies deps,

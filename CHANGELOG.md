@@ -4,6 +4,43 @@
 
 ## [Unreleased]
 
+## [WPF 2.1.0] - 2026-11-17
+
+「控制面板只读项全量解锁」：面板中所有只读字段改为可编辑、受限操作补齐操作入口，
+部署后无需改源码即可完成全部配置与操作（仅 WPF 版本线，Electron 线不动）：
+
+- **NFS 身份映射/网关可写**：匿名 UID/GID、网关字符集由只读展示升级为可编辑输入
+  （经 `Set-CimInstance` 对 MSFT_NfsServerConfig 直写 + 回读校验，与现值一致自动跳过，
+  提供程序拒绝时明确报错）；协议版本展示旁新增可写的 `EnableNFSV2/V3/V4` 三开关
+  （`Set-NfsServerConfiguration -EnableNFSV2/-V3/-V4`）
+- **WebDAV 压缩/SSL 可写**：静态/动态压缩、要求 SSL 由只读升级为开关
+  （urlCompression 节 + access 节 sslFlags 'Ssl'/'None'）；新增「全局 Authoring 规则管理」
+  （服务器级 authoringRules 列表/添加/删除，正则白名单 + PsQuote 双层防注入）
+- **服务启动类型可改**（4 协议）：服务状态条「启动类型」由纯文本升级为下拉（自动/手动/禁用）
+  + 应用按钮（`Set-Service -StartupType`，白名单收敛 + 回读校验；禁用需确认）
+- **SMB/NFS 共享名与路径可改**：编辑窗口解除名称/路径只读；改名/改路径走
+  「快照→移除→重建→授权回放」通道（SMB 写 journal 可撤销、失败自动恢复旧共享；
+  NFS 同通道留档），保存前弹重建确认；FTP/WebDAV 站点支持改名（appcmd）与改路径
+- **共享详情逐行操作**：打开文件表新增每行「关闭」（复用 closeFile(fileId)），
+  连接表新增每行「断开」（复用 closeSession）——补齐 Electron 已有、WPF 缺失的入口
+- **NTFS ACL 编辑**：用户页 NTFS 面板与共享权限抽屉 ACL Tab 新增 添加授权
+  （账号+级别+OI/CI 继承标志，icacls /grant）、每行移除（/remove）、继承启用/禁用
+  （/inheritance e|d）；写入后自动重读 ACL
+- **用户详情共享权限就地调整**：选中行直接改级别（完全控制/更改/只读/拒绝）或移除授权，
+  无需跳转共享管理页（复用 SetSharePermissionsAsync 事务补偿）
+- **权限模板编辑器**（WPF 补齐 Electron 能力）：新增 PresetEditorWindow
+  （名称/描述/条目表格编辑）+「新建空白模板」按钮；自定义模板直接编辑；
+  内置模板走「复制并编辑」副本通道（BuiltinProtected 保护语义不变）
+- **日志操作补齐**：应用日志/审计日志卡新增「清空」（当前文件截断，轮转归档保留）
+  与「导出」（另存 .log；恢复 2.0.2 移除的导出语义，本次按"全部可操作"要求加回）
+- **高级设置卡**（偏好与运维页新增）：更新源仓库、弱密码审计阈值（原写死 180 天）、
+  应用日志轮转上限（原写死 2MB×3）、FTP 被动段防火墙预设默认（原写死 50000-51000）
+  存入 appstate.json `advanced` 段，保存即时热生效（Logger.ConfigureRotation /
+  UpdateService/SecurityService/FirewallService 下次动作取用）；设置导入导出
+  （TransferService）随 advanced 段往返；Electron 版导入本文件时未知键被其 normalize 忽略
+- 测试：Core 347 + App 333 全绿（新增 NFS WMI diff/校验、WebDAV 规则门禁/sslFlags、
+  启动类型白名单/回读、advanced 往返/脏值收敛/patch 保留等 21 个用例）
+
 ## [WPF 2.0.2] - 2026-11-01
 
 用户反馈四项修复 + 安装体验：

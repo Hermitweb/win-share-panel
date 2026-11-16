@@ -27,4 +27,7 @@ public interface ISmbService
     Task RestartServiceAsync();
     Task StartServiceAsync();
     Task StopServiceAsync();
+
+    /// <summary>修改服务启动类型（Set-Service -StartupType，白名单 Automatic/Manual/Disabled；写后回读校验）。</summary>
+    Task SetServiceStartTypeAsync(string startType);
 }

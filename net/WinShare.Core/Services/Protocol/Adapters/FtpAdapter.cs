@@ -210,6 +210,16 @@ public sealed class FtpAdapter : IProtocolAdapter
         if (!PsGate.ValidateName(name)) throw Errors.InvalidParam("站点名非法");
         try
         {
+            // v2.1 面板解锁：站点改名（Set-ItemProperty 不支持站点改名，走 appcmd set site /name:）
+            if (input.newName is not null && input.newName != name)
+            {
+                if (!PsGate.ValidateName(input.newName)) throw Errors.InvalidParam("新站点名非法");
+                Logger.Info("adapter:ftpAdapter", "[updateShare:ftp] 站点改名:", name, "→", input.newName);
+                await _ps.RunVoidAsync(
+                    $"& $env:windir\\system32\\inetsrv\\appcmd.exe set site {PsGate.PsQuote(name)} /name:{PsGate.PsQuote(input.newName)}",
+                    Timeout, 0);
+                name = input.newName; // 后续物理路径/配置写入以新名定位
+            }
             // 协议专门适配：FTP 站点支持修改本地物理路径（validatePath 校验后经单引号上下文嵌入）
             if (input.physicalPath is not null)
             {
@@ -398,6 +408,9 @@ public sealed class FtpAdapter : IProtocolAdapter
             throw;
         }
     }
+
+    /// <summary>修改服务启动类型（v2.1 面板解锁；委托 FtpService）。</summary>
+    public Task SetServiceStartTypeAsync(string startType) => _ftp.SetServiceStartTypeAsync(startType);
 
     public async Task<object?> GetConfigAsync() => await _ftp.GetConfigAsync();
 

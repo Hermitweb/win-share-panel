@@ -339,6 +339,7 @@ public sealed class DiagnoseService : IDiagnoseService
         public Task RestartServiceAsync() => FailVoid();
         public Task StartServiceAsync() => FailVoid();
         public Task StopServiceAsync() => FailVoid();
+        public Task SetServiceStartTypeAsync(string startType) => FailVoid();
 
         private static Task<T> Fail<T>() => Task.FromException<T>(Errors.CommandFailed("SMB 服务未注入"));
         private static Task FailVoid() => Task.FromException(Errors.CommandFailed("SMB 服务未注入"));
@@ -366,6 +367,9 @@ public sealed class DiagnoseService : IDiagnoseService
         public Task<IReadOnlyList<SharePermission>> GetUserSharePermissionsAsync(string username) => Fail<IReadOnlyList<SharePermission>>();
         public Task SetSharePermissionsAsync(string shareName, IReadOnlyList<SharePermission> perms) => FailVoid();
         public Task<NtfsAcl> GetNtfsPermissionsAsync(string path) => Fail<NtfsAcl>();
+        public Task GrantNtfsAsync(string path, string account, string rights, bool inheritDirs, bool inheritFiles) => FailVoid();
+        public Task RevokeNtfsAsync(string path, string account) => FailVoid();
+        public Task SetNtfsInheritanceAsync(string path, bool enabled) => FailVoid();
 
         private static Task<T> Fail<T>() => Task.FromException<T>(Errors.CommandFailed("用户服务未注入"));
         private static Task FailVoid() => Task.FromException(Errors.CommandFailed("用户服务未注入"));

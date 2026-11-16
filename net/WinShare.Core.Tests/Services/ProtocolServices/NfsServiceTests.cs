@@ -113,7 +113,8 @@ public class NfsServiceTests
 
     // ===== setConfig =====
 
-    // [Source: nfs.ts#setConfig —— 命令串逐字（全字段提供 → 5 布尔 + 5 数值 + -Confirm:$false）]
+    // [Source: nfs.ts#setConfig —— 命令串逐字（全字段提供 → 8 布尔 + 5 数值 + -Confirm:$false）；
+    // v2.1 新增 -EnableNFSV2/-V3/-V4 三开关；身份映射三字段走 WMI diff 通道（与现值一致时无第二条命令）]
     [Fact]
     public async Task SetConfig_Defaults_BuildsExactCommand()
     {
@@ -125,6 +126,7 @@ public class NfsServiceTests
         Assert.Equal(
             "Set-NfsServerConfiguration -GracefulUnmount $false -LogActivity $false " +
             "-EnableUnmappedAccess $false -EnableAuthenticationRenegotiation $false " +
+            "-EnableNFSV2 $false -EnableNFSV3 $true -EnableNFSV4 $false " +
             "-TcpConnectionTimeout 240 -UdpConnectionTimeout 240 -RestartConnectionTimeout 60 " +
             "-MaxConcurrentConnectionsPerUser 0 -DirectoryCacheExpiry 60 -Confirm:$false",
             ps.LastVoid.Command);
@@ -132,7 +134,8 @@ public class NfsServiceTests
         Assert.Equal(15000, ps.LastVoid.TimeoutMs);
     }
 
-    // [Source: nfs.ts#setConfig —— 刻意不写回只读字段（Set-NfsServerConfiguration 亦不接受）]
+    // [Source: nfs.ts#setConfig —— cmdlet 命令不含网关字符集/协议版本字符串；
+    // 身份映射 UID/GID 经 Set-CimInstance 单独写（v2.1），cmdlet 串仍然不碰]
     [Fact]
     public async Task SetConfig_OmitsReadOnlyFields()
     {
@@ -188,6 +191,76 @@ public class NfsServiceTests
         Assert.Equal(-2, c.anonymousUid);
         Assert.Single(ps.VoidCalls);
         Assert.Contains("-GracefulUnmount $false", ps.LastVoid.Command, StringComparison.Ordinal);
+    }
+
+    // ===== v2.1：身份映射 WMI 直写（Set-CimInstance + diff no-op + 回读校验） =====
+
+    // 身份映射与现值一致 → 不触发 WMI 写入（cmdlet 命令也仍只有一条）
+    [Fact]
+    public async Task SetConfig_IdentityUnchanged_NoWmiWrite()
+    {
+        var ps = new PsRecorder();
+        await new NfsService(ps).SetConfigAsync(new NfsConfigPatch
+        {
+            gracefulUnmount = true,
+            anonymousUid = -2,
+            anonymousGid = -2,
+            gatewayCharacterSet = "ANSI",
+        });
+        Assert.Single(ps.VoidCalls);
+        Assert.DoesNotContain("Set-CimInstance", ps.LastVoid.Command, StringComparison.Ordinal);
+    }
+
+    // 仅身份映射字段（cmdlet 无可写项）且与现值一致 → 零写入不报错
+    [Fact]
+    public async Task SetConfig_IdentityOnlyUnchanged_NoWriteNoThrow()
+    {
+        var ps = new PsRecorder();
+        await new NfsService(ps).SetConfigAsync(new NfsConfigPatch { anonymousUid = -2 });
+        Assert.Empty(ps.VoidCalls);
+        Assert.Single(ps.JsonCalls);
+    }
+
+    // 身份映射变化（仅身份字段 → cmdlet 无可写项）→ Set-CimInstance 直写 + 回读校验通过
+    //（UID 负值按 UInt32 回绕表示：-3 → 4294967293）
+    [Fact]
+    public async Task SetConfig_IdentityChanged_WritesViaCimInstanceAndVerifies()
+    {
+        var ps = new PsRecorder()
+            .WhenJson("""{"AnonymousUid":-2,"AnonymousGid":-2,"GatewayCharacterSet":"ANSI"}""")
+            .WhenJson("""{"AnonymousUid":-3,"AnonymousGid":-2,"GatewayCharacterSet":"ANSI"}""");
+        await new NfsService(ps).SetConfigAsync(new NfsConfigPatch { anonymousUid = -3 });
+
+        Assert.Single(ps.VoidCalls);
+        Assert.Contains("Set-CimInstance", ps.VoidCalls[0].Command, StringComparison.Ordinal);
+        Assert.Contains("AnonymousUid = 4294967293", ps.VoidCalls[0].Command, StringComparison.Ordinal);
+        Assert.Contains("root/Microsoft/Windows/NFS", ps.VoidCalls[0].Command, StringComparison.Ordinal);
+    }
+
+    // 回读不一致 → 明确报错（提供程序拒绝写入时不静默）
+    [Fact]
+    public async Task SetConfig_IdentityVerifyMismatch_Throws()
+    {
+        var ps = new PsRecorder()
+            .WhenJson("""{"AnonymousUid":-2,"GatewayCharacterSet":"ANSI"}""")
+            .WhenJson("""{"AnonymousUid":-2,"GatewayCharacterSet":"ANSI"}""");
+        AppException ex = await Assert.ThrowsAsync<AppException>(
+            () => new NfsService(ps).SetConfigAsync(new NfsConfigPatch { anonymousUid = -3 }));
+        Assert.Equal("COMMAND_FAILED", ex.Code);
+        Assert.Contains("回读不一致", ex.Message, StringComparison.Ordinal);
+    }
+
+    // 网关字符集变化 → 单引号安全嵌入（PsQuote）
+    [Fact]
+    public async Task SetConfig_ChangedCharset_BuildsQuotedCimCommand()
+    {
+        var ps = new PsRecorder()
+            .WhenJson("""{"AnonymousUid":-2,"AnonymousGid":-2,"GatewayCharacterSet":"ANSI"}""")
+            .WhenJson("""{"AnonymousUid":-2,"AnonymousGid":-2,"GatewayCharacterSet":"UTF-8"}""");
+        await new NfsService(ps).SetConfigAsync(new NfsConfigPatch { gatewayCharacterSet = "UTF-8" });
+
+        Assert.Single(ps.VoidCalls);
+        Assert.Contains("GatewayCharacterSet = 'UTF-8'", ps.VoidCalls[0].Command, StringComparison.Ordinal);
     }
 
     // ===== getServiceStatus =====

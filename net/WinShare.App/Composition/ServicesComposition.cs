@@ -54,8 +54,9 @@ public static class ServicesComposition
 
         // === 系统域 ===
         var disk = new DiskService(ps);
-        var security = new SecurityService(ps);
-        var firewall = new FirewallService(ps);
+        // v2.1：安全阈值/防火墙被动段默认取高级设置（appstate.json advanced 段）
+        var security = new SecurityService(ps, store);
+        var firewall = new FirewallService(ps, store);
 
         // === 协议服务（配置面）===
         var nfs = new NfsService(ps);
@@ -75,10 +76,14 @@ public static class ServicesComposition
         // === 依赖跨域的聚合服务 ===
         var system = new SystemService(ps, smb, protocol, store);
         var diagnose = new DiagnoseService(ps, smb, user, firewall);
-        var update = new UpdateService();
+        var update = new UpdateService(store: store);
         var pathReg = new PathRegistrationService(AppContext.BaseDirectory, isPackaged: true, ps);
         var transfer = new TransferService(store);
         var journal = new JournalService(store, share, user);
+
+        // v2.1：日志轮转上限热生效（高级设置；保存卡片时会再次 Configure）
+        var advState = store.LoadState().advanced;
+        Logger.ConfigureRotation(advState.logMaxSizeMb, advState.logMaxFiles);
 
         // === 注入 UI 静态槽 ===
         Shares.SharesServices.Share = share;
@@ -103,6 +108,7 @@ public static class ServicesComposition
         Settings.SettingsServiceSlots.JournalService = journal;
         Settings.SettingsServiceSlots.PresetService = preset;
         Settings.SettingsServiceSlots.SmbService = smb;
+        Settings.SettingsServiceSlots.WebdavService = webdav;
 
         // 仪表板数据源 + 24h 趋势采样器依赖
         AppServices.SystemService = system;

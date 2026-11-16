@@ -36,4 +36,16 @@ public interface IUserService
     Task SetSharePermissionsAsync(string shareName, IReadOnlyList<SharePermission> perms);
     /// <summary>TS: getNtfsPermissions(path)。</summary>
     Task<NtfsAcl> GetNtfsPermissionsAsync(string path);
+
+    /// <summary>
+    /// v2.1 面板解锁：授予 NTFS ACL（icacls /grant）。rights 白名单 F/M/RX/R/W；
+    /// inheritDirs→(CI)、inheritFiles→(OI)，两者皆 false = 仅本目录。
+    /// </summary>
+    Task GrantNtfsAsync(string path, string account, string rights, bool inheritDirs, bool inheritFiles);
+
+    /// <summary>v2.1 面板解锁：移除账号在该路径的全部 NTFS 授权（icacls /remove）。</summary>
+    Task RevokeNtfsAsync(string path, string account);
+
+    /// <summary>v2.1 面板解锁：启用/禁用 NTFS 继承（icacls /inheritance e|d；禁用=继承项复制为显式项）。</summary>
+    Task SetNtfsInheritanceAsync(string path, bool enabled);
 }

@@ -1,4 +1,4 @@
-; WinShare Panel 安装向导简体中文语言包（部分覆盖：缺失消息自动回退英文 Default.isl）
+﻿; WinShare Panel 安装向导简体中文语言包（部分覆盖：缺失消息自动回退英文 Default.isl）
 ; 覆盖安装向导全流程用户可见文案；格式为 Inno Setup 6 [LangOptions] + [Messages]。
 
 [LangOptions]

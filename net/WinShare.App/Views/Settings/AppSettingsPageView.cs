@@ -29,6 +29,7 @@ public sealed class AppSettingsPageView : UserControl
     StackPanel? _securityPanel;
     StackPanel? _auditPanel;
     TextBox? _appLogBox;
+    StackPanel? _aboutRows;
 
     public AppSettingsPageView()
     {
@@ -51,33 +52,52 @@ public sealed class AppSettingsPageView : UserControl
         Loaded += async (_, _) =>
         {
             if (!PageRefreshThrottle.ShouldRefresh("app-settings")) return;
-            WinShare.Core.Lib.Logger.Info("main", "[perf] AppSettingsPageView Loaded → RefreshAsync 开始");
+            WinShare.Core.Lib.Logger.Info("main", "[perf] AppSettingsPageView 构造开始");
             await _vm.RefreshAsync();
+            // v2.1：全局刷新/页面加载时关于卡行重建（跟随 advanced.updateRepo）
+            if (_aboutRows is not null) RebuildAboutRows(_aboutRows);
             WinShare.Core.Lib.Logger.Info("main", "[perf] AppSettingsPageView RefreshAsync 完成");
         };
         // 全局刷新透传（F5 / 菜单 / 托盘 → 事件总线；对齐 TS refreshTick）
-        _refreshSub = AppServices.Bus?.Subscribe<WinShare.App.Events.RefreshRequested>(evt => { _ = _vm.RefreshAsync(); });
+        _refreshSub = AppServices.Bus?.Subscribe<WinShare.App.Events.RefreshRequested>(evt =>
+        {
+            _ = _vm.RefreshAsync();
+            Dispatcher.BeginInvoke(() => { if (_aboutRows is not null) RebuildAboutRows(_aboutRows); });
+        });
         // 页面卸载必须退订：否则切走后这个实例仍在响应全局刷新 → 攒下「幽灵页面」拖慢 UI
         Unloaded += (_, _) => _refreshSub?.Unsubscribe();
     }
 
     static void OpenExternal(string url)
     {
-        // 只放行 http(s) 绝对 URI：UseShellExecute 会把字符串交给 ShellExecuteEx 处理，
-        // 任意 scheme（file: 等）都会被系统处理器接管——这里只服务「打开 releases 主页」语义。
+        // 只放行 http(s) 绝对 URI：任意 scheme 都会交给系统处理器——这里只服务
+        // 「打开 releases 主页 / 项目地址」语义。
+        // v2.1.0 审计加固：Process.Start(UseShellExecute=true) 被安全扫描判为命令注入高危，
+        // 改走 WinRT Launcher（系统组件按默认浏览器打开，无进程参数注入面）。
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || (uri.Scheme != "http" && uri.Scheme != "https"))
         {
             return;
         }
-        url = uri.AbsoluteUri;
         try
         {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            _ = LaunchUriAsync(uri);
         }
         catch
         {
             // 浏览器打不开 → 视图卡片显示 URL 文本（用户可手动复制）
+        }
+    }
+
+    private static async Task LaunchUriAsync(Uri uri)
+    {
+        try
+        {
+            await Windows.System.Launcher.LaunchUriAsync(uri);
+        }
+        catch
+        {
+            // 打开失败静默（对齐 TS：catch 不提示）
         }
     }
 
@@ -127,7 +147,7 @@ public sealed class AppSettingsPageView : UserControl
 
         tabs.Items.Add(MakeTab("关于与更新", BuildAboutCard(), BuildUpdateCard(), BuildTransferCard()));
         tabs.Items.Add(MakeTab("偏好与运维", BuildUsageModeCard(), BuildAutoStartCard(),
-            BuildAlertRulesCard(), BuildFirewallCard(), BuildSecurityCard()));
+            BuildAlertRulesCard(), BuildFirewallCard(), BuildSecurityCard(), BuildAdvancedSettingsCard()));
         tabs.Items.Add(MakeTab("日志与回收站", BuildJournalCard(), BuildAuditCard(), BuildAppLogCard()));
         outer.Children.Add(tabHost); // 最后一个子元素填满剩余空间（内含 Star 行约束 TabControl）
         return outer;
@@ -144,6 +164,108 @@ public sealed class AppSettingsPageView : UserControl
 
     }
 
+    // ===== 高级设置（v2.1 面板解锁：隐藏常量面板化，存 appstate.json advanced 段，保存即时热生效） =====
+
+    TextBox? _advRepoBox;
+    TextBox? _advPwdDaysBox;
+    TextBox? _advLogSizeBox;
+    TextBox? _advLogFilesBox;
+    TextBox? _advFtpFromBox;
+    TextBox? _advFtpToBox;
+    StackPanel? _advRows;
+
+    Border BuildAdvancedSettingsCard()
+    {
+        var p = new StackPanel();
+        p.Children.Add(SettingsUi.HeaderRow("高级设置",
+            SettingsUi.Button("保存", (_, _) => SaveAdvancedSettings(), primary: true),
+            SettingsUi.Button("恢复默认", (_, _) =>
+            {
+                if (MessageBox.Show("恢复全部高级设置为默认值（保存后即时生效）？", "恢复默认",
+                        MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+                ApplyAdvancedToBoxes(new AdvancedSettings());
+                SaveAdvancedSettings();
+            })));
+        p.Children.Add(SettingsUi.FogText(
+            "以下取值原为程序内置常量，现可在部署后直接修改（无需改代码）：更新检查仓库、弱密码审计阈值、" +
+            "应用日志轮转上限、FTP 被动模式防火墙预设段。保存即时生效：更新检查下次点击即用新仓库、" +
+            "日志轮转下次写入即按新上限、安全体检下次扫描按新阈值。"));
+        _advRows = new StackPanel();
+        p.Children.Add(_advRows);
+        // 设计期/单测（组合根未装配）回落默认值，不因 Store 缺席炸页面
+        AdvancedSettings current;
+        try { current = AppServices.SettingsStore.Load().advanced; }
+        catch { current = new AdvancedSettings(); }
+        ApplyAdvancedToBoxes(current);
+        return SettingsUi.Card(p);
+    }
+
+    void ApplyAdvancedToBoxes(AdvancedSettings a)
+    {
+        var rows = _advRows;
+        if (rows is null) return;
+        rows.Children.Clear();
+        _advRepoBox = AdvField(rows, "更新源仓库（owner/repo）", a.updateRepo,
+            "检查更新与 releases 链接共用；非法形态保存时回落默认");
+        _advPwdDaysBox = AdvField(rows, "弱密码审计阈值（天）", a.passwordAgeWarnDays.ToString(),
+            "密码未修改超过该天数在安全体检中告警（默认 180）");
+        _advLogSizeBox = AdvField(rows, "应用日志单文件上限（MB）", a.logMaxSizeMb.ToString(),
+            "触顶轮转（默认 2，范围 1..1024）");
+        _advLogFilesBox = AdvField(rows, "应用日志归档数", a.logMaxFiles.ToString(),
+            "轮转保留的归档份数（默认 3，范围 1..50）");
+        _advFtpFromBox = AdvField(rows, "FTP 被动段起始端口", a.ftpPassiveFrom.ToString(),
+            "防火墙预设「FTP 被动段」默认起始端口（默认 50000）");
+        _advFtpToBox = AdvField(rows, "FTP 被动段结束端口", a.ftpPassiveTo.ToString(),
+            "防火墙预设「FTP 被动段」默认结束端口（默认 51000）");
+    }
+
+    TextBox AdvField(StackPanel rows, string label, string value, string tooltip)
+    {
+        rows.Children.Add(SettingsUi.FogText(label, 8, 2));
+        var box = new TextBox
+        {
+            Style = (Style?)TryFindResource("InputBoxSoft"),
+            Text = value,
+            ToolTip = tooltip,
+            Width = 280,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            FontSize = 13,
+        };
+        rows.Children.Add(box);
+        return box;
+    }
+
+    void SaveAdvancedSettings()
+    {
+        if (_advRepoBox is null) return;
+        var adv = new AdvancedSettings
+        {
+            updateRepo = _advRepoBox.Text.Trim(),
+            passwordAgeWarnDays = ParseAdvInt(_advPwdDaysBox?.Text, 180),
+            logMaxSizeMb = ParseAdvInt(_advLogSizeBox?.Text, 2),
+            logMaxFiles = ParseAdvInt(_advLogFilesBox?.Text, 3),
+            ftpPassiveFrom = ParseAdvInt(_advFtpFromBox?.Text, 50000),
+            ftpPassiveTo = ParseAdvInt(_advFtpToBox?.Text, 51000),
+        };
+        try
+        {
+            var merged = AppServices.SettingsStore.SaveState(new AppStatePatch { advanced = adv });
+            // 日志轮转上限即时热生效（更新源/阈值/被动段由各消费点下次动作取用）
+            WinShare.Core.Lib.Logger.ConfigureRotation(merged.advanced.logMaxSizeMb, merged.advanced.logMaxFiles);
+            ApplyAdvancedToBoxes(merged.advanced);
+            // v2.1：更新源变更 → 关于卡三链接立即重建（跟随新仓库）
+            if (_aboutRows is not null) RebuildAboutRows(_aboutRows);
+            MessageBox.Show("高级设置已保存（即时生效）", "高级设置");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"保存失败：{ex.Message}", "高级设置");
+        }
+    }
+
+    static int ParseAdvInt(string? text, int fallback) =>
+        int.TryParse(text?.Trim(), out int n) ? n : fallback;
+
     // ===== 关于卡（含 G2：UAC 重启入口——系统服务缺席时禁用并写明原因） =====
 
     Border BuildAboutCard()
@@ -153,6 +275,7 @@ public sealed class AppSettingsPageView : UserControl
         p.Children.Add(SettingsUi.HeaderRow("关于"));
         var rows = new StackPanel();
         p.Children.Add(rows);
+        _aboutRows = rows; // v2.1：持有引用，高级设置改更新源后 RefreshAsync 重建链接行
         RebuildAboutRows(rows);
         return SettingsUi.Card(p);
     }
@@ -298,7 +421,7 @@ public sealed class AppSettingsPageView : UserControl
         var msg = SettingsUi.FogText("", 0, 4);
         p.Children.Add(msg);
         p.Children.Add(SettingsUi.FogText(
-            "导出内容：主题、新手/专家模式、置顶共享、告警规则、开机自启意图。\n" +
+            "导出内容：主题、新手/专家模式、置顶共享、告警规则、开机自启意图、高级设置（更新源/审计阈值/日志轮转/FTP 被动段）。\n" +
             "不含共享配置、权限模板、操作台账与连接趋势——那几类请在各自页面单独导出。导入会覆盖上述偏好项。"));
         _vm.Transfer.PropertyChanged += (_, _) =>
         {
@@ -513,8 +636,18 @@ public sealed class AppSettingsPageView : UserControl
         pickRow.Children.Add(combo);
 
         var rangeRow = new StackPanel { Margin = new Thickness(0, 4, 0, 4) };
-        var from = new TextBox { Width = 100, Text = "50000", HorizontalAlignment = HorizontalAlignment.Left };
-        var to = new TextBox { Width = 100, Text = "51000", HorizontalAlignment = HorizontalAlignment.Left };
+        // v2.1：预填取高级设置 ftpPassiveFrom/To（原硬编码 50000/51000；Store 缺席回落默认）
+        (int DefFrom, int DefTo) advRange;
+        try
+        {
+            var a = AppServices.SettingsStore.Load().advanced;
+            advRange = (a.ftpPassiveFrom, a.ftpPassiveTo);
+        }
+        catch { advRange = (50000, 51000); }
+        var from = new TextBox { Width = 100, Text = advRange.DefFrom.ToString(), HorizontalAlignment = HorizontalAlignment.Left,
+            ToolTip = "「FTP 被动段」预设规则的起始端口（默认值可在「高级设置」卡配置）" };
+        var to = new TextBox { Width = 100, Text = advRange.DefTo.ToString(), HorizontalAlignment = HorizontalAlignment.Left,
+            ToolTip = "「FTP 被动段」预设规则的结束端口（默认值可在「高级设置」卡配置）" };
         void SyncRange()
         {
             _ = int.TryParse(from.Text.Trim(), out var f);
@@ -775,12 +908,48 @@ public sealed class AppSettingsPageView : UserControl
                 var text = string.Join(Environment.NewLine, vm.Rows.Select(r =>
                     $"{(r.Time ?? "")} {r.Action} {r.Target} {r.Result} {(r.Detail ?? "")}"));
                 try { Clipboard.SetText(text); } catch { }
+            }),
+            SettingsUi.Button("导出", async (_, _) => await ExportAuditAsync()),
+            SettingsUi.Button("清空", (_, _) =>
+            {
+                if (MessageBox.Show("清空当前审计日志文件（audit.log）？已轮转的历史归档保留。继续？",
+                        "清空审计日志", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                var sys = SettingsServiceSlots.SystemService;
+                if (sys is null) { MessageBox.Show("系统服务未注册，清空不可用", "清空失败"); return; }
+                try
+                {
+                    bool ok = sys.ClearAuditLogAsync().GetAwaiter().GetResult();
+                    MessageBox.Show(ok ? "审计日志已清空" : "清空失败（文件可能被占用）", "清空审计日志");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "清空失败");
+                }
+                _vm.Audit.Reload();
+                RebuildAudit();
             })));
         p.Children.Add(SettingsUi.FogText("最近 200 条操作审计（谁做了什么、结果与说明）。运行日志见下方「应用日志」。"));
         _auditPanel = new StackPanel();
         p.Children.Add(_auditPanel);
         RebuildAudit();
         return SettingsUi.Card(p);
+    }
+
+    /// <summary>v2.1 面板解锁：审计日志导出（全量 audit.log 文本另存为 .log 文件）。</summary>
+    private async Task ExportAuditAsync()
+    {
+        var sys = SettingsServiceSlots.SystemService;
+        if (sys is null) { MessageBox.Show("系统服务未注册，导出不可用", "导出失败"); return; }
+        try
+        {
+            string text = await sys.GetAuditLogAsync();
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(string.IsNullOrEmpty(text) ? "（审计日志为空）" : text);
+            await AppServices.SaveFileWithDialogAsync($"winshare-audit-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.log", bytes);
+        }
+        catch (Exception e)
+        {
+            MessageBox.Show(e.Message, "导出失败");
+        }
     }
 
     void RebuildAudit()
@@ -836,18 +1005,30 @@ public sealed class AppSettingsPageView : UserControl
     {
         var p = new StackPanel();
         p.Children.Add(SettingsUi.HeaderRow("应用日志",
-            SettingsUi.Button("打开日志文件夹", (_, _) =>
-            {
-                try
-                {
-                    Process.Start(new ProcessStartInfo(WinShare.App.Shell.LogSink.LogDir()) { UseShellExecute = true });
-                }
-                catch { }
-            }),
+            SettingsUi.Button("打开日志文件夹", (_, _) => WinShare.App.Shell.AppShell.OpenLogDirectory()),
             SettingsUi.Button("刷新", (_, _) => { _vm.AppLog.Load(); RefreshAppLog(); }),
             SettingsUi.Button("复制", (_, _) =>
             {
                 try { Clipboard.SetText(_vm.AppLog.RawText); } catch { }
+            }),
+            SettingsUi.Button("导出", async (_, _) => await ExportAppLogAsync()),
+            SettingsUi.Button("清空", (_, _) =>
+            {
+                if (MessageBox.Show("清空当前应用日志文件（app.log）？已轮转的历史归档保留。继续？",
+                        "清空应用日志", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                var sys = SettingsServiceSlots.SystemService;
+                if (sys is null) { MessageBox.Show("系统服务未注册，清空不可用", "清空失败"); return; }
+                try
+                {
+                    bool ok = sys.ClearAppLogAsync().GetAwaiter().GetResult();
+                    MessageBox.Show(ok ? "应用日志已清空" : "清空失败（文件可能被占用）", "清空应用日志");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "清空失败");
+                }
+                _vm.AppLog.Load();
+                RefreshAppLog();
             })));
         p.Children.Add(SettingsUi.FogText("显示 app.log 最近 300 行（%APPDATA%\\WinSharePanel\\logs\\）；含主进程运行日志，报错后可在此复制完整堆栈。"));
         _appLogBox = SettingsUi.MonospaceView(_vm.AppLog.Lines);
@@ -861,5 +1042,21 @@ public sealed class AppSettingsPageView : UserControl
         var box = _appLogBox;
         if (box is null) return;
         box.Text = string.Join(Environment.NewLine, _vm.AppLog.Lines);
+    }
+
+    /// <summary>v2.1 面板解锁：应用日志导出（尾部 300 行文本另存为 .log 文件）。</summary>
+    private async Task ExportAppLogAsync()
+    {
+        try
+        {
+            _vm.AppLog.Load();
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(
+                string.IsNullOrEmpty(_vm.AppLog.RawText) ? "（应用日志为空）" : _vm.AppLog.RawText);
+            await AppServices.SaveFileWithDialogAsync($"winshare-applog-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.log", bytes);
+        }
+        catch (Exception e)
+        {
+            MessageBox.Show(e.Message, "导出失败");
+        }
     }
 }

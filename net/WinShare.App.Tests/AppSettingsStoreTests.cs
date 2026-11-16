@@ -191,4 +191,67 @@ public class AppSettingsStoreTests : IDisposable
         Assert.Contains("\"journal\"", text);
         Assert.Contains("\"ts\":1", text.Replace(" ", ""));
     }
+
+    // ===== v2.1：advanced（高级设置）段往返 + 脏值收敛 =====
+
+    [Fact]
+    public void Advanced_RoundTripPersists()
+    {
+        var store = new AppSettingsStore(_dir);
+        store.SaveState(new AppStatePatch
+        {
+            advanced = new AdvancedSettings
+            {
+                updateRepo = "someone/else-repo",
+                passwordAgeWarnDays = 90,
+                logMaxSizeMb = 5,
+                logMaxFiles = 7,
+                ftpPassiveFrom = 60000,
+                ftpPassiveTo = 61000,
+            },
+        });
+        var store2 = new AppSettingsStore(_dir);
+        var a = store2.Load().advanced;
+        Assert.Equal("someone/else-repo", a.updateRepo);
+        Assert.Equal(90, a.passwordAgeWarnDays);
+        Assert.Equal(5, a.logMaxSizeMb);
+        Assert.Equal(7, a.logMaxFiles);
+        Assert.Equal(60000, a.ftpPassiveFrom);
+        Assert.Equal(61000, a.ftpPassiveTo);
+    }
+
+    [Fact]
+    public void Advanced_DirtyValuesClampToDefaults()
+    {
+        var store = new AppSettingsStore(_dir);
+        var merged = store.SaveState(new AppStatePatch
+        {
+            advanced = new AdvancedSettings
+            {
+                updateRepo = "not a repo!!",
+                passwordAgeWarnDays = -5,
+                logMaxSizeMb = 99999,
+                logMaxFiles = 0,
+                ftpPassiveFrom = 80,        // <1024 越界
+                ftpPassiveTo = 0,
+            },
+        });
+        // 归一化后全部回落默认（updateRepo 形态非法 / 数值越界）
+        Assert.Equal("Hermitweb/win-share-panel", merged.advanced.updateRepo);
+        Assert.Equal(180, merged.advanced.passwordAgeWarnDays);
+        Assert.Equal(2, merged.advanced.logMaxSizeMb);
+        Assert.Equal(3, merged.advanced.logMaxFiles);
+        Assert.Equal(50000, merged.advanced.ftpPassiveFrom);
+        Assert.Equal(51000, merged.advanced.ftpPassiveTo);
+    }
+
+    [Fact]
+    public void Advanced_PatchNull_KeepsExisting()
+    {
+        var store = new AppSettingsStore(_dir);
+        store.SaveState(new AppStatePatch { advanced = new AdvancedSettings { passwordAgeWarnDays = 60 } });
+        var merged = store.SaveState(new AppStatePatch { autoStart = true });
+        Assert.Equal(60, merged.advanced.passwordAgeWarnDays);
+        Assert.True(merged.autoStart);
+    }
 }

@@ -1,0 +1,49 @@
+<Window x:Class="WinShare.App.Views.Settings.PresetEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="560" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BrushCard}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="模板名称" FontSize="12" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtName" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,8"
+                     MaxLength="40" />
+            <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtDescription" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,10" />
+
+            <TextBlock Text="授权条目（账号 + 类型 + 访问级别）" FontSize="12" Margin="0,0,0,6" />
+            <DataGrid x:Name="EntriesGrid" Style="{DynamicResource SoftDataGrid}"
+                      AutoGenerateColumns="False" CanUserAddRows="False"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      FontSize="12" RowHeaderWidth="0" Height="220" Margin="0,0,0,8">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="账号" Binding="{Binding Account, UpdateSourceTrigger=PropertyChanged}" Width="200" />
+                    <DataGridComboBoxColumn x:Name="ColType" Header="类型" SelectedItemBinding="{Binding TypeText}" Width="90" />
+                    <DataGridComboBoxColumn x:Name="ColAccess" Header="访问级别" SelectedItemBinding="{Binding AccessText}" Width="110" />
+                    <DataGridCheckBoxColumn Header="拒绝" Binding="{Binding Deny, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                    <DataGridTemplateColumn Width="70">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="删除" Style="{DynamicResource RowActionButtonDanger}"
+                                        Padding="6,1" Margin="2,0" Click="OnRemoveEntry" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="添加条目" Style="{DynamicResource DashButton}" Click="OnAddEntry" />
+            </StackPanel>
+            <TextBlock x:Name="LblError" FontSize="12" Foreground="{DynamicResource BrushDangerStrong}"
+                       TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="取消" Style="{DynamicResource DashButton}" Click="OnCancel" Margin="0,0,8,0" />
+            <Button Content="保存" Style="{DynamicResource PrimaryButton}" Click="OnSave" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -82,6 +82,7 @@ public partial class UsersPageView : UserControl
         UsersGrid.ItemsSource = _vm.UserRows;
         GroupsGrid.ItemsSource = _vm.GroupRows;
         NtfsGrid.ItemsSource = _vm.NtfsRows;
+        FillNtfsAccountBox();
 
         // 批量条（TS：选中 >0 显示）
         var selCount = _vm.SelectedUsers.Count;
@@ -384,6 +385,60 @@ public partial class UsersPageView : UserControl
             return;
         }
         await _vm.ViewNtfsAsync(path);
+        ApplyVm();
+    }
+
+    // ===== NTFS 授权编辑（v2.1 面板解锁；icacls 通道） =====
+
+    /// <summary>账号下拉预填本地用户+组（保留用户手输文本；IsEditable 语义）。</summary>
+    void FillNtfsAccountBox()
+    {
+        if (_vm is null || NtfsAccountBox is null) return;
+        string typed = NtfsAccountBox.Text;
+        var names = _vm.Users.Select(u => u.name).Concat(_vm.Groups.Select(g => g.name))
+            .Where(n => !string.IsNullOrEmpty(n)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        NtfsAccountBox.ItemsSource = names;
+        // IsEditable 下重设 ItemsSource 会清掉 Text，恢复用户已输入内容
+        if (!string.IsNullOrEmpty(typed)) NtfsAccountBox.Text = typed;
+    }
+
+    async void OnNtfsGrant(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        string account = NtfsAccountBox?.Text?.Trim() ?? "";
+        string rights = (NtfsRightsBox?.SelectedItem as ComboBoxItem)?.Tag as string ?? "RX";
+        await _vm.GrantNtfsAsync(account, rights, NtfsCiBox.IsChecked == true, NtfsOiBox.IsChecked == true);
+        ApplyVm();
+    }
+
+    async void OnNtfsRevoke(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        if ((sender as FrameworkElement)?.DataContext is not NtfsRow row) return;
+        var account = row.entry.account;
+        if (string.IsNullOrEmpty(account)) return;
+        var res = MessageBox.Show($"移除「{account}」在当前路径的全部授权？", "移除确认",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (res != MessageBoxResult.Yes) return;
+        await _vm.RevokeNtfsAsync(account);
+        ApplyVm();
+    }
+
+    async void OnNtfsInheritOn(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        await _vm.SetNtfsInheritanceAsync(enabled: true);
+        ApplyVm();
+    }
+
+    async void OnNtfsInheritOff(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        var res = MessageBox.Show(
+            "禁用继承会把从父目录继承的权限复制为显式权限（之后可单独编辑），继续？",
+            "禁用继承", MessageBoxButton.YesNo, MessageBoxImage.Information);
+        if (res != MessageBoxResult.Yes) return;
+        await _vm.SetNtfsInheritanceAsync(enabled: false);
         ApplyVm();
     }
 

@@ -761,6 +761,63 @@ public sealed class UsersViewModel : INotifyPropertyChanged
     }
 
     // =====================================================================
+    // NTFS 权限编辑（v2.1 面板解锁：icacls 通道——添加/移除授权、继承控制；
+    // 写入后按当前路径重读 ACL，保证网格即时反映真实状态）
+    // =====================================================================
+
+    /// <summary>添加授权（rights 白名单 F/M/RX/R/W；inheritDirs/inheritFiles → (CI)/(OI)）。</summary>
+    public async Task GrantNtfsAsync(string account, string rights, bool inheritDirs, bool inheritFiles)
+    {
+        if (!GuardUser()) return;
+        if (NtfsPath.Length == 0) { Tell("error", "请先「查看」一个 NTFS 路径，再编辑授权"); return; }
+        if (string.IsNullOrWhiteSpace(account)) { Tell("error", "请输入或选择账号"); return; }
+        try
+        {
+            await _user!.GrantNtfsAsync(NtfsPath, account.Trim(), rights, inheritDirs, inheritFiles);
+            Tell("success", $"已为 {account.Trim()} 添加 {rights} 授权");
+            await ViewNtfsAsync(NtfsPath);
+        }
+        catch (Exception e)
+        {
+            Tell("error", e.Message);
+        }
+    }
+
+    /// <summary>移除账号在该路径的全部授权（Allow/Deny 一并移除；写入后重读 ACL）。</summary>
+    public async Task RevokeNtfsAsync(string account)
+    {
+        if (!GuardUser()) return;
+        if (NtfsPath.Length == 0) { Tell("error", "请先「查看」一个 NTFS 路径，再编辑授权"); return; }
+        try
+        {
+            await _user!.RevokeNtfsAsync(NtfsPath, account.Trim());
+            Tell("success", $"已移除 {account.Trim()} 在该路径的授权");
+            await ViewNtfsAsync(NtfsPath);
+        }
+        catch (Exception e)
+        {
+            Tell("error", e.Message);
+        }
+    }
+
+    /// <summary>启用/禁用继承（禁用=继承项复制为显式项，可安全编辑；写入后重读 ACL）。</summary>
+    public async Task SetNtfsInheritanceAsync(bool enabled)
+    {
+        if (!GuardUser()) return;
+        if (NtfsPath.Length == 0) { Tell("error", "请先「查看」一个 NTFS 路径，再编辑授权"); return; }
+        try
+        {
+            await _user!.SetNtfsInheritanceAsync(NtfsPath, enabled);
+            Tell("success", enabled ? "已启用继承" : "已禁用继承（继承项已复制为显式项）");
+            await ViewNtfsAsync(NtfsPath);
+        }
+        catch (Exception e)
+        {
+            Tell("error", e.Message);
+        }
+    }
+
+    // =====================================================================
     // 矩阵导出（对齐 exportCsv / exportJson / exportHtml；文件保存走视图 SaveFileDialog）
     // =====================================================================
 

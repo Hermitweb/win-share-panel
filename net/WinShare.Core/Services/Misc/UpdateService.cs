@@ -4,6 +4,7 @@
 using System.Net.Http;
 using System.Text.Json;
 using WinShare.Core.Contracts;
+using WinShare.Core.Lib;
 
 namespace WinShare.Core.Services.Misc;
 
@@ -30,18 +31,33 @@ public sealed class UpdateService : IUpdateService
     public const int DefaultTimeoutMs = 8000;
 
     private const string RepoConst = "Hermitweb/win-share-panel";
-    private const string ReleasesPageConst = $"https://github.com/{RepoConst}/releases/latest";
-    private const string ApiReleasesConst = $"https://api.github.com/repos/{RepoConst}/releases?per_page=30";
 
-    /// <summary>TS: UPDATE_REPO（更新源：与 git remote / release workflow 指向的仓库一致）。</summary>
-    public string UpdateRepo => RepoConst;
+    /// <summary>v2.1：更新源可配置（高级设置 advanced.updateRepo；未配置/非法回落内置默认）。</summary>
+    private readonly IStateStore? _store;
+
+    /// <summary>TS: UPDATE_REPO（高级设置可改；owner/repo 形态由 stateStore.normalize 守卫）。</summary>
+    public string UpdateRepo
+    {
+        get
+        {
+            try
+            {
+                string repo = _store?.LoadState().advanced.updateRepo ?? "";
+                return string.IsNullOrWhiteSpace(repo) ? RepoConst : repo.Trim();
+            }
+            catch
+            {
+                return RepoConst;
+            }
+        }
+    }
 
     /// <summary>TS: RELEASES_PAGE（给用户点的下载页，无论检查成功与否都可打开）。</summary>
-    public string ReleasesPage => ReleasesPageConst;
+    public string ReleasesPage => $"https://github.com/{UpdateRepo}/releases/latest";
 
     /// <summary>WPF 更新源 API：releases 列表（非 /releases/latest——仓库现并存两条版本线：
     /// Electron 走 v* tag、WPF 走 wpf-v* tag，必须按前缀过滤，否则互相误报升级）。</summary>
-    public string ApiReleases => ApiReleasesConst;
+    public string ApiReleases => $"https://api.github.com/repos/{UpdateRepo}/releases?per_page=30";
 
     /// <summary>WPF Release 的 tag 前缀（wpf-v2.0.0 → 2.0.0）。</summary>
     public static System.Text.RegularExpressions.Regex WpfTagPattern { get; } =
@@ -55,10 +71,11 @@ public sealed class UpdateService : IUpdateService
     private readonly HttpClient _http;
     private readonly HttpClient? _ownedHttp;
 
-    public UpdateService(HttpClient? http = null)
+    public UpdateService(HttpClient? http = null, IStateStore? store = null)
     {
         _ownedHttp = http;
         _http = http ?? new HttpClient();
+        _store = store;
     }
 
     public int CompareVersions(string a, string b)
@@ -180,12 +197,12 @@ public sealed class UpdateService : IUpdateService
         }
     }
 
-    private static UpdateCheckResult Unavailable(string current, string reason) => new()
+    private UpdateCheckResult Unavailable(string current, string reason) => new()
     {
         current = current,
         latest = "",
         hasUpdate = false,
-        releaseUrl = ReleasesPageConst,
+        releaseUrl = ReleasesPage,
         publishedAt = null,
         unavailable = true,
         reason = reason,

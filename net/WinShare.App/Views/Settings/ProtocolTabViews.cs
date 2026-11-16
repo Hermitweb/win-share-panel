@@ -42,7 +42,9 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
         {
             var status = Card.Service;
             _svcStrip.Children.Clear();
-            foreach (System.Windows.UIElement c in SettingsUi.SvcStatusStripChildren(status, Card.Protocol.Display()))
+            foreach (System.Windows.UIElement c in SettingsUi.SvcStatusStripChildren(
+                status, Card.Protocol.Display(),
+                applyStartType: token => Card.SetServiceStartTypeAsync(token)))
                 _svcStrip.Children.Add(c);
         };
         // 服务器值回填后重置表单绑定（绑定源=镜像属性，DataContext 换绑触发全量重拉）
@@ -265,13 +267,14 @@ public sealed class SmbTabView : ProtocolSectionView<SmbServerConfig>
     }
 }
 
-/// <summary>NFS 板块（纵向单列；基础配置 + 连接与超时；身份映射/网关信息只读）。</summary>
+/// <summary>NFS 板块（纵向单列；基础配置 + 连接与超时 + 协议版本开关；身份映射/网关经提供程序直写）。</summary>
 public sealed class NfsTabView : ProtocolSectionView<NfsServerConfig>
 {
     public NfsTabView(NfsConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
     protected override string FooterText =>
-        "NFS 服务器配置修改后通常即时生效，部分参数需重启服务。客户端能力检测与共享管理见「共享管理」页。";
+        "NFS 服务器配置修改后通常即时生效，部分参数需重启服务。身份映射/网关字段经 Windows NFS 提供程序直写，" +
+        "仅在与现值不一致时写入；若当前 Windows 版本的提供程序拒绝写入会给出明确错误。客户端能力检测与共享管理见「共享管理」页。";
 
     protected override ConfigPreset[] Presets => [.. ProtocolPresets.Nfs];
 
@@ -291,8 +294,16 @@ public sealed class NfsTabView : ProtocolSectionView<NfsServerConfig>
         p.Children.Add(SettingsUi.NumberField("重启连接超时(秒)", nameof(NfsConfigCardViewModel.RestartTimeout), c));
         p.Children.Add(SettingsUi.NumberField("每用户最大并发连接(0=不限)", nameof(NfsConfigCardViewModel.MaxConcurrentPerUser), c));
         p.Children.Add(SettingsUi.NumberField("目录缓存过期(秒)", nameof(NfsConfigCardViewModel.DirectoryCacheExpiry), c));
-        p.Children.Add(SettingsUi.FogText("身份映射 / 网关信息（只读）", 0, 4));
-        p.Children.Add(SettingsUi.FogText($"匿名 UID：{c.AnonymousUid}    匿名 GID：{c.AnonymousGid}    网关字符集：{c.GatewayCharacterSet}    协议版本：{c.ProtocolVersion}"));
+        p.Children.Add(SettingsUi.FogText("协议版本", 0, 4));
+        p.Children.Add(SettingsUi.ToggleGroup(
+            SettingsUi.Toggle("启用 NFSv2", nameof(NfsConfigCardViewModel.EnableNfsV2), c),
+            SettingsUi.Toggle("启用 NFSv3", nameof(NfsConfigCardViewModel.EnableNfsV3), c),
+            SettingsUi.Toggle("启用 NFSv4.1", nameof(NfsConfigCardViewModel.EnableNfsV4), c)));
+        p.Children.Add(SettingsUi.FogText($"服务器报告协议版本：{c.ProtocolVersion}"));
+        p.Children.Add(SettingsUi.FogText("身份映射 / 网关（经 NFS 提供程序直写，与现值一致时跳过）", 0, 4));
+        p.Children.Add(SettingsUi.NumberField("匿名 UID(-2=未映射)", nameof(NfsConfigCardViewModel.AnonymousUid), c));
+        p.Children.Add(SettingsUi.NumberField("匿名 GID(-2=未映射)", nameof(NfsConfigCardViewModel.AnonymousGid), c));
+        p.Children.Add(SettingsUi.TextField("网关字符集", nameof(NfsConfigCardViewModel.GatewayCharacterSet), c, 160));
         return p;
     }
 }
@@ -352,13 +363,14 @@ public sealed class FtpTabView : ProtocolSectionView<FtpServerConfig>
     }
 }
 
-/// <summary>WebDAV 板块（纵向单列；Authoring、请求筛选、认证、请求限制；服务器级只读状态单列）。</summary>
+/// <summary>WebDAV 板块（纵向单列；Authoring、请求筛选、认证、请求限制、压缩与 SSL；全局 Authoring 规则管理）。</summary>
 public sealed class WebdavTabView : ProtocolSectionView<WebdavServerConfig>
 {
     public WebdavTabView(WebdavConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
     protected override string FooterText =>
-        "WebDAV 服务器级配置（IIS system.webServer/* 配置节）。站点级 authoring 规则请在「共享管理」页对单个站点编辑。只读字段为服务器级状态，不可直接修改。";
+        "WebDAV 服务器级配置（IIS system.webServer/* 配置节）。站点级 authoring 规则请在「共享管理」页对单个站点编辑；" +
+        "服务器级 authoring 规则可在上方「全局 Authoring 规则管理」增删。压缩/SSL 写入即时生效，动态压缩需应用程序池回收后完全生效。";
 
     protected override ConfigPreset[] Presets => [.. ProtocolPresets.Webdav];
 
@@ -383,10 +395,131 @@ public sealed class WebdavTabView : ProtocolSectionView<WebdavServerConfig>
         p.Children.Add(SettingsUi.FogText("请求限制", 0, 4));
         p.Children.Add(SettingsUi.NumberField("最大 URL 长度", nameof(WebdavConfigCardViewModel.MaxUrlLength), c));
         p.Children.Add(SettingsUi.NumberField("最大查询字符串长度", nameof(WebdavConfigCardViewModel.MaxQueryStringLength), c));
-        p.Children.Add(SettingsUi.FogText("只读信息（服务器级状态）", 0, 4));
-        p.Children.Add(SettingsUi.FogText(
-            $"全局 Authoring 规则数：{c.GlobalRulesCount}    静态压缩：{(c.StaticCompression ? "启用" : "禁用")}    " +
-            $"动态压缩：{(c.DynamicCompression ? "启用" : "禁用")}    要求 SSL：{(c.RequireSsl ? "是" : "否")}"));
+        p.Children.Add(SettingsUi.FogText("压缩与 SSL（服务器级）", 0, 4));
+        p.Children.Add(SettingsUi.ToggleGroup(
+            SettingsUi.Toggle("静态压缩", nameof(WebdavConfigCardViewModel.StaticCompression), c),
+            SettingsUi.Toggle("动态压缩", nameof(WebdavConfigCardViewModel.DynamicCompression), c),
+            SettingsUi.Toggle("要求 SSL", nameof(WebdavConfigCardViewModel.RequireSsl), c)));
+        p.Children.Add(SettingsUi.FogText($"全局 Authoring 规则数：{c.GlobalRulesCount}（随下方规则管理变化）"));
+        p.Children.Add(BuildAuthoringRulesPanel());
         return p;
+    }
+
+    // === 全局 Authoring 规则管理（v2.1 解锁：查看/添加/删除服务器级 authoringRules） ===
+
+    private StackPanel _rulesList = null!;
+    private TextBox _ruleExt = null!;
+    private TextBox _rulePath = null!;
+    private ComboBox _ruleAccess = null!;
+    private TextBox _ruleUsers = null!;
+    private TextBox _ruleRoles = null!;
+
+    private StackPanel BuildAuthoringRulesPanel()
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
+        panel.Children.Add(SettingsUi.HeaderRow("全局 Authoring 规则管理",
+            SettingsUi.Button("刷新规则", (_, _) => _ = ReloadRulesAsync())));
+
+        // 添加规则表单（纵向单列，对齐页面布局惯例）
+        _ruleExt = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), Width = 160, HorizontalAlignment = HorizontalAlignment.Left };
+        _rulePath = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), Width = 160, HorizontalAlignment = HorizontalAlignment.Left, Text = "*" };
+        _ruleAccess = new ComboBox { Style = (Style?)TryFindResource("ComboBoxSoft"), Width = 160, HorizontalAlignment = HorizontalAlignment.Left };
+        foreach (var (label, value) in new[] { ("读取", "Read"), ("读取+写入", "Read,Write"), ("读取+写入+源", "Read,Write,Source") })
+        {
+            _ruleAccess.Items.Add(new ComboBoxItem { Content = label, Tag = value });
+        }
+        _ruleAccess.SelectedIndex = 1;
+        _ruleUsers = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), Width = 160, HorizontalAlignment = HorizontalAlignment.Left, Text = "*" };
+        _ruleRoles = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), Width = 160, HorizontalAlignment = HorizontalAlignment.Left };
+        panel.Children.Add(SettingsUi.FieldRow("扩展名（* 或 .txt）", _ruleExt));
+        panel.Children.Add(SettingsUi.FieldRow("路径（默认 *）", _rulePath));
+        panel.Children.Add(SettingsUi.FieldRow("访问权限", _ruleAccess));
+        panel.Children.Add(SettingsUi.FieldRow("允许用户（* 或账号）", _ruleUsers));
+        panel.Children.Add(SettingsUi.FieldRow("允许组（可空）", _ruleRoles));
+        var addBtn = SettingsUi.Button("添加规则", async (_, _) => await AddRuleAsync(), primary: true);
+        addBtn.HorizontalAlignment = HorizontalAlignment.Left;
+        panel.Children.Add(addBtn);
+
+        _rulesList = new StackPanel();
+        panel.Children.Add(_rulesList);
+        _ = ReloadRulesAsync();
+        return panel;
+    }
+
+    private IWebdavService? RuleSvc =>
+        SettingsServiceSlots.WebdavService;
+
+    private async Task ReloadRulesAsync()
+    {
+        _rulesList.Children.Clear();
+        var svc = RuleSvc;
+        if (svc is null)
+        {
+            _rulesList.Children.Add(SettingsUi.FogText("WebDAV 服务未注册：规则管理不可用。"));
+            return;
+        }
+        IReadOnlyList<WebdavAuthoringRule> rules;
+        try
+        {
+            rules = await svc.ListAuthoringRulesAsync();
+        }
+        catch (Exception e)
+        {
+            _rulesList.Children.Add(SettingsUi.FogText($"读取全局 Authoring 规则失败：{e.Message}"));
+            return;
+        }
+        if (rules.Count == 0)
+        {
+            _rulesList.Children.Add(SettingsUi.FogText("暂无全局 Authoring 规则"));
+            return;
+        }
+        foreach (WebdavAuthoringRule rule in rules)
+        {
+            WebdavAuthoringRule captured = rule;
+            var row = new StackPanel { Margin = new Thickness(0, 2, 0, 4) };
+            row.Children.Add(SettingsUi.FogText(
+                $"· {captured.extension} @ {captured.path} → {captured.access}（用户 {captured.users} / 组 {captured.roles}）"));
+            var del = SettingsUi.Button("删除", async (_, _) =>
+            {
+                if (MessageBox.Show($"删除规则 {captured.extension} @ {captured.path}？", "删除确认",
+                        MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+                try
+                {
+                    await RuleSvc!.RemoveAuthoringRuleAsync(captured.extension, captured.path);
+                    await ReloadRulesAsync();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "删除失败");
+                }
+            });
+            del.HorizontalAlignment = HorizontalAlignment.Left;
+            row.Children.Add(del);
+            _rulesList.Children.Add(row);
+        }
+    }
+
+    private async Task AddRuleAsync()
+    {
+        var svc = RuleSvc;
+        if (svc is null) { MessageBox.Show("WebDAV 服务未注册", "添加失败"); return; }
+        string access = _ruleAccess.SelectedItem is ComboBoxItem sel ? (string)sel.Tag : "Read,Write";
+        try
+        {
+            await svc.AddAuthoringRuleAsync(new WebdavAuthoringRuleOpts
+            {
+                extension = _ruleExt.Text.Trim(),
+                path = _rulePath.Text.Trim(),
+                access = access,
+                users = _ruleUsers.Text.Trim(),
+                roles = _ruleRoles.Text.Trim(),
+            });
+            await ReloadRulesAsync();
+            MessageBox.Show("已添加全局 Authoring 规则", "添加成功");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "添加失败");
+        }
     }
 }

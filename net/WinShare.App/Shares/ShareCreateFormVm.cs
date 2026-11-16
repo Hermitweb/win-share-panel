@@ -321,9 +321,9 @@ public sealed class ShareCreateFormVm : INotifyPropertyChanged
 }
 
 /// <summary>
-/// 编辑共享表单 ViewModel（对齐 Shares.tsx 编辑 Modal：名称/路径只读，
-/// 按协议展示可改字段；root 访问属深水区——新手模式不渲染也不提交，
-/// 隐藏值不得覆盖现网配置）。
+/// 编辑共享表单 ViewModel（对齐 Shares.tsx 编辑 Modal：按协议展示可改字段；
+/// v2.1 面板解锁：名称/路径可改——与原值不同才随更新入参下发，触发各协议改名/改路径通道；
+/// root 访问属深水区——新手模式不渲染也不提交，隐藏值不得覆盖现网配置）。
 /// </summary>
 public sealed class ShareEditFormVm
 {
@@ -338,17 +338,29 @@ public sealed class ShareEditFormVm
     public string AuthMode { get; set; } = "basic";
     public bool AnonymousEnabled { get; set; }
 
+    /// <summary>v2.1：可编辑的新名称/新路径（编辑窗口回填原值；未变化则不下发）。</summary>
+    public string NewName { get; set; } = "";
+    public string NewPath { get; set; } = "";
+
     /// <summary>TS handleEdit 的 UpdateShareInput 组装（advancedMode 门控 allowRootAccess）。</summary>
-    public UpdateShareInput BuildUpdateInput(bool advancedMode) => new()
+    public UpdateShareInput BuildUpdateInput(bool advancedMode)
     {
-        protocol = Protocol,
-        description = Description,
-        nfsPermission = Protocol == Protocol.Nfs ? NfsPermissionExt.Parse(NfsPermission) : null,
-        allowRootAccess = Protocol == Protocol.Nfs && advancedMode ? AllowRootAccess : null,
-        sslPolicy = Protocol == Protocol.Ftp ? SslPolicyExt.Parse(SslPolicy) : null,
-        authMode = Protocol == Protocol.Ftp ? AuthModeExt.Parse(AuthMode) : null,
-        anonymousEnabled = Protocol == Protocol.Webdav ? AnonymousEnabled : null,
-    };
+        // 名称/路径：与原值不同才下发（trim 对齐输入框语义；未改动传 null = 不触碰）
+        string? rename = !string.IsNullOrWhiteSpace(NewName) && NewName.Trim() != Name ? NewName.Trim() : null;
+        string? move = !string.IsNullOrWhiteSpace(NewPath) && NewPath.Trim() != Path ? NewPath.Trim() : null;
+        return new UpdateShareInput
+        {
+            protocol = Protocol,
+            description = Description,
+            nfsPermission = Protocol == Protocol.Nfs ? NfsPermissionExt.Parse(NfsPermission) : null,
+            allowRootAccess = Protocol == Protocol.Nfs && advancedMode ? AllowRootAccess : null,
+            sslPolicy = Protocol == Protocol.Ftp ? SslPolicyExt.Parse(SslPolicy) : null,
+            authMode = Protocol == Protocol.Ftp ? AuthModeExt.Parse(AuthMode) : null,
+            anonymousEnabled = Protocol == Protocol.Webdav ? AnonymousEnabled : null,
+            newName = rename,
+            physicalPath = move,
+        };
+    }
 }
 
 // ===== 小写字符串值 → 契约枚举（TS 侧以字符串字面量传 IPC，WPF 表单以字符串绑定） =====
