@@ -13,6 +13,13 @@ namespace WinShare.App.Views.Settings;
 /// </summary>
 public static class SettingsUi
 {
+    /// <summary>v2.2.0 第二轮：横向组合间距标尺（替代 8/10/12/14/24/28 魔法数）。</summary>
+    public static class Gap
+    {
+        public const double S = 8;
+        public const double M = 12;
+        public const double L = 24;
+    }
     // ===== 主题 token 取用（缺 Application/字典时回退 Light 值，与 DOCS.md Key 表一致） =====
 
     public static Brush Token(string key, Brush fallback)
@@ -116,9 +123,29 @@ public static class SettingsUi
             Text = text,
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
+            LineHeight = 20, // v2.2.0 第五批：12px 雾字行高 19→20（折行后过于紧凑）
+            LineStackingStrategy = System.Windows.LineStackingStrategy.BlockLineHeight,
             Margin = new Thickness(0, top, 0, bottom),
         };
         return tb.Live(TextBlock.ForegroundProperty, "BrushFog");
+    }
+
+    /// <summary>
+    /// 高级参数折叠区（v2.2.0 第二轮：设置页协议 Tab 的专家字段收敛——新手默认收起、
+    /// 专家默认展开；展开后照常查看/编辑/提交，合并-回写语义下收起不影响现值）。
+    /// Header 走活引用（主题热切换实时跟随）。
+    /// </summary>
+    public static Expander ExpanderField(string header, System.Windows.UIElement content, bool startExpanded)
+    {
+        var exp = new Expander
+        {
+            Header = header,
+            Content = content,
+            IsExpanded = startExpanded,
+            Margin = new Thickness(0, 4, 0, 8),
+        };
+        exp.SetResourceReference(Expander.ForegroundProperty, "BrushText");
+        return exp;
     }
 
     /// <summary>Success/Error 提示面（订阅 VM 结果面；对齐 antd message + 卡片内 Alert 语义）。</summary>
@@ -128,6 +155,8 @@ public static class SettingsUi
             .Live(TextBlock.ForegroundProperty, "BrushSuccess");
         var error = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed }
             .Live(TextBlock.ForegroundProperty, "BrushDanger");
+        var busy = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed }
+            .Live(TextBlock.ForegroundProperty, "BrushFog");
         void Update()
         {
             var errText = vm.Error ?? (vm as UpdateCheckerViewModel)?.ErrorText
@@ -137,31 +166,53 @@ public static class SettingsUi
             success.Visibility = vm.Success is null ? Visibility.Collapsed : Visibility.Visible;
             error.Text = errText ?? "";
             error.Visibility = string.IsNullOrEmpty(errText) ? Visibility.Collapsed : Visibility.Visible;
+            // v2.2.0：Busy 期间显示进度说明（此前 16-21s 拉取期间只有按钮禁用，静默得像卡死）
+            busy.Text = vm.BusyText ?? "正在执行…";
+            busy.Visibility = vm.BusyVisible ? Visibility.Visible : Visibility.Collapsed;
         }
-        vm.PropertyChanged += (_, _) => { Update(); };
+        // VM 的 PropertyChanged 可能在后台线程（Persist / 刷新续体）触发，
+        // 直接写控件会抛「调用线程无法访问此对象」→ 统一转投 UI 线程。
+        void UpdateOnUi()
+        {
+            if (success.Dispatcher.CheckAccess()) Update();
+            else success.Dispatcher.BeginInvoke(new Action(Update));
+        }
+        vm.PropertyChanged += (_, _) => { UpdateOnUi(); };
         Update();
         var stack = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
+        stack.Children.Add(busy);
         stack.Children.Add(success);
         stack.Children.Add(error);
         return new Border { Padding = new Thickness(0), Child = stack, Margin = new Thickness(0, 6, 0, 0) };
     }
 
-    /// <summary>卡片标题行（标题在上，操作按钮组在下逐行排列；纵向单列布局，按钮仍走 SettingsUi.Button 工厂）。</summary>
-    public static StackPanel HeaderRow(string title, params Control[] extras)
+    /// <summary>卡片标题行（标题在上，操作组在下逐行排列；extras 可传 Control 或横向 FrameworkElement 组合行）。</summary>
+    public static StackPanel HeaderRow(string title, params FrameworkElement[] extras)
     {
         var p = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
-        var tb = new TextBlock
+        if (!string.IsNullOrEmpty(title))
         {
-            Text = title,
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 4),
-        }.Live(TextBlock.ForegroundProperty, "BrushText");
-        p.Children.Add(tb);
-        foreach (var c in extras)
+            var tb = new TextBlock
+            {
+                Text = title,
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 0, 0, 6),
+            }.Live(TextBlock.ForegroundProperty, "BrushText");
+            p.Children.Add(tb);
+        }
+        // v2.2.0 第二轮修复：多个操作此前各占一行（宽屏下挤成左侧窄柱）——统一横排一行。
+        // extras 本身若是横向组合行（如检查更新卡的按钮组）则作为整体放入。
+        if (extras.Length > 0)
         {
-            c.HorizontalAlignment = HorizontalAlignment.Left;
-            p.Children.Add(c);
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (var c in extras)
+            {
+                c.HorizontalAlignment = HorizontalAlignment.Left;
+                if (c.Margin == default) c.Margin = new Thickness(0, 0, Gap.M, 0);
+                row.Children.Add(c);
+            }
+            p.Children.Add(row);
         }
         return p;
     }
@@ -200,13 +251,17 @@ public static class SettingsUi
     }
 
     /// <summary>开关组（纵向单列：每个 CheckBox 独立一行；重渲染时只能 Clear+Add 回同一面板）。</summary>
-    public static StackPanel ToggleGroup(params CheckBox[] boxes)
+    public static WrapPanel ToggleGroup(params CheckBox[] boxes)
     {
-        // 纵向单列。曾试过套 UniformGrid 做两列：UniformGrid 在纵向 StackPanel（高度无限）里
-        // 会算出异常尺寸，把整页布局撑坏 —— 实测应用设置页所有控件 BoundingRectangle=Empty
-        // （未测量未排列）、文字节点全部消失。保持最朴素的 StackPanel。
-        var p = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
-        foreach (var b in boxes) p.Children.Add(b);
+        // v2.2.0 第二轮：横排 WrapPanel（宽度不够自动换行）——此前纵排单列，宽屏下开关
+        // 挤成左侧窄柱、右侧大片空白。注释曾警告 UniformGrid 在纵向 StackPanel（高度无限
+        // 测量）里会算坏布局——WrapPanel 只按可用宽度换行、高度自然增长，无该问题。
+        var p = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+        foreach (var b in boxes)
+        {
+            b.Margin = new Thickness(0, 4, 28, 4);
+            p.Children.Add(b);
+        }
         return p;
     }
 

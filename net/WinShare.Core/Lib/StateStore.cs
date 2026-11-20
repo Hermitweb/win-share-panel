@@ -21,10 +21,14 @@ public sealed class StateStore : IStateStore
     private static readonly AppState Defaults = new()
     {
         theme = ThemeMode.Light,
-        advancedMode = true,
+        // v2.2.0：全新安装默认新手模式（首启三问向导可达、高级字段收敛）。
+        // 老用户已持久化的值不受影响——Defaults 仅在无文件/损坏重建时生效。
+        advancedMode = false,
         pinned = Array.Empty<string>(),
         alertRules = new AlertRules { idleAlertMinutes = null, smb1Alert = true, weakPasswordAlert = true, diskLowGb = 20 },
         autoStart = false,
+        showInTaskbar = true,
+        closeToTray = true,
         dashboardHistory = Array.Empty<HistoryPoint>(),
         journal = Array.Empty<JournalEntry>(),
         advanced = new AdvancedSettings(),
@@ -158,6 +162,8 @@ public sealed class StateStore : IStateStore
         pinned = patch.pinned ?? prev.pinned,
         alertRules = MergeAlertRules(prev.alertRules, patch.alertRules),
         autoStart = patch.autoStart ?? prev.autoStart,
+        showInTaskbar = patch.showInTaskbar ?? prev.showInTaskbar,
+        closeToTray = patch.closeToTray ?? prev.closeToTray,
         dashboardHistory = patch.dashboardHistory ?? prev.dashboardHistory,
         journal = patch.journal ?? prev.journal,
         advanced = patch.advanced ?? prev.advanced,
@@ -222,6 +228,8 @@ public sealed class StateStore : IStateStore
                 diskLowGb = s.alertRules.diskLowGb >= 0 ? s.alertRules.diskLowGb : d.alertRules.diskLowGb,
             },
             autoStart = s.autoStart,
+            showInTaskbar = s.showInTaskbar,
+            closeToTray = s.closeToTray,
             dashboardHistory = (s.dashboardHistory ?? Array.Empty<HistoryPoint>()).TakeLast(HistoryMax).ToList(),
             journal = (s.journal ?? Array.Empty<JournalEntry>()).TakeLast(JournalMax).ToList(),
             advanced = NormalizeAdvanced(s.advanced),
@@ -288,6 +296,12 @@ public sealed class StateStore : IStateStore
         bool autoStart = root.TryGetProperty("autoStart", out var asEl) && asEl.ValueKind is JsonValueKind.True or JsonValueKind.False
             ? asEl.GetBoolean()
             : d.autoStart;
+        bool showInTaskbar = root.TryGetProperty("showInTaskbar", out var sitEl) && sitEl.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? sitEl.GetBoolean()
+            : d.showInTaskbar;
+        bool closeToTray = root.TryGetProperty("closeToTray", out var cttEl) && cttEl.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? cttEl.GetBoolean()
+            : d.closeToTray;
 
         var hist = new List<HistoryPoint>();
         if (root.TryGetProperty("dashboardHistory", out var h) && h.ValueKind == JsonValueKind.Array)
@@ -361,6 +375,8 @@ public sealed class StateStore : IStateStore
             pinned = pinned.TakeLast(PinnedMax).ToList(),
             alertRules = rules,
             autoStart = autoStart,
+            showInTaskbar = showInTaskbar,
+            closeToTray = closeToTray,
             dashboardHistory = hist.TakeLast(HistoryMax).ToList(),
             journal = journal.TakeLast(JournalMax).ToList(),
             advanced = advanced,
@@ -459,6 +475,8 @@ public sealed class StateStore : IStateStore
                 ["diskLowGb"] = s.alertRules.diskLowGb,
             },
             ["autoStart"] = s.autoStart,
+            ["showInTaskbar"] = s.showInTaskbar,
+            ["closeToTray"] = s.closeToTray,
             ["dashboardHistory"] = new JsonArray(
                 s.dashboardHistory.Select(h => (JsonNode)new JsonObject
                 {
@@ -529,6 +547,8 @@ public sealed class StateStore : IStateStore
             diskLowGb = s.alertRules.diskLowGb,
         },
         autoStart = s.autoStart,
+        showInTaskbar = s.showInTaskbar,
+        closeToTray = s.closeToTray,
         dashboardHistory = s.dashboardHistory.ToList(),
         journal = s.journal.ToList(),
         advanced = s.advanced,

@@ -66,6 +66,8 @@ public sealed class AppSettingsViewModel
 {
     public UsageModeCardViewModel Usage { get; }
     public AutoStartCardViewModel AutoStart { get; }
+    /// <summary>v2.2.0：窗口行为卡（任务栏图标 / 关闭按钮行为）。</summary>
+    public WindowBehaviorCardViewModel WindowBehavior { get; }
     public AlertRulesCardViewModel Alerts { get; }
     public FirewallCardViewModel Firewall { get; }
     public SecurityCardViewModel Security { get; }
@@ -108,8 +110,11 @@ public sealed class AppSettingsViewModel
         Usage = new UsageModeCardViewModel(
             deps.Store,
             applyTheme: deps.ApplyTheme,
-            onThemeChanged: deps.PublishThemeChanged);
+            onThemeChanged: deps.PublishThemeChanged,
+            onModeChanged: advanced => Shell.AppShell.OnModeChanged?.Invoke(advanced)); // v2.2.0 第二轮：顶栏徽标/菜单跟随
         AutoStart = new AutoStartCardViewModel(SettingsServiceSlots.PathRegistrationService, deps.Store);
+        WindowBehavior = new WindowBehaviorCardViewModel(deps.Store,
+            (showTaskbar, closeToTray) => Shell.AppShell.ApplyWindowBehavior(showTaskbar, closeToTray));
         Alerts = new AlertRulesCardViewModel(deps.Store);
         Firewall = new FirewallCardViewModel(SettingsServiceSlots.FirewallService);
         Security = new SecurityCardViewModel(SettingsServiceSlots.SecurityService);

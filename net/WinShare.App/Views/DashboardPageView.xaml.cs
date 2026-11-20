@@ -111,6 +111,8 @@ public partial class DashboardPageView : UserControl
         TxtSessions.Text = _vm.ActiveSessions.ToString();
         TxtOpenFiles.Text = _vm.OpenFiles.ToString();
         TxtService.Text = _vm.ServiceStatusText;
+        // v2.2.0 第二轮：零共享引导（有共享即隐藏；数据未就绪时不弹，避免闪现）
+        NoSharesGuide.Visibility = _vm.ShareCount == 0 ? Visibility.Visible : Visibility.Collapsed;
         var ok = TryFindResource("ColorSuccess") is Color cOk;
         var bad = TryFindResource("ColorDanger") is Color cBad;
         var statusColor = _vm.ServiceRunning ? (ok ? cOk : Color.FromRgb(0x52, 0xC4, 0x1A))
@@ -121,14 +123,19 @@ public partial class DashboardPageView : UserControl
         // 需要关注（AlertEvaluator 命中项；动作按钮 → 导航透传 attention）
         AttentionList.ItemsSource = _vm.AttentionItems;
         AttentionEmpty.Text = _vm.AttentionItems.Count == 0
-            ? "暂无需要关注项（已按当前告警规则检查 SMB1 / 访客策略 / 账户口令 / 磁盘水位）"
+            ? "暂无需要关注项"
             : $"共 {_vm.AttentionItems.Count} 项需要关注";
         AttentionEmpty.Visibility = Visibility.Visible; // 始终可见：宁可多一行说明，也不留空白卡
         var skipped = _vm.SkippedSourcesText;
-        SkippedNote.Text = skipped.Length > 0
+        // v2.2.0 第五批：正文只留计数，明细进 Tooltip（此前整串来源常驻占一行）
+        int skippedCount = skipped.Length == 0
+            ? 0
+            : skipped.Split(new[] { ',', '，', '、', ';' }, StringSplitOptions.RemoveEmptyEntries).Length;
+        SkippedNote.Text = skippedCount > 0 ? $"已跳过 {skippedCount} 项" : "";
+        SkippedChip.Visibility = skippedCount > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SkippedChip.ToolTip = skippedCount > 0
             ? $"因数据不可用而跳过的检查：{skipped}（未命中不代表该项安全，请修复后刷新）"
-            : "";
-        SkippedNote.Visibility = skipped.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            : null;
 
         // 趋势（当前 WPF 自绘；LiveCharts2(SkiaSharpWPF) 渲染器接入点见 DOCS.md）
         TrendChart.Points = _vm.TrendRecent;
@@ -179,10 +186,20 @@ public partial class DashboardPageView : UserControl
         // 空态用 XAML 静态控件（运行期集合渲染在某些容器下不可见，静态节点必定绘制）
         if (ProtocolEmpty is not null) ProtocolEmpty.Visibility = hasRows ? Visibility.Collapsed : Visibility.Visible;
         if (!hasRows) return;
+        // v2.2.0 第五批：自适应 4 列栅格（此前两个 240px 定宽纵列只占卡内左半，右侧约 45% 空白）。
+        // 用「星号列 Grid + 固定行高」而非 UniformGrid：后者在纵向 StackPanel（高度无限测量）
+        // 下算出的 BoundingRectangle=∞（仓库 SettingsUi 注释已记载该坑）。
+        int colCount = Math.Max(1, Math.Min(4, _vm.ProtocolRows.Count));
+        var grid = new Grid();
+        for (int c = 0; c < colCount; c++)
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        int rowCount = (int)Math.Ceiling(_vm.ProtocolRows.Count / (double)colCount);
+        for (int r = 0; r < rowCount; r++)
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        int idx = 0;
         foreach (var row in _vm.ProtocolRows)
         {
-            // 纵向 1 列（B4 决策）：每协议一行，行内标签 + 计数
-            var p = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
+            var p = new StackPanel { Margin = new Thickness(0, 0, 12, 10) };
             var color = WpfColors.ToBrush(ProtocolPalette.Color(row.Protocol));
             var fog = TryFindResource("BrushFog") as Brush ?? new SolidColorBrush(Color.FromRgb(0x8A, 0xA0, 0xB0));
             var tag = new Border
@@ -228,8 +245,14 @@ public partial class DashboardPageView : UserControl
                 VerticalAlignment = VerticalAlignment.Center,
             });
             p.Children.Add(counts);
-            ProtocolGrid.Children.Add(p);
+            // 4 列栅格：按行优先填充（col = idx % colCount，row = idx / colCount）
+            Grid.SetColumn(p, idx % colCount);
+            Grid.SetRow(p, idx / colCount);
+            p.Margin = new Thickness(0, 0, 24, 12);
+            grid.Children.Add(p);
+            idx++;
         }
+        ProtocolGrid.Children.Add(grid);
     }
 
     // ===== 命令转发（按钮 → VM） =====
@@ -257,12 +280,64 @@ public partial class DashboardPageView : UserControl
         ApplyVm();
     }
 
-    /// <summary>「需要关注」动作按钮 → 跨页导航（对齐 TS navigate(to, { state: attention })）。</summary>
-    void OnAttentionAction(object sender, RoutedEventArgs e)
+    /// <summary>零共享引导（v2.2.0 第二轮）：直达共享管理页（该页空态含「新建共享」入口）。</summary>
+    void OnGoCreateShare(object sender, RoutedEventArgs e)
     {
-        if (sender is System.Windows.Controls.Button b && b.Tag is AlertEvaluator.AttentionItem item)
+        AppServices.Navigation.Navigate("/shares");
+    }
+
+    // ===== 统计卡点击跳转（v2.2.0 第二轮第三批：数字卡此前不可交互） =====
+
+    void OnStatShares(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        => AppServices.Navigation.Navigate("/shares");
+
+    void OnStatSessions(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        => AppServices.Navigation.Navigate("/sessions");
+
+    void OnStatFiles(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        => AppServices.Navigation.Navigate("/sessions");
+
+    void OnStatService(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        => AppServices.Navigation.Navigate("/settings");
+
+    /// <summary>「需要关注」动作按钮：v2.2.0 可自动修复项（SMB1/访客）一键执行——确认后直接写配置并刷新，
+    /// 不再让用户自己跳设置页找开关；其余项保持跨页导航（对齐 TS navigate(to, { state: attention })）。</summary>
+    async void OnAttentionAction(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button b || b.Tag is not AlertEvaluator.AttentionItem item) return;
+        if (item.fixKind is null)
         {
             AppServices.Navigation.Navigate(item.route, item.attention);
+            return;
+        }
+        var smb = WinShare.App.Settings.SettingsServiceSlots.SmbService;
+        if (smb is null)
+        {
+            Shell.ToastHost.Show(Shell.ToastLevel.Danger, "SMB 配置服务未就绪：请重启应用后重试（详情见应用日志）");
+            return;
+        }
+        bool smb1 = item.fixKind == "smb1";
+        string title = smb1 ? "关闭 SMB1 协议" : "关闭访客访问";
+        string detail = smb1
+            ? "将写入 SMB 服务器配置关闭 SMB1。依赖 SMB1 的旧设备（Windows XP / 老 NAS）将无法访问共享，确认继续？"
+            : "将关闭「访客用户访问」与「不安全来宾登录」：无需凭据的匿名访问将被拒绝，依赖匿名访问的设备会失效，确认继续？";
+        var res = MessageBox.Show(detail, title, MessageBoxButton.OKCancel, MessageBoxImage.Question);
+        if (res != MessageBoxResult.OK) return;
+        try
+        {
+            var cfg = await smb.GetConfigAsync();
+            cfg = smb1
+                ? cfg with { enableSMB1Protocol = false }
+                : cfg with { enableGuestUserAccess = false, enableInsecureGuestLogons = false };
+            await smb.SetConfigAsync(cfg);
+            Shell.ToastHost.Show(Shell.ToastLevel.Success, smb1
+                ? "SMB1 已关闭：旧的依赖设备将无法连接（如需恢复可在设置页 SMB 选项卡开启）"
+                : "访客访问已关闭：匿名探测共享将被拒绝（如需恢复可在设置页 SMB 选项卡开启）");
+            if (_vm is not null) await _vm.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Shell.ToastHost.Show(Shell.ToastLevel.Danger, Common.ErrorText.Describe(ex, title));
         }
     }
 }

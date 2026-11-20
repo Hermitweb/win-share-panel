@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using WinShare.App.Shares;
 
@@ -25,8 +26,19 @@ public partial class ShareCreateWizardWindow : Window
     {
         _vm = vm;
         InitializeComponent();
+        Shell.UiTestHooks.Prepare(this);
         Loaded += (_, _) => SyncFromForm();
         _vm.PropertyChanged += (_, _) => Dispatcher.BeginInvoke(SyncFromForm);
+        // v2.2.0 第二轮：Esc 关闭（向导为 Show() 非模态，IsCancel 不生效）
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape)
+            {
+                _vm.CloseCreateWizard();
+                Close();
+                e.Handled = true;
+            }
+        };
     }
 
     // ===== 表单 → 控件 =====
@@ -62,11 +74,11 @@ public partial class ShareCreateWizardWindow : Window
             TxtPath.Text = Form.Path;
             TxtDescription.Text = Form.Description;
 
-            // SMB 块
-            TxtFull.Text = Form.FullAccess;
-            TxtChange.Text = Form.ChangeAccess;
-            TxtRead.Text = Form.ReadAccess;
-            TxtNoAccess.Text = Form.NoAccess;
+            // SMB 块（v2.2.0：访问控制四框为可编辑下拉——候选=本地用户+组；引用相等判断避免输入中重置候选）
+            SyncAccountCombo(TxtFull, Form.FullAccess);
+            SyncAccountCombo(TxtChange, Form.ChangeAccess);
+            SyncAccountCombo(TxtRead, Form.ReadAccess);
+            SyncAccountCombo(TxtNoAccess, Form.NoAccess);
             ChkEncrypted.IsChecked = Form.Encrypted;
             ChkEncryptData.IsChecked = Form.EncryptData;
             ChkShadowCopy.IsChecked = Form.ShareShadowCopy;
@@ -96,12 +108,17 @@ public partial class ShareCreateWizardWindow : Window
 
             // 权限模板下拉（SMB；TS presetId 选择器）
             CmbPreset.ItemsSource = null;
-            CmbPreset.ItemsSource = _vm.CreatePresets.Select(p => new ComboBoxItem
+            // v2.2.0 第五批：首项占位「不使用模板」（此前空下拉像坏掉的控件）
+            CmbPreset.Items.Add(new ComboBoxItem { Content = "不使用模板" });
+            foreach (var p in _vm.CreatePresets)
             {
-                Content = $"{p.name} - {p.description}",
-                Tag = p.id,
-            }).ToList();
-            CmbPreset.SelectedIndex = -1;
+                CmbPreset.Items.Add(new ComboBoxItem
+                {
+                    Content = string.IsNullOrWhiteSpace(p.description) ? p.name : $"{p.name} - {p.description}",
+                    Tag = p.id,
+                });
+            }
+            CmbPreset.SelectedIndex = 0;
             if (Form.PresetId is { Length: > 0 } pid &&
                 CmbPreset.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == pid) is { } item)
             {
@@ -110,11 +127,6 @@ public partial class ShareCreateWizardWindow : Window
 
             // 场景预设按钮（新手模式收敛高级预设）
             BuildScenarioButtons();
-
-            // 候选账号提示（TS loadCandidates 展示前 12 + "等"）
-            var cands = _vm.CreateAccountOptions;
-            LblCandidates.Text = cands.Count == 0 ? ""
-                : $"常用账号：{string.Join("、", cands.Take(12))}{(cands.Count > 12 ? " 等" : "")}";
 
             // 新手模式高级项收敛（不渲染 = 不提交，表单层再兜一道）
             var adv = _vm.AdvancedMode;
@@ -129,6 +141,18 @@ public partial class ShareCreateWizardWindow : Window
         {
             _syncing = false;
         }
+    }
+
+    /// <summary>访问控制下拉候选同步：候选列表按引用缓存（VM 侧按 bundle 缓存），不变不重置——避免用户输入中被清空。</summary>
+    void SyncAccountCombo(System.Windows.Controls.ComboBox combo, string text)
+    {
+        var options = _vm.CreateAccountOptions;
+        if (!ReferenceEquals(combo.Tag, options))
+        {
+            combo.ItemsSource = options;
+            combo.Tag = options;
+        }
+        if (combo.Text != text) combo.Text = text;
     }
 
     void UpdateProtocolBlocks()
@@ -152,7 +176,7 @@ public partial class ShareCreateWizardWindow : Window
                 Style = (Style?)TryFindResource("DashButton"),
                 FontSize = 12,
                 Padding = new Thickness(10, 2, 10, 2),
-                Margin = new Thickness(0, 0, 0, 6),
+                Margin = new Thickness(0, 0, 10, 6),
                 HorizontalAlignment = HorizontalAlignment.Left,
                 ToolTip = preset.Tip ?? preset.Name,
             };
@@ -273,22 +297,92 @@ public partial class ShareCreateWizardWindow : Window
 
         if (!Form.Validate(out var err))
         {
-            LblError.Text = err!;
-            LblError.Foreground = (System.Windows.Media.Brush?)TryFindResource("BrushDangerStrong");
-            LblError.Visibility = Visibility.Visible;
+            ShowWizardError(err!);
+            return;
+        }
+        // v2.2.0：端口/UID/GID/并发上限非法不再静默归 0——提交前就地红字说明（此前填错被悄悄替换成默认值）
+        string? numericErr = ValidateNumerics();
+        if (numericErr is not null)
+        {
+            ShowWizardError(numericErr);
+            return;
+        }
+        // v2.2.0 安装与运行配置：FTP/WebDAV 端口占用预检（创建前拦截，友好提示）
+        string? portErr = await CheckPortFreeAsync();
+        if (portErr is not null)
+        {
+            ShowWizardError(portErr);
             return;
         }
         var result = await _vm.CreateShareAsync();
         if (string.IsNullOrEmpty(result))
         {
+            // v2.2.0：成功反馈带「别人怎么访问」（UNC/URL 由 VM 生成），替代过去只有列表刷新
+            string hint = _vm.LastCreatedAccessHint;
+            Shell.ToastHost.Show(Shell.ToastLevel.Success,
+                string.IsNullOrEmpty(hint) ? "共享创建成功" : $"共享创建成功，{hint}");
             Close();
         }
         else
         {
-            LblError.Text = result;
-            LblError.Foreground = (System.Windows.Media.Brush?)TryFindResource("BrushDangerStrong");
-            LblError.Visibility = Visibility.Visible;
+            ShowWizardError(result);
         }
+    }
+
+    /// <summary>向导内联错误（红字；只提示不清表单——改改就能重试）。</summary>
+    void ShowWizardError(string text)
+    {
+        LblError.Text = text;
+        LblError.Foreground = (System.Windows.Media.Brush?)TryFindResource("BrushDangerStrong");
+        LblError.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>
+    /// v2.2.0 安装与运行配置：FTP/WebDAV 端口占用预检。
+    /// 本机有进程监听该端口（含 IIS 自身站点）→ 创建同端口站点必然失败，提前拦截给换端口建议。
+    /// </summary>
+    async Task<string?> CheckPortFreeAsync()
+    {
+        int? port = Form.Protocol switch
+        {
+            "ftp" => Form.Port > 0 ? Form.Port : 21,
+            "webdav" => Form.Port > 0 ? Form.Port : 80,
+            _ => null,
+        };
+        if (port is null) return null;
+        try
+        {
+            var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, port.Value);
+            probe.Start();
+            probe.Stop();
+            return null;
+        }
+        catch (System.Net.Sockets.SocketException)
+        {
+            return $"端口 {port} 已被本机其它程序占用：请更换一个端口，或先停掉占用它的服务再创建。";
+        }
+    }
+
+    /// <summary>数字类输入即时校验（空=保持默认；填了就必须合法，不再静默归 0）。</summary>
+    string? ValidateNumerics()
+    {
+        if (Form.Protocol == "ftp" && TxtFtpPort.Text.Trim().Length > 0 &&
+            (!int.TryParse(TxtFtpPort.Text.Trim(), out int fp) || fp is < 1 or > 65535))
+            return "FTP 端口需为 1-65535 的数字";
+        if (Form.Protocol == "webdav" && TxtWdavPort.Text.Trim().Length > 0 &&
+            (!int.TryParse(TxtWdavPort.Text.Trim(), out int wp) || wp is < 1 or > 65535))
+            return "WebDAV 端口需为 1-65535 的数字";
+        if (Form.Protocol == "nfs")
+        {
+            if (TxtAnonUid.Text.Trim().Length > 0 && (!int.TryParse(TxtAnonUid.Text.Trim(), out int uid) || uid < 0))
+                return "匿名 UID 需为非负整数（留空或 0 = 默认）";
+            if (TxtAnonGid.Text.Trim().Length > 0 && (!int.TryParse(TxtAnonGid.Text.Trim(), out int gid) || gid < 0))
+                return "匿名 GID 需为非负整数（留空或 0 = 默认）";
+        }
+        if (TxtConcurrentLimit.Text.Trim().Length > 0 &&
+            (!int.TryParse(TxtConcurrentLimit.Text.Trim(), out int lim) || lim < 0))
+            return "并发用户上限需为非负整数（留空 = 不限制）";
+        return null;
     }
 
     void SyncControlsToForm()

@@ -22,6 +22,31 @@ public static class AppShell
     /// <summary>告警 → 托盘气泡（对齐 TS alertRules 触发的气泡通知面）。</summary>
     public static Action<AlertRaised>? OnAlertRaised { get; set; }
 
+    /// <summary>
+    /// 使用模式变更（v2.2.0 第二轮）：true=专家 / false=新手。UsageModeCardViewModel 成功切换后触发；
+    /// MainWindow 订阅更新顶栏徽标与「更多」菜单文案。
+    /// </summary>
+    public static Action<bool>? OnModeChanged { get; set; }
+
+    // ===== v2.2.0 安装与运行配置：窗口行为（任务栏图标 / 关闭按钮行为） =====
+
+    /// <summary>任务栏图标当前应显示（true）；窗口最小化到托盘时可按设置隐藏。</summary>
+    public static bool TaskbarVisible { get; private set; } = true;
+
+    /// <summary>关闭按钮行为（true=最小化到托盘驻留；false=直接退出）。</summary>
+    public static bool CloseToTrayEnabled { get; private set; } = true;
+
+    /// <summary>窗口行为变更（MainWindow 订阅：任务栏/关闭行为即时生效）。</summary>
+    public static Action<bool, bool>? OnWindowBehaviorChanged { get; set; }
+
+    /// <summary>应用窗口行为（启动时读 appstate 初始化；设置卡变更后调用）。</summary>
+    public static void ApplyWindowBehavior(bool showTaskbar, bool closeToTray)
+    {
+        TaskbarVisible = showTaskbar;
+        CloseToTrayEnabled = closeToTray;
+        OnWindowBehaviorChanged?.Invoke(showTaskbar, closeToTray);
+    }
+
     public static void CreateTray(Action openLogDir, Action quit, Icon? icon = null)
     {
         _tray = new TrayController(
@@ -35,9 +60,9 @@ public static class AppShell
     /// <summary>二实例激活 → 首实例聚焦（由 SingleInstanceGuard 回调）。</summary>
     public static void ActivateMainWindow() => ShowMainWindow();
 
-    public static SingleInstanceGuard CreateGuard(Action onActivate)
+    public static SingleInstanceGuard CreateGuard(Action onActivate, TimeSpan? acquireWait = null)
     {
-        _guard = new SingleInstanceGuard(onActivate);
+        _guard = new SingleInstanceGuard(onActivate, acquireWait);
         return _guard;
     }
 

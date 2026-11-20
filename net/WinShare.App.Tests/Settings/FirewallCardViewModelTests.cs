@@ -54,7 +54,8 @@ public class FirewallCardViewModelTests
         var svc = new StubFirewallService { ThrowOnEnsure = new InvalidOperationException("规则名白名单校验失败") };
         var vm = new FirewallCardViewModel(svc);
         var err = await vm.AddAsync();
-        Assert.Equal("规则名白名单校验失败", err);
+        // v2.2.0：返回值与 Error 同走 ErrorText 人话化
+        Assert.Equal("添加防火墙规则失败：规则名白名单校验失败", err);
         Assert.Equal("添加防火墙规则失败：规则名白名单校验失败", vm.Error);
         Assert.True(svc.ListCalls >= 1); // 失败后重载（可能部分写入，以读回为准）
     }
@@ -81,4 +82,18 @@ public class FirewallCardViewModelTests
         vm.ReloadAsync().Wait();
         Assert.Equal("防火墙服务未注册（等待 Core 服务层实现）：组内规则不可读", vm.Error);
     }
+// ===== v2.2.0：被动端口非法不再静默无反馈（此前 return null——点了没反应） =====
+
+[Fact]
+public async Task 添加_被动端口非法_给出明确文案()
+{
+    var svc = new StubFirewallService();
+    var vm = new FirewallCardViewModel(svc);
+    vm.SelectPreset("ftpPassive");
+    vm.SetPassiveRange(70000, 80000); // 越界
+    var err = await vm.AddAsync();
+    Assert.Equal("请输入 1-65535 的端口范围（起始 ≤ 结束）", err);
+    Assert.Equal("请输入 1-65535 的端口范围（起始 ≤ 结束）", vm.Error);
+    Assert.Empty(svc.EnsuredNames); // 未写入任何规则
+}
 }

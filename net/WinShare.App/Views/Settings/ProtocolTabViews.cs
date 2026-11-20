@@ -116,7 +116,7 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
             }
             else if (installed is null)
             {
-                stack.Children.Add(SettingsUi.FogText("正在检测协议安装状态…（服务缺席时保持此占位，不做臆造断言）"));
+                stack.Children.Add(SettingsUi.FogText("正在检测协议安装状态…"));
             }
             border.Child = stack;
         }
@@ -133,6 +133,7 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
     {
         var p = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         p.Children.Add(SettingsUi.FogText("配置预设", 4, 4));
+        // v2.2.0 第五批：首项为占位「选择预设…」（此前空下拉像坏掉的控件）
         var cb = new ComboBox
         {
             Style = (Style?)TryFindResource("ComboBoxSoft"),
@@ -140,18 +141,20 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
             HorizontalAlignment = HorizontalAlignment.Left,
             DataContext = Card,
         };
-        var defs = Presets;
-        cb.ItemsSource = defs.ToList();
-        cb.DisplayMemberPath = nameof(ConfigPreset.Name);
+        cb.Items.Add(new ComboBoxItem { Content = "选择预设…" });
+        foreach (var def in Presets)
+            cb.Items.Add(new ComboBoxItem { Content = def.Name, Tag = def });
+        cb.SelectedIndex = 0;
         cb.SelectionChanged += async (_, _) =>
         {
-            if (cb.SelectedItem is not ConfigPreset preset) return;
+            if (cb.SelectedItem is not ComboBoxItem { Tag: ConfigPreset preset }) return;
             if (preset.Risk is { } risk)
             {
                 var confirm = MessageBox.Show($"风险提示：{risk}\n应用该预设？", "应用前确认", MessageBoxButton.YesNo);
-                if (confirm != MessageBoxResult.Yes) { cb.SelectedIndex = -1; return; }
+                if (confirm != MessageBoxResult.Yes) { cb.SelectedIndex = 0; return; }
             }
             await Card.ApplyPresetAsync(preset);
+            cb.SelectedIndex = 0; // 应用后回到占位（配置已写入，避免误以为"还没生效"）
         };
         p.Children.Add(cb);
         return p;
@@ -163,8 +166,20 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
         var degraded = Card.DegradedNote is not null;
 
         var save = SettingsUi.Button("保存配置", async (_, _) => await Card.SaveAsync(), primary: true);
-        var restore = SettingsUi.Button("恢复默认", async (_, _) => await Card.RestoreDefaultAsync());
-        var restart = SettingsUi.Button("重启服务", async (_, _) => await Card.RestartAsync());
+        var restore = SettingsUi.Button("恢复默认", async (_, _) =>
+        {
+            // v2.2.0 第二轮：恢复默认会用安全推荐默认覆盖当前配置——先确认（此前直接执行）
+            var confirm = MessageBox.Show($"将把 {Card.Protocol.Display()} 服务器配置恢复为安全推荐默认值（当前自定义修改会被覆盖），继续？",
+                "恢复默认确认", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+            if (confirm == MessageBoxResult.OK) await Card.RestoreDefaultAsync();
+        });
+        var restart = SettingsUi.Button("重启服务", async (_, _) =>
+        {
+            // v2.2.0 第二轮：重启会中断现存连接——先确认（与「停止」口径一致）
+            var confirm = MessageBox.Show($"重启 {Card.Protocol.Display()} 服务将中断当前连接（短暂不可访问），继续？",
+                "重启确认", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+            if (confirm == MessageBoxResult.OK) await Card.RestartAsync();
+        });
         // 停止：契约已补 IProtocolAdapter.StopServiceAsync（v1.1.1）；启动：stopped 态经 restart 达成
         var stop = SettingsUi.Button("停止", async (_, _) =>
         {
@@ -172,12 +187,14 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
             if (confirm == MessageBoxResult.Yes) await Card.StopAsync();
         }, stopHint: "停止该协议服务（会中断现存连接）");
         var start = SettingsUi.Button("启动", async (_, _) => await Card.StartAsync());
-        // 纵向单列：按钮逐个独立成行（左对齐），禁用/三态显隐逻辑不变
+        // v2.2.0 第四轮：动作按钮横排（纵排 5 行占满垂直空间，设置页高度紧张）
+        var actionRow = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
         foreach (var b in new[] { save, restore, restart, start, stop })
         {
-            b.HorizontalAlignment = HorizontalAlignment.Left;
-            b.Margin = new Thickness(0, 0, 0, 4);
+            b.Margin = new Thickness(0, 0, 8, 4);
+            actionRow.Children.Add(b);
         }
+        row.Children.Add(actionRow);
 
         Card.PropertyChanged += (_, _) =>
         {
@@ -186,17 +203,13 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
             bool running = Card.Service?.status == WinShare.Core.Contracts.ServiceState.Running;
             start.Visibility = stopped ? Visibility.Visible : Visibility.Collapsed;
             stop.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+            // 注意：save/restore/restart/start/stop 已加入 actionRow（横排），此处仅控制显隐
             save.IsEnabled = !Card.Busy && !degraded;
             restore.IsEnabled = !Card.Busy && !degraded;
             restart.IsEnabled = !Card.Busy && !degraded;
             stop.IsEnabled = !Card.Busy && !degraded;
         };
 
-        row.Children.Add(save);
-        row.Children.Add(restore);
-        row.Children.Add(restart);
-        row.Children.Add(start);
-        row.Children.Add(stop);
         row.Children.Add(SettingsUi.MessageStrip(Card));
         return row;
     }
@@ -208,7 +221,7 @@ public sealed class SmbTabView : ProtocolSectionView<SmbServerConfig>
     public SmbTabView(SmbConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
     protected override string FooterText =>
-        "提示：SMB1 出于安全考虑默认关闭；建议保持「要求签名」开启以防止中间人攻击。修改高级参数可能影响性能与兼容性，不确定时请点「恢复默认」。";
+        "SMB1 默认关闭，建议保持「要求签名」开启。";
 
     protected override ConfigPreset[] Presets => [.. ProtocolPresets.Smb];
 
@@ -245,24 +258,18 @@ public sealed class SmbTabView : ProtocolSectionView<SmbServerConfig>
             SettingsUi.Toggle("声明服务器", nameof(SmbConfigCardViewModel.AnnounceServer), c),
             SettingsUi.Toggle("每连接多会话", nameof(SmbConfigCardViewModel.MultipleSessions), c)));
 
-        if (c.AdvancedMode)
-        {
-            p.Children.Add(SettingsUi.FogText("高级参数（吞吐/超时/压缩；专家模式）", 0, 4));
-            p.Children.Add(SettingsUi.NumberField("未认证超时(秒)", nameof(SmbConfigCardViewModel.UnauthenticatedTimeLimit), c));
-            p.Children.Add(SettingsUi.NumberField("会话超时(秒)", nameof(SmbConfigCardViewModel.SessionTimeout), c));
-            p.Children.Add(SettingsUi.NumberField("每连接最大会话", nameof(SmbConfigCardViewModel.MaxSessionPerConn), c));
-            p.Children.Add(SettingsUi.NumberField("最大 Mpx 数", nameof(SmbConfigCardViewModel.MaxMpxCount), c));
-            p.Children.Add(SettingsUi.NumberField("最大工作项", nameof(SmbConfigCardViewModel.MaxWorkItems), c));
-            p.Children.Add(SettingsUi.NumberField("每队列最大线程", nameof(SmbConfigCardViewModel.MaxThreadsPerQueue), c));
-            p.Children.Add(SettingsUi.ComboField("请求压缩", nameof(SmbConfigCardViewModel.RequestCompression), c,
-                ["关闭", "允许", "要求"], width: 120));
-        }
-        else
-        {
-            p.Children.Add(SettingsUi.FogText(
-                "当前为新手模式：高级参数（未认证超时 / 会话超时 / 每连接最大会话 / 请求压缩等）已收起，" +
-                "保存时不会改动这些项；需要调整请到「应用设置」切换到专家模式。"));
-        }
+        // v2.2.0 第二轮：SMB 高级参数与其他三协议统一为折叠语义（新手收起、专家展开，
+        // 展开后可编辑并提交——所见即所存；此前新手整体隐藏 + 补丁门控，展开编辑保存会被静默丢弃）
+        var smbAdv = new StackPanel();
+        smbAdv.Children.Add(SettingsUi.NumberField("未认证超时(秒)", nameof(SmbConfigCardViewModel.UnauthenticatedTimeLimit), c));
+        smbAdv.Children.Add(SettingsUi.NumberField("会话超时(秒)", nameof(SmbConfigCardViewModel.SessionTimeout), c));
+        smbAdv.Children.Add(SettingsUi.NumberField("每连接最大会话", nameof(SmbConfigCardViewModel.MaxSessionPerConn), c));
+        smbAdv.Children.Add(SettingsUi.NumberField("最大 Mpx 数", nameof(SmbConfigCardViewModel.MaxMpxCount), c));
+        smbAdv.Children.Add(SettingsUi.NumberField("最大工作项", nameof(SmbConfigCardViewModel.MaxWorkItems), c));
+        smbAdv.Children.Add(SettingsUi.NumberField("每队列最大线程", nameof(SmbConfigCardViewModel.MaxThreadsPerQueue), c));
+        smbAdv.Children.Add(SettingsUi.ComboField("请求压缩", nameof(SmbConfigCardViewModel.RequestCompression), c,
+            ["关闭", "允许", "要求"], width: 120));
+        p.Children.Add(SettingsUi.ExpanderField("高级参数（吞吐 / 超时 / 压缩）", smbAdv, c.AdvancedMode));
         return p;
     }
 }
@@ -273,8 +280,7 @@ public sealed class NfsTabView : ProtocolSectionView<NfsServerConfig>
     public NfsTabView(NfsConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
     protected override string FooterText =>
-        "NFS 服务器配置修改后通常即时生效，部分参数需重启服务。身份映射/网关字段经 Windows NFS 提供程序直写，" +
-        "仅在与现值不一致时写入；若当前 Windows 版本的提供程序拒绝写入会给出明确错误。客户端能力检测与共享管理见「共享管理」页。";
+        "部分参数需重启服务后生效。";
 
     protected override ConfigPreset[] Presets => [.. ProtocolPresets.Nfs];
 
@@ -288,22 +294,31 @@ public sealed class NfsTabView : ProtocolSectionView<NfsServerConfig>
             SettingsUi.Toggle("记录活动日志", nameof(NfsConfigCardViewModel.LogActivity), c),
             SettingsUi.Toggle("未映射用户访问", nameof(NfsConfigCardViewModel.UnmappedAccess), c),
             SettingsUi.Toggle("认证重协商", nameof(NfsConfigCardViewModel.AuthRenegotiation), c)));
-        p.Children.Add(SettingsUi.FogText("连接与超时", 0, 4));
-        p.Children.Add(SettingsUi.NumberField("TCP 连接超时(秒)", nameof(NfsConfigCardViewModel.TcpTimeout), c));
-        p.Children.Add(SettingsUi.NumberField("UDP 连接超时(秒)", nameof(NfsConfigCardViewModel.UdpTimeout), c));
-        p.Children.Add(SettingsUi.NumberField("重启连接超时(秒)", nameof(NfsConfigCardViewModel.RestartTimeout), c));
-        p.Children.Add(SettingsUi.NumberField("每用户最大并发连接(0=不限)", nameof(NfsConfigCardViewModel.MaxConcurrentPerUser), c));
-        p.Children.Add(SettingsUi.NumberField("目录缓存过期(秒)", nameof(NfsConfigCardViewModel.DirectoryCacheExpiry), c));
-        p.Children.Add(SettingsUi.FogText("协议版本", 0, 4));
-        p.Children.Add(SettingsUi.ToggleGroup(
+        p.Children.Add(SettingsUi.FogText($"协议版本：{c.ProtocolVersion}"));
+
+        // v2.2.0 第二轮：超时/协议版本/身份映射/网关属专家字段——折叠为「高级参数」
+        // （新手默认收起、专家默认展开；展开可正常编辑，合并-回写语义下收起不影响现值）
+        var adv = new StackPanel();
+        adv.Children.Add(SettingsUi.FogText("连接与超时", 0, 4));
+        adv.Children.Add(SettingsUi.NumberField("TCP 连接超时(秒)", nameof(NfsConfigCardViewModel.TcpTimeout), c));
+        adv.Children.Add(SettingsUi.NumberField("UDP 连接超时(秒)", nameof(NfsConfigCardViewModel.UdpTimeout), c));
+        adv.Children.Add(SettingsUi.NumberField("重启连接超时(秒)", nameof(NfsConfigCardViewModel.RestartTimeout), c));
+        adv.Children.Add(SettingsUi.NumberField("每用户最大并发连接(0=不限)", nameof(NfsConfigCardViewModel.MaxConcurrentPerUser), c));
+        adv.Children.Add(SettingsUi.NumberField("目录缓存过期(秒)", nameof(NfsConfigCardViewModel.DirectoryCacheExpiry), c));
+        adv.Children.Add(SettingsUi.FogText("协议版本", 0, 4));
+        adv.Children.Add(SettingsUi.ToggleGroup(
             SettingsUi.Toggle("启用 NFSv2", nameof(NfsConfigCardViewModel.EnableNfsV2), c),
             SettingsUi.Toggle("启用 NFSv3", nameof(NfsConfigCardViewModel.EnableNfsV3), c),
             SettingsUi.Toggle("启用 NFSv4.1", nameof(NfsConfigCardViewModel.EnableNfsV4), c)));
-        p.Children.Add(SettingsUi.FogText($"服务器报告协议版本：{c.ProtocolVersion}"));
-        p.Children.Add(SettingsUi.FogText("身份映射 / 网关（经 NFS 提供程序直写，与现值一致时跳过）", 0, 4));
-        p.Children.Add(SettingsUi.NumberField("匿名 UID(-2=未映射)", nameof(NfsConfigCardViewModel.AnonymousUid), c));
-        p.Children.Add(SettingsUi.NumberField("匿名 GID(-2=未映射)", nameof(NfsConfigCardViewModel.AnonymousGid), c));
-        p.Children.Add(SettingsUi.TextField("网关字符集", nameof(NfsConfigCardViewModel.GatewayCharacterSet), c, 160));
+        adv.Children.Add(SettingsUi.FogText("身份映射 / 网关", 0, 4));
+        var uidField = SettingsUi.NumberField("匿名 UID(-2=未映射)", nameof(NfsConfigCardViewModel.AnonymousUid), c);
+        var gidField = SettingsUi.NumberField("匿名 GID(-2=未映射)", nameof(NfsConfigCardViewModel.AnonymousGid), c);
+        uidField.ToolTip = gidField.ToolTip = "不确定时保持 -2（未映射）；仅当 Linux 客户端需要固定 UID/GID 归属时才修改。";
+        adv.Children.Add(uidField);
+        adv.Children.Add(gidField);
+
+        adv.Children.Add(SettingsUi.TextField("网关字符集", nameof(NfsConfigCardViewModel.GatewayCharacterSet), c, 160));
+        p.Children.Add(SettingsUi.ExpanderField("高级参数", adv, c.AdvancedMode));
         return p;
     }
 }
@@ -314,7 +329,7 @@ public sealed class FtpTabView : ProtocolSectionView<FtpServerConfig>
     public FtpTabView(FtpConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
     protected override string FooterText =>
-        "FTP 服务器级配置（IIS ftpServer/* 配置节）。站点级配置（端口/路径/授权）请在「共享管理」页对单个站点编辑。部分配置节可能因 IIS 锁定而写入失败。";
+        "站点级配置（端口 / 路径 / 授权）在「共享管理」页编辑。";
 
     protected override ConfigPreset[] Presets => [.. ProtocolPresets.Ftp];
 
@@ -327,38 +342,46 @@ public sealed class FtpTabView : ProtocolSectionView<FtpServerConfig>
             ["允许（不强制）", "要求", "要求证书"], width: 180));
         p.Children.Add(SettingsUi.ComboField("数据通道 SSL", nameof(FtpConfigCardViewModel.SslData), c,
             ["允许（不强制）", "要求", "要求证书"], width: 180));
-        p.Children.Add(SettingsUi.TextField("SSL 证书哈希(SHA-1)", nameof(FtpConfigCardViewModel.SslCertHash), c, 320));
-        p.Children.Add(SettingsUi.ToggleGroup(
-            SettingsUi.Toggle("要求客户端证书", nameof(FtpConfigCardViewModel.SslClientCertRequired), c),
-            SettingsUi.Toggle("强制 128 位 SSL", nameof(FtpConfigCardViewModel.Ssl128), c)));
         p.Children.Add(SettingsUi.FogText("认证", 0, 4));
         p.Children.Add(SettingsUi.ToggleGroup(
             SettingsUi.Toggle("匿名认证", nameof(FtpConfigCardViewModel.AnonymousEnabled), c),
             SettingsUi.Toggle("基本认证", nameof(FtpConfigCardViewModel.BasicEnabled), c)));
         p.Children.Add(SettingsUi.TextField("匿名用户名", nameof(FtpConfigCardViewModel.AnonymousUser), c, 200));
-        p.Children.Add(SettingsUi.FogText("被动模式端口范围（防火墙支持）", 0, 4));
-        p.Children.Add(SettingsUi.NumberField("起始端口(0=未配置)", nameof(FtpConfigCardViewModel.FwLowPort), c));
-        p.Children.Add(SettingsUi.NumberField("结束端口(0=未配置)", nameof(FtpConfigCardViewModel.FwHighPort), c));
+
+        // v2.2.0 第二轮：证书/被动端口/消息/用户隔离/超时/文件处理/日志属专家字段——折叠为「高级参数」
+        var adv = new StackPanel();
+        adv.Children.Add(SettingsUi.FogText("SSL 高级", 0, 4));
+        var sslHashField = SettingsUi.TextField("SSL 证书哈希(SHA-1)", nameof(FtpConfigCardViewModel.SslCertHash), c, 320);
+        sslHashField.ToolTip = "留空 = 使用系统默认证书；需指定时填证书的 SHA-1 指纹（certlm.msc → 个人 → 证书 → 详情）。";
+        adv.Children.Add(sslHashField);
+
+        adv.Children.Add(SettingsUi.ToggleGroup(
+            SettingsUi.Toggle("要求客户端证书", nameof(FtpConfigCardViewModel.SslClientCertRequired), c),
+            SettingsUi.Toggle("强制 128 位 SSL", nameof(FtpConfigCardViewModel.Ssl128), c)));
+        adv.Children.Add(SettingsUi.FogText("被动模式端口范围", 0, 4));
+        adv.Children.Add(SettingsUi.NumberField("起始端口(0=未配置)", nameof(FtpConfigCardViewModel.FwLowPort), c));
+        adv.Children.Add(SettingsUi.NumberField("结束端口(0=未配置)", nameof(FtpConfigCardViewModel.FwHighPort), c));
         p.Children.Add(SettingsUi.FogText("消息与目录浏览", 0, 4));
-        p.Children.Add(SettingsUi.TextField("欢迎消息", nameof(FtpConfigCardViewModel.GreetingMessage), c, 280));
-        p.Children.Add(SettingsUi.TextField("横幅消息", nameof(FtpConfigCardViewModel.BannerMessage), c, 280));
-        p.Children.Add(SettingsUi.TextField("退出消息", nameof(FtpConfigCardViewModel.ExitMessage), c, 280));
-        p.Children.Add(SettingsUi.TextField("超限消息", nameof(FtpConfigCardViewModel.MaxClientsMessage), c, 280));
-        p.Children.Add(SettingsUi.ToggleGroup(
+        adv.Children.Add(SettingsUi.TextField("欢迎消息", nameof(FtpConfigCardViewModel.GreetingMessage), c, 280));
+        adv.Children.Add(SettingsUi.TextField("横幅消息", nameof(FtpConfigCardViewModel.BannerMessage), c, 280));
+        adv.Children.Add(SettingsUi.TextField("退出消息", nameof(FtpConfigCardViewModel.ExitMessage), c, 280));
+        adv.Children.Add(SettingsUi.TextField("超限消息", nameof(FtpConfigCardViewModel.MaxClientsMessage), c, 280));
+        adv.Children.Add(SettingsUi.ToggleGroup(
             SettingsUi.Toggle("抑制默认消息", nameof(FtpConfigCardViewModel.SuppressDefaultMessages), c),
             SettingsUi.Toggle("显示虚拟目录", nameof(FtpConfigCardViewModel.ShowVirtualDirs), c)));
         p.Children.Add(SettingsUi.FogText("用户隔离 / 超时 / 文件处理 / 日志", 0, 4));
-        p.Children.Add(SettingsUi.ComboField("用户隔离模式", nameof(FtpConfigCardViewModel.IsolationMode), c,
+        adv.Children.Add(SettingsUi.ComboField("用户隔离模式", nameof(FtpConfigCardViewModel.IsolationMode), c,
             ["无隔离", "起始用户目录", "隔离用户", "隔离（无 AD）", "Active Directory"], width: 200));
-        p.Children.Add(SettingsUi.NumberField("未认证超时(秒)", nameof(FtpConfigCardViewModel.UnauthTimeout), c));
-        p.Children.Add(SettingsUi.NumberField("控制连接超时(秒)", nameof(FtpConfigCardViewModel.ControlTimeout), c));
-        p.Children.Add(SettingsUi.NumberField("数据通道超时(秒)", nameof(FtpConfigCardViewModel.DataChannelTimeout), c));
-        p.Children.Add(SettingsUi.ToggleGroup(
+        adv.Children.Add(SettingsUi.NumberField("未认证超时(秒)", nameof(FtpConfigCardViewModel.UnauthTimeout), c));
+        adv.Children.Add(SettingsUi.NumberField("控制连接超时(秒)", nameof(FtpConfigCardViewModel.ControlTimeout), c));
+        adv.Children.Add(SettingsUi.NumberField("数据通道超时(秒)", nameof(FtpConfigCardViewModel.DataChannelTimeout), c));
+        adv.Children.Add(SettingsUi.ToggleGroup(
             SettingsUi.Toggle("保留部分上传", nameof(FtpConfigCardViewModel.KeepPartialUploads), c),
             SettingsUi.Toggle("重命名时覆盖", nameof(FtpConfigCardViewModel.ReplaceOnRename), c)));
-        p.Children.Add(SettingsUi.TextField("日志目录", nameof(FtpConfigCardViewModel.LogDir), c, 320));
-        p.Children.Add(SettingsUi.ComboField("日志周期", nameof(FtpConfigCardViewModel.LogPeriod), c,
+        adv.Children.Add(SettingsUi.TextField("日志目录", nameof(FtpConfigCardViewModel.LogDir), c, 320));
+        adv.Children.Add(SettingsUi.ComboField("日志周期", nameof(FtpConfigCardViewModel.LogPeriod), c,
             ["每小时", "每天", "每周", "每月", "按大小", "从不"], width: 120));
+        p.Children.Add(SettingsUi.ExpanderField("高级参数（证书 / 被动端口 / 消息 / 用户隔离 / 超时 / 日志）", adv, c.AdvancedMode));
         return p;
     }
 }
@@ -369,8 +392,7 @@ public sealed class WebdavTabView : ProtocolSectionView<WebdavServerConfig>
     public WebdavTabView(WebdavConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
     protected override string FooterText =>
-        "WebDAV 服务器级配置（IIS system.webServer/* 配置节）。站点级 authoring 规则请在「共享管理」页对单个站点编辑；" +
-        "服务器级 authoring 规则可在上方「全局 Authoring 规则管理」增删。压缩/SSL 写入即时生效，动态压缩需应用程序池回收后完全生效。";
+        "站点级规则在「共享管理」页编辑；动态压缩需应用程序池回收后生效。";
 
     protected override ConfigPreset[] Presets => [.. ProtocolPresets.Webdav];
 
@@ -381,27 +403,34 @@ public sealed class WebdavTabView : ProtocolSectionView<WebdavServerConfig>
         p.Children.Add(SettingsUi.FogText("WebDAV Authoring", 0, 4));
         p.Children.Add(SettingsUi.ToggleGroup(
             SettingsUi.Toggle("启用 Authoring", nameof(WebdavConfigCardViewModel.AuthoringEnabled), c)));
-        p.Children.Add(SettingsUi.NumberField("最大请求体(字节, 0=不限)", nameof(WebdavConfigCardViewModel.AuthoringMaxBody), c, isLong: true));
-        p.Children.Add(SettingsUi.FogText("请求筛选", 0, 4));
-        p.Children.Add(SettingsUi.NumberField("最大内容长度(字节)", nameof(WebdavConfigCardViewModel.MaxContentLength), c, isLong: true));
-        p.Children.Add(SettingsUi.ToggleGroup(
-            SettingsUi.Toggle("允许双重转义", nameof(WebdavConfigCardViewModel.DoubleEscaping), c),
-            SettingsUi.Toggle("验证集成", nameof(WebdavConfigCardViewModel.VerifyIntegration), c)));
         p.Children.Add(SettingsUi.FogText("认证", 0, 4));
         p.Children.Add(SettingsUi.ToggleGroup(
             SettingsUi.Toggle("匿名认证", nameof(WebdavConfigCardViewModel.AnonymousEnabled), c),
             SettingsUi.Toggle("基本认证", nameof(WebdavConfigCardViewModel.BasicEnabled), c),
             SettingsUi.Toggle("Windows 认证", nameof(WebdavConfigCardViewModel.WindowsAuth), c)));
-        p.Children.Add(SettingsUi.FogText("请求限制", 0, 4));
-        p.Children.Add(SettingsUi.NumberField("最大 URL 长度", nameof(WebdavConfigCardViewModel.MaxUrlLength), c));
-        p.Children.Add(SettingsUi.NumberField("最大查询字符串长度", nameof(WebdavConfigCardViewModel.MaxQueryStringLength), c));
-        p.Children.Add(SettingsUi.FogText("压缩与 SSL（服务器级）", 0, 4));
-        p.Children.Add(SettingsUi.ToggleGroup(
+        p.Children.Add(SettingsUi.FogText($"全局 Authoring 规则数：{c.GlobalRulesCount}"));
+
+        // v2.2.0 第二轮：请求筛选/请求限制/压缩与 SSL/全局规则管理属专家字段——折叠为「高级参数」
+        var adv = new StackPanel();
+        adv.Children.Add(SettingsUi.FogText("请求筛选", 0, 4));
+        var maxBodyField = SettingsUi.NumberField("最大请求体(字节, 0=不限)", nameof(WebdavConfigCardViewModel.AuthoringMaxBody), c, isLong: true);
+        maxBodyField.ToolTip = "30000000 ≈ 28.6 MB；100000000 ≈ 95.4 MB（IIS 对大文件上传的常见上限）。";
+        adv.Children.Add(maxBodyField);
+        adv.Children.Add(SettingsUi.NumberField("最大内容长度(字节)", nameof(WebdavConfigCardViewModel.MaxContentLength), c, isLong: true));
+
+        adv.Children.Add(SettingsUi.ToggleGroup(
+            SettingsUi.Toggle("允许双重转义", nameof(WebdavConfigCardViewModel.DoubleEscaping), c),
+            SettingsUi.Toggle("验证集成", nameof(WebdavConfigCardViewModel.VerifyIntegration), c)));
+        adv.Children.Add(SettingsUi.FogText("请求限制", 0, 4));
+        adv.Children.Add(SettingsUi.NumberField("最大 URL 长度", nameof(WebdavConfigCardViewModel.MaxUrlLength), c));
+        adv.Children.Add(SettingsUi.NumberField("最大查询字符串长度", nameof(WebdavConfigCardViewModel.MaxQueryStringLength), c));
+        adv.Children.Add(SettingsUi.FogText("压缩与 SSL（服务器级）", 0, 4));
+        adv.Children.Add(SettingsUi.ToggleGroup(
             SettingsUi.Toggle("静态压缩", nameof(WebdavConfigCardViewModel.StaticCompression), c),
             SettingsUi.Toggle("动态压缩", nameof(WebdavConfigCardViewModel.DynamicCompression), c),
             SettingsUi.Toggle("要求 SSL", nameof(WebdavConfigCardViewModel.RequireSsl), c)));
-        p.Children.Add(SettingsUi.FogText($"全局 Authoring 规则数：{c.GlobalRulesCount}（随下方规则管理变化）"));
-        p.Children.Add(BuildAuthoringRulesPanel());
+        adv.Children.Add(BuildAuthoringRulesPanel());
+        p.Children.Add(SettingsUi.ExpanderField("高级参数", adv, c.AdvancedMode));
         return p;
     }
 

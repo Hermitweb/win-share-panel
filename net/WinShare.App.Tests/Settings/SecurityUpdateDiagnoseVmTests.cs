@@ -43,7 +43,7 @@ public class SecurityUpdateDiagnoseVmTests
         var svc = new StubSecurityService { Throw = new UnauthorizedAccessException("需要管理员") };
         var vm = new SecurityCardViewModel(svc);
         await vm.RunAsync();
-        Assert.Equal("体检失败：需要管理员", vm.ReportError);
+        Assert.Equal("体检失败：需要管理员权限", vm.ReportError); // v2.2.0：Brief 命中权限规则
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class SecurityUpdateDiagnoseVmTests
         var svc = new StubUpdateService { Throw = new InvalidOperationException("通道不存在") };
         var vm = new UpdateCheckerViewModel(svc, "1.4.2");
         await vm.CheckAsync();
-        Assert.Equal("通道不存在", vm.ErrorText);
+        Assert.Equal("检查更新失败：通道不存在", vm.ErrorText); // v2.2.0：ErrorText 带动作前缀
         Assert.Null(vm.Result);
     }
 

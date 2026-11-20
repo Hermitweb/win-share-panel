@@ -65,7 +65,8 @@
 
                 <!-- 项 1：统计卡 ×4（对齐 antd Row gutter 16 + Statistic） -->
                 <UniformGrid Columns="4" Margin="0,0,0,16">
-                    <Border Style="{DynamicResource CardStyle}" Margin="0,0,10,0">
+                    <Border Style="{DynamicResource CardStyle}" Margin="0,0,10,0" Cursor="Hand"
+                            MouseLeftButtonUp="OnStatShares" ToolTip="查看共享列表（点击跳转）">
                         <StackPanel>
                             <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
                                     Background="{DynamicResource BrushBrandGradient}" />
@@ -73,7 +74,8 @@
                             <TextBlock x:Name="TxtShareCount" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{DynamicResource CardStyle}" Margin="8,0">
+                    <Border Style="{DynamicResource CardStyle}" Margin="8,0" Cursor="Hand"
+                            MouseLeftButtonUp="OnStatSessions" ToolTip="查看活动会话（点击跳转）">
                         <StackPanel>
                             <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
                                     Background="{DynamicResource BrushBrandGradient}" />
@@ -81,14 +83,16 @@
                             <TextBlock x:Name="TxtSessions" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{DynamicResource CardStyle}" Margin="8,0">
+                    <Border Style="{DynamicResource CardStyle}" Margin="8,0" Cursor="Hand"
+                            MouseLeftButtonUp="OnStatFiles" ToolTip="查看打开的文件（点击跳转）">
                         <StackPanel>
                             <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10" Background="{DynamicResource BrushBrandGradient}" />
                             <TextBlock Text="{DynamicResource Dash.OpenFiles}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
                             <TextBlock x:Name="TxtOpenFiles" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{DynamicResource CardStyle}" Margin="8,0,0,0">
+                    <Border Style="{DynamicResource CardStyle}" Margin="8,0,0,0" Cursor="Hand"
+                            MouseLeftButtonUp="OnStatService" ToolTip="查看服务配置（点击跳转）">
                         <StackPanel>
                             <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
                                     Background="{DynamicResource BrushBrandGradient}" />
@@ -102,36 +106,58 @@
                     </Border>
                 </UniformGrid>
 
+                <!-- 零共享引导（v2.2.0 第二轮：ShareCount==0 时显示——此前空仪表板无任何指引） -->
+                <Border x:Name="NoSharesGuide" Style="{DynamicResource CardStyle}" Margin="0,0,0,16"
+                        Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="还没有共享：三步建好第一个共享——选文件夹 → 选权限 → 完成。"
+                                   FontSize="13" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushText}" />
+                        <Button Content="去创建共享" Style="{DynamicResource DashButton}"
+                                Margin="14,0,0,0" Click="OnGoCreateShare" />
+                    </StackPanel>
+                </Border>
+
                 <!-- 项 2：需要关注（告警规则评估；命中项经事件总线 AlertRaised） -->
                 <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
                     <!-- 纵向流（同协议分布卡：DockPanel 的 LastChildFill 会挤掉末位之外的内容） -->
                     <StackPanel>
-                        <TextBlock Text="{DynamicResource Dash.Attention}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <!-- v2.2.0 第五批：跳过项收进标题行 chip（此前独立占一行，与居中空态读作两件事） -->
+                        <DockPanel Margin="0,0,0,8">
+                            <TextBlock Text="{DynamicResource Dash.Attention}" FontSize="14" FontWeight="SemiBold"
+                                       DockPanel.Dock="Left" />
+                            <Border x:Name="SkippedChip" DockPanel.Dock="Right" Visibility="Collapsed"
+                                    CornerRadius="{DynamicResource RadiusTag}" Padding="8,2"
+                                    Background="{DynamicResource BrushBgMist}" VerticalAlignment="Center"
+                                    HorizontalAlignment="Right">
+                                <TextBlock x:Name="SkippedNote" FontSize="11" Foreground="{DynamicResource BrushFog}" />
+                            </Border>
+                        </DockPanel>
                         <TextBlock x:Name="AttentionEmpty" Text="{DynamicResource Dash.AttentionEmpty}"
                                    FontSize="12" Foreground="{DynamicResource BrushFog}"
                                    Visibility="Collapsed" HorizontalAlignment="Center" />
                         <ItemsControl x:Name="AttentionList" />
-                        <TextBlock x:Name="SkippedNote" FontSize="11" Foreground="{DynamicResource BrushFog}"
-                                   TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
                     </StackPanel>
                 </Border>
 
                 <!-- 项 3：24h 趋势（Segmented 三态 + LiveCharts2 接口位，当前 WPF 自绘） -->
                 <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
                     <DockPanel>
-                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,8">
-                            <TextBlock Text="{DynamicResource Dash.Trend}" FontSize="14" FontWeight="SemiBold" />
-                            <TextBlock Text="{DynamicResource Dash.TrendHint}" FontSize="11"
-                                       Foreground="{DynamicResource BrushFog}" VerticalAlignment="Bottom" Margin="8,0,0,2" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                                <RadioButton x:Name="ModeBoth" GroupName="TrendMode" Content="{DynamicResource Dash.Both}"
-                                             IsChecked="True" Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
-                                <RadioButton x:Name="ModeSessions" GroupName="TrendMode" Content="{DynamicResource Dash.SessionsOnly}"
-                                             Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
-                                <RadioButton x:Name="ModeOpenFiles" GroupName="TrendMode" Content="{DynamicResource Dash.OpenFilesOnly}"
-                                             Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
-                            </StackPanel>
+                        <!-- v2.2.0 第二轮修复：按钮组此前嵌在横向 StackPanel 里，HorizontalAlignment=Right
+                             是无效属性（StackPanel 内不生效）——标题/提示/按钮挤作一行且按钮不靠右。
+                             改 DockPanel：按钮组显式停靠 Right，标题与提示留出间距。 -->
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Top">
+                            <RadioButton x:Name="ModeBoth" GroupName="TrendMode" Content="{DynamicResource Dash.Both}"
+                                         IsChecked="True" Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
+                            <RadioButton x:Name="ModeSessions" GroupName="TrendMode" Content="{DynamicResource Dash.SessionsOnly}"
+                                         Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
+                            <RadioButton x:Name="ModeOpenFiles" GroupName="TrendMode" Content="{DynamicResource Dash.OpenFilesOnly}"
+                                         Checked="OnTrendMode" Style="{DynamicResource SegmentRadio}" />
                         </StackPanel>
+                        <!-- v2.2.0 第五批：采样说明改为标题悬停提示（此前常驻副标题挤占标题层） -->
+                        <TextBlock Text="{DynamicResource Dash.Trend}" FontSize="14" FontWeight="SemiBold"
+                                   DockPanel.Dock="Top" Margin="0,0,12,8"
+                                   ToolTip="{DynamicResource Dash.TrendHint}" />
                         <Grid>
                             <charts:TrendChartControl x:Name="TrendChart" Height="240" />
                             <TextBlock x:Name="TrendEmptyAll" Text="{DynamicResource Dash.TrendAllEmpty}"

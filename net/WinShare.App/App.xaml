@@ -1,6 +1,7 @@
 <Application x:Class="WinShare.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
              ShutdownMode="OnExplicitShutdown">
     <!--
       无 StartupUri：窗口由 App.OnStartup 手动创建（单实例锁/托盘/Win11 检测先行）。
@@ -10,6 +11,12 @@
       标签 8px 圆角胶囊。色值全部走主题 token（DynamicResource 热切换）。
     -->
     <Application.Resources>
+        <!-- v2.2.0 第二轮：字号标尺（五级）——新代码用令牌，存量字面量渐进收敛 -->
+        <sys:Double x:Key="FontSizeCaption">11</sys:Double>
+        <sys:Double x:Key="FontSizeSecondary">12</sys:Double>
+        <sys:Double x:Key="FontSizeBody">13</sys:Double>
+        <sys:Double x:Key="FontSizeSubtitle">14</sys:Double>
+        <sys:Double x:Key="FontSizeTitle">16</sys:Double>
         <!-- ===== 卡片（规范 5.1） ===== -->
         <Style x:Key="CardStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource BrushGlassStrong}" />
@@ -123,17 +130,19 @@
           （控件 BoundingRectangle 变空、内容不可见）。模板越简单越安全。
         -->
         <Style x:Key="CheckBoxSoft" TargetType="CheckBox">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingVisual}" />
             <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="MinHeight" Value="32" /> <!-- v2.2.0 第四轮：触摸热区 -->
             <Setter Property="Margin" Value="0,3,16,3" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
                         <StackPanel Orientation="Horizontal" Background="Transparent">
-                            <Border x:Name="Box" Width="15" Height="15" CornerRadius="4"
+                            <Border x:Name="Box" Width="18" Height="18" CornerRadius="4"
                                     Background="{DynamicResource BrushBgMist}"
-                                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
+                                    BorderBrush="{DynamicResource BrushCheckBoxBorder}" BorderThickness="1"
                                     VerticalAlignment="Center" Margin="0,0,8,0" />
                             <ContentPresenter VerticalAlignment="Center" />
                         </StackPanel>
@@ -184,6 +193,7 @@
           自定义模板又必须保持结构极简 —— Path 用 Stretch 会让整页布局崩（见 CheckBoxSoft 注释）。
         -->
         <Style x:Key="ComboBoxSoft" TargetType="ComboBox">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingVisual}" />
             <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Height" Value="30" />
@@ -206,23 +216,13 @@
                                 <ToggleButton.Template>
                                     <ControlTemplate TargetType="ToggleButton">
                                         <Border x:Name="Bd"
-                                                Background="{DynamicResource BrushBgMist}"
-                                                BorderBrush="{DynamicResource BrushBorder}"
+                                                Background="{DynamicResource BrushInputBg}"
+                                                BorderBrush="{DynamicResource BrushInputBorder}"
                                                 BorderThickness="1" CornerRadius="8">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <ContentPresenter Grid.Column="0" Margin="10,0,4,0"
-                                                                  VerticalAlignment="Center"
-                                                                  Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                                                  ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}" />
-                                                <Path Grid.Column="1" Width="9" Height="5" Margin="0,0,10,0"
-                                                      VerticalAlignment="Center"
-                                                      Data="M0,0 L4.5,4.5 L9,0"
-                                                      Stroke="{DynamicResource BrushFog}" StrokeThickness="1.5" />
-                                            </Grid>
+                                            <Path Width="9" Height="5" Margin="0,0,10,0"
+                                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                  Data="M0,0 L4.5,4.5 L9,0"
+                                                  Stroke="{DynamicResource BrushFog}" StrokeThickness="1.5" />
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
@@ -232,6 +232,23 @@
                                     </ControlTemplate>
                                 </ToggleButton.Template>
                             </ToggleButton>
+                            <!-- 只读态选中内容：DisplayMemberPath 生成的文本块不继承下拉框前景，
+                                 暗色下呈系统默认黑字（用户实测）→ TextElement.Foreground 显式绑定 token -->
+                            <ContentPresenter x:Name="ContentSite" Margin="10,0,26,0"
+                                              VerticalAlignment="Center" IsHitTestVisible="False"
+                                              Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                              ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}">
+                                <TextElement.Foreground>
+                                    <DynamicResource ResourceKey="BrushText" />
+                                </TextElement.Foreground>
+                            </ContentPresenter>
+                            <!-- 可编辑态（IsEditable）：PART_EditableTextBox 是 WPF 约定的部件名，
+                                 缺失时键入内容不显示（第二轮账号下拉实测黑字/无回显的根因） -->
+                            <TextBox x:Name="PART_EditableTextBox" Margin="8,0,26,0"
+                                     VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                                     Foreground="{DynamicResource BrushText}"
+                                     CaretBrush="{DynamicResource BrushText}"
+                                     Visibility="Collapsed" />
                             <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True"
                                    IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade">
                                 <Border Background="{DynamicResource BrushBg}"
@@ -244,14 +261,35 @@
                                 </Border>
                             </Popup>
                         </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEditable" Value="True">
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
         <!-- ===== 次按钮（DashButton：磨砂白底 + 浅蓝描边 + 悬浮微上浮，规范 5.2） ===== -->
+        <!-- 键盘焦点环（v2.2.1 可达性）：默认 FocusVisualStyle 是黑色虚线，暗色主题下不可辨。
+             挂在各控件样式的 FocusVisualStyle 上——该机制只在键盘 Tab 进入时显示，鼠标点击不出现。 -->
+        <Style x:Key="FocusRingVisual" TargetType="Control">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Rectangle RadiusX="12" RadiusY="12" Margin="-3"
+                                   Stroke="{DynamicResource BrushPrimary}" StrokeThickness="1.5"
+                                   StrokeDashArray="2 1.5" SnapsToDevicePixels="True" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="DashButton" TargetType="Button">
-            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingVisual}" />
+            <Setter Property="Padding" Value="14,8" /> <!-- v2.2.0 第四轮：触摸目标 -->
             <Setter Property="Margin" Value="0" />
             <Setter Property="Background" Value="{DynamicResource BrushGlassStrong}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
@@ -289,6 +327,7 @@
 
         <!-- ===== 主按钮（马卡龙渐变填充 + 白字，规范 5.2） ===== -->
         <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingVisual}" />
             <Setter Property="Padding" Value="16,8" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="FontSize" Value="13" />
@@ -352,7 +391,8 @@
 
         <!-- ===== 行内小按钮（DataGrid 行操作 / 批量工具条；DashButton 紧凑变体） ===== -->
         <Style x:Key="RowActionButton" TargetType="Button">
-            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingVisual}" />
+            <Setter Property="Padding" Value="6,3" /> <!-- v2.2.0 第四轮：操作列压缩（280→200） -->
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource BrushInfoFg}" />
             <Setter Property="Cursor" Value="Hand" />
@@ -384,6 +424,7 @@
 
         <!-- ===== 标题栏窗口按钮（规范 §9.1） ===== -->
         <Style x:Key="CaptionButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingVisual}" />
             <Setter Property="Foreground" Value="{DynamicResource BrushFog}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Cursor" Value="Hand" />
@@ -426,15 +467,39 @@
         </Style>
 
         <!-- 输入框（颜色型）：不覆盖 ControlTemplate，只改配色 —— 自定义模板实测会让部分页面异常 -->
+        <!-- v2.2.0 第三轮：密码框主题样式（此前裸 PasswordBox → 暗色下白底黑字刺眼） -->
+        <Style x:Key="PasswordBoxSoft" TargetType="PasswordBox">
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource BrushPrimary}" />
+            <Setter Property="Background" Value="{DynamicResource BrushInputBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+                    <Style.Triggers>
+                <Trigger Property="IsFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                </Trigger>
+            </Style.Triggers>
+</Style>
         <Style x:Key="InputBoxSoft" TargetType="TextBox">
             <Setter Property="Padding" Value="8,5" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
             <Setter Property="CaretBrush" Value="{DynamicResource BrushPrimary}" />
-            <Setter Property="Background" Value="{DynamicResource BrushBgMist}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="Background" Value="{DynamicResource BrushInputBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <!-- v2.2.1 可达性：聚焦态边框高亮（此前聚焦与静态外观完全一致，
+                 键盘 Tab 定位到输入框时无任何视觉反馈） -->
+            <Style.Triggers>
+                <Trigger Property="IsFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushPrimary}" />
+                    <Setter Property="Background" Value="{DynamicResource BrushCard}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <!-- ===== 页面标题（各页统一视觉层级） ===== -->
@@ -460,7 +525,9 @@
         <Style x:Key="SoftDataGrid" TargetType="DataGrid">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="RowHeight" Value="38" />
+            <Setter Property="RowHeight" Value="40" /> <!-- v2.2.0 第五批：行高 38→40，单元格垂直居中与胶囊标签同基线 -->
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BrushBorder}" />
             <Setter Property="HeadersVisibility" Value="Column" />
@@ -480,6 +547,8 @@
                         <Setter Property="FontSize" Value="12" />
                         <Setter Property="FontWeight" Value="SemiBold" />
                         <Setter Property="Padding" Value="10,8" />
+                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                        <Setter Property="HorizontalContentAlignment" Value="Left" />
                         <Setter Property="BorderThickness" Value="0,0,0,1" />
                         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
                     </Style>
@@ -638,12 +707,28 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
-                        <Border x:Name="Bd" Background="Transparent" Padding="10,6" CornerRadius="4">
-                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                        <!-- Padding 10,8：此前 10,6 时分隔线几乎贴住上一项文字，看起来像「下划线错位」 -->
+                        <!-- v2.2.0 第五批：可勾选菜单项（主题/模式）左侧留出勾选位，
+                             选中项显示 ✓（状态型设置必须显示当前值，否则用户看不出当前主题/模式） -->
+                        <Border x:Name="Bd" Background="Transparent" Padding="10,8" CornerRadius="4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="CheckMark" Grid.Column="0" Text="✓" Margin="0,0,8,0"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource BrushPrimary}"
+                                           Visibility="Collapsed" />
+                                <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BrushSoftGradient}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.45" />
@@ -654,15 +739,21 @@
             </Setter>
         </Style>
 
-        <!-- 菜单分隔线（隐式） -->
+        <!-- 菜单分隔线（隐式）：v2.2.0 第四轮——线宽与菜单项文字对齐。
+             此前 Separator 在 ContextMenu 的 StackPanel 中拉伸全宽，而 MenuItem 内容有
+             Padding(10,8) 缩进 → 线比文字宽 20px，右端偏移（用户截图实证）。
+             修法：模板内用 Border 包裹并施加与菜单项一致的左右 Padding(10,0)，
+             使线宽 = 菜单内容宽，左右与文字对齐。 -->
         <Style TargetType="Separator">
             <Setter Property="Background" Value="{DynamicResource BrushBorder}" />
             <Setter Property="Height" Value="1" />
-            <Setter Property="Margin" Value="6,4" />
+            <Setter Property="Margin" Value="0,5" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Separator">
-                        <Border Background="{TemplateBinding Background}" Height="1" />
+                        <Border Padding="10,0">
+                            <Border Background="{TemplateBinding Background}" Height="1" CornerRadius="0.5" />
+                        </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>

@@ -25,7 +25,7 @@
             <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Nav.Users}"
                        Style="{DynamicResource PageTitle}" VerticalAlignment="Center" />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <TextBlock x:Name="StatusTip" FontSize="12" Foreground="{DynamicResource BrushFog}"
+                <TextBlock x:Name="StatusTip" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushFog}"
                            Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="360" TextWrapping="Wrap"
                            Visibility="Collapsed" />
             </StackPanel>
@@ -62,13 +62,13 @@
                     <Button x:Name="BtnBatchClear" Content="取消选择" Style="{DynamicResource RowActionButton}"
                             Click="OnBatchClear" Margin="4,0,0,0" />
                 </StackPanel>
-                <TextBlock x:Name="BatchCount" Text="已选 0 个用户" FontSize="12"
+                <TextBlock x:Name="BatchCount" Text="已选 0 个用户" FontSize="{DynamicResource FontSizeSecondary}"
                            VerticalAlignment="Center" />
             </DockPanel>
         </Border>
 
         <!-- 提示/错误条（首轮失败、服务缺席等） -->
-        <TextBlock x:Name="NoticeBar" Grid.Row="3" FontSize="12" Foreground="{DynamicResource BrushDanger}"
+        <TextBlock x:Name="NoticeBar" Grid.Row="3" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushDanger}"
                    Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
 
         <Grid Grid.Row="4">
@@ -78,51 +78,60 @@
                     <!-- 工具行：搜索 + 字段 + 仅启用 + 新建（对齐 Electron 横向工具行） -->
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8"
                                 VerticalAlignment="Center">
-                        <TextBox x:Name="SearchBox" Width="240" Style="{DynamicResource InputBoxSoft}"
-                                 ToolTip="搜索用户名" TextChanged="OnFilterChanged" />
+                        <Grid>
+                            <!-- 占位提示后声明（画在输入框之上）：此前被不透明输入框背景遮住 -->
+                            <TextBox x:Name="SearchBox" Width="240" Style="{DynamicResource InputBoxSoft}"
+                                     ToolTip="搜索用户名" TextChanged="OnFilterChanged" />
+                            <TextBlock x:Name="SearchHint" Text="搜索用户名…" FontSize="{DynamicResource FontSizeBody}"
+                                       Margin="10,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BrushFog}" IsHitTestVisible="False" />
+                        </Grid>
                         <ComboBox x:Name="SearchFieldCombo" Width="110" Style="{DynamicResource ComboBoxSoft}"
-                                  SelectionChanged="OnSearchFieldChanged" Margin="8,0,0,0">
+                                  SelectionChanged="OnSearchFieldChanged" Margin="8,0,0,0"
+                                  ToolTip="搜索范围：仅用户名 或 全部字段">
                             <ComboBoxItem Content="仅用户名" IsSelected="True" />
                             <ComboBoxItem Content="全部字段" />
                         </ComboBox>
                         <CheckBox x:Name="OnlyEnabledChk" Content="仅启用" Style="{DynamicResource CheckBoxSoft}"
                                   Margin="14,0,0,0" VerticalAlignment="Center"
                                   Checked="OnFilterChanged" Unchecked="OnFilterChanged" />
+                        <Rectangle Width="1" Height="20" Fill="{DynamicResource BrushBorder}"
+                                   Margin="14,0,0,0" VerticalAlignment="Center" />
                         <Button x:Name="BtnCreateUser" Content="+ 新建用户"
-                                Style="{DynamicResource DashButton}"
-                                Margin="8,0,0,0" Click="OnCreateUser" />
+                                Style="{DynamicResource PrimaryButton}"
+                                Margin="12,0,0,0" Click="OnCreateUser" />
                     </StackPanel>
                     <DataGrid x:Name="UsersGrid" Style="{DynamicResource SoftDataGrid}" AutoGenerateColumns="False" IsReadOnly="True"
                               SelectionUnit="FullRow" HeadersVisibility="Column"
-                              CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="13"
+                              CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="{DynamicResource FontSizeBody}"
                               SelectionChanged="OnUsersSelectionChanged">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="用户名" Binding="{Binding user.name}" Width="140" />
-                            <DataGridTextColumn Header="全名" Binding="{Binding user.fullName}" Width="140" />
+                            <DataGridTextColumn Header="用户名" Binding="{Binding user.name}" Width="150" MinWidth="120" />
+                            <DataGridTextColumn Header="全名" Binding="{Binding user.fullName}" Width="150" MinWidth="100" />
                             <DataGridTemplateColumn Header="状态" Width="70">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding StatusText}" FontSize="12" />
+                                        <TextBlock Text="{Binding StatusText}" FontSize="{DynamicResource FontSizeSecondary}" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="描述" Binding="{Binding user.description}" Width="*" />
-                            <DataGridTemplateColumn Header="所属组" Width="200">
+                            <DataGridTextColumn Header="描述" Binding="{Binding user.description}" Width="*" MinWidth="120" MaxWidth="320" />
+                            <DataGridTemplateColumn Header="所属组" Width="*" MinWidth="160" MaxWidth="280">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding GroupsText}" FontSize="12" />
+                                        <TextBlock Text="{Binding GroupsText}" FontSize="{DynamicResource FontSizeSecondary}" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                             <DataGridTemplateColumn Header="上次登录" Width="130">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding LastLogonText}" FontSize="12"
+                                        <TextBlock Text="{Binding LastLogonText}" FontSize="{DynamicResource FontSizeSecondary}"
                                                    Foreground="{DynamicResource BrushFog}" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="操作" Width="150">
+                            <DataGridTemplateColumn Header="操作" Width="Auto" MinWidth="150">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -140,6 +149,20 @@
                             </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
+<!-- v2.2.0 第五批：空态 = 一句状态 + 一个主按钮；加载态给骨架行 -->
+                    <StackPanel x:Name="UsersEmpty" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                IsHitTestVisible="False" Visibility="Collapsed">
+                        <TextBlock Text="暂无本地用户" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Foreground="{DynamicResource BrushText}" />
+                        <TextBlock Text="点击右侧「新建用户」创建第一个本地账号" FontSize="{DynamicResource FontSizeBody}"
+                                   Foreground="{DynamicResource BrushFog}" HorizontalAlignment="Center"
+                                   Margin="0,6,0,0" />
+                    </StackPanel>
+                    <StackPanel x:Name="UsersLoading" VerticalAlignment="Top" Margin="0,10,0,0" Visibility="Collapsed">
+                        <TextBlock Text="正在读取本地用户…" FontSize="{DynamicResource FontSizeBody}"
+                                   Foreground="{DynamicResource BrushFog}" Margin="0,0,0,12" />
+                        <StackPanel x:Name="UsersSkeletonRows" />
+                    </StackPanel>
                 </DockPanel>
             </Border>
 
@@ -151,13 +174,13 @@
                         <Button x:Name="BtnCreateGroup" Content="+ 新建组" DockPanel.Dock="Right"
                                 Style="{DynamicResource DashButton}" Click="OnCreateGroup" />
                         <TextBlock Text="系统内置组（如 Administrators/Users）不可删除，但可管理成员。"
-                                   FontSize="12" Foreground="{DynamicResource BrushFog}"
+                                   FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushFog}"
                                    TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="460" />
                     </DockPanel>
                     <DataGrid x:Name="GroupsGrid" Style="{DynamicResource SoftDataGrid}"
                               AutoGenerateColumns="False" IsReadOnly="True"
                               SelectionUnit="FullRow" CanUserAddRows="False"
-                              GridLinesVisibility="Horizontal" FontSize="13">
+                              GridLinesVisibility="Horizontal" FontSize="{DynamicResource FontSizeBody}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="组名" Binding="{Binding group.name}" Width="160" />
                             <DataGridTextColumn Header="描述" Binding="{Binding group.description}" Width="*" />
@@ -187,24 +210,24 @@
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="False">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                             <Button x:Name="BtnMatrixReload" Content="重新加载" Style="{DynamicResource DashButton}"
-                                    Padding="8,2" FontSize="12" Click="OnMatrixReload" />
+                                    Padding="8,2" FontSize="{DynamicResource FontSizeSecondary}" Click="OnMatrixReload" />
                             <Button x:Name="BtnMatrixCancel" Content="取消" Style="{DynamicResource DashButton}"
-                                    Padding="8,2" FontSize="12" Margin="8,0,0,0" Click="OnMatrixCancel"
+                                    Padding="8,2" FontSize="{DynamicResource FontSizeSecondary}" Margin="8,0,0,0" Click="OnMatrixCancel"
                                     Visibility="Collapsed" />
                             <Button x:Name="BtnExportCsv" Content="导出 CSV" Style="{DynamicResource DashButton}"
-                                    Padding="8,2" FontSize="12" Margin="8,0,0,0" Click="OnExportCsv" />
+                                    Padding="8,2" FontSize="{DynamicResource FontSizeSecondary}" Margin="8,0,0,0" Click="OnExportCsv" />
                             <Button x:Name="BtnExportJson" Content="导出 JSON" Style="{DynamicResource DashButton}"
-                                    Padding="8,2" FontSize="12" Margin="8,0,0,0" Click="OnExportJson" />
+                                    Padding="8,2" FontSize="{DynamicResource FontSizeSecondary}" Margin="8,0,0,0" Click="OnExportJson" />
                             <Button x:Name="BtnExportHtml" Content="导出报告(HTML)" Style="{DynamicResource DashButton}"
-                                    Padding="8,2" FontSize="12" Margin="8,0,0,0" Click="OnExportHtml" />
+                                    Padding="8,2" FontSize="{DynamicResource FontSizeSecondary}" Margin="8,0,0,0" Click="OnExportHtml" />
                         </StackPanel>
-                        <TextBlock x:Name="MatrixHint" Text="" FontSize="12"
+                        <TextBlock x:Name="MatrixHint" Text="" FontSize="{DynamicResource FontSizeSecondary}"
                                    Foreground="{DynamicResource BrushFog}"
                                    TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="420" />
                     </DockPanel>
                     <DataGrid x:Name="MatrixGrid" Style="{DynamicResource SoftDataGrid}"
                               AutoGenerateColumns="False" IsReadOnly="True"
-                              CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="12"
+                              CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="{DynamicResource FontSizeSecondary}"
                               HorizontalScrollBarVisibility="Auto"
                               Height="480" VerticalScrollBarVisibility="Auto" />
                 </DockPanel>
@@ -216,23 +239,26 @@
                     <!-- 横向：标签 + 路径框 + 查看按钮（对齐 Electron 工具行） -->
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8"
                                 VerticalAlignment="Center">
-                        <TextBlock Text="查看路径 NTFS 权限：" FontSize="12" VerticalAlignment="Center" />
-                        <TextBox x:Name="NtfsPathBox" Width="320" Style="{DynamicResource InputBoxSoft}"
-                                 Margin="8,0,0,0" ToolTip="如 C:\Users 或某共享路径" />
+                        <TextBlock Text="查看路径 NTFS 权限：" FontSize="{DynamicResource FontSizeSecondary}" VerticalAlignment="Center" />
+                        <!-- v2.2.0 第二轮：路径改可下拉（候选=本机普通共享），保留手输任意路径 -->
+                        <ComboBox x:Name="NtfsPathBox" Width="360" IsEditable="True" FontSize="{DynamicResource FontSizeSecondary}"
+                                  Style="{DynamicResource ComboBoxSoft}"
+                                  Margin="8,0,0,0"
+                                  ToolTip="下拉选择本机共享路径，或直接输入任意路径（如 C:\Users）" />
                         <Button x:Name="BtnNtfsView" Content="查看" Style="{DynamicResource DashButton}"
                                 Margin="8,0,0,0" Click="OnNtfsView" />
                     </StackPanel>
                     <!-- 编辑授权（v2.1 解锁：添加/移除授权 + 继承控制，icacls 通道） -->
                     <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                        <TextBlock Text="编辑授权：选择账号与级别后「添加授权」；行内「移除」删除该账号全部授权；" FontSize="12"
+                        <TextBlock Text="编辑授权：选择账号与级别后「添加授权」；行内「移除」删除该账号全部授权；" FontSize="{DynamicResource FontSizeSecondary}"
                                    Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap" />
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="账号：" FontSize="12" VerticalAlignment="Center" />
-                            <ComboBox x:Name="NtfsAccountBox" Width="200" IsEditable="True" FontSize="12"
+                            <TextBlock Text="账号：" FontSize="{DynamicResource FontSizeSecondary}" VerticalAlignment="Center" />
+                            <ComboBox x:Name="NtfsAccountBox" Width="200" IsEditable="True" FontSize="{DynamicResource FontSizeSecondary}"
                                       Style="{DynamicResource ComboBoxSoft}"
                                       ToolTip="可从下拉选择本地用户/组，或直接输入（支持 DOMAIN\user）" />
-                            <TextBlock Text="级别：" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0" />
-                            <ComboBox x:Name="NtfsRightsBox" Width="120" FontSize="12" SelectedIndex="1"
+                            <TextBlock Text="级别：" FontSize="{DynamicResource FontSizeSecondary}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                            <ComboBox x:Name="NtfsRightsBox" Width="120" FontSize="{DynamicResource FontSizeSecondary}" SelectedIndex="1"
                                       Style="{DynamicResource ComboBoxSoft}">
                                 <ComboBoxItem Content="读取" Tag="R" />
                                 <ComboBoxItem Content="读取和执行" Tag="RX" />
@@ -240,9 +266,9 @@
                                 <ComboBoxItem Content="修改" Tag="M" />
                                 <ComboBoxItem Content="完全控制" Tag="F" />
                             </ComboBox>
-                            <CheckBox x:Name="NtfsOiBox" Content="应用到文件(OI)" IsChecked="True" FontSize="12"
+                            <CheckBox x:Name="NtfsOiBox" Content="应用到文件(OI)" IsChecked="True" FontSize="{DynamicResource FontSizeSecondary}"
                                       Style="{DynamicResource CheckBoxSoft}" Margin="10,0,0,0" VerticalAlignment="Center" />
-                            <CheckBox x:Name="NtfsCiBox" Content="应用到子目录(CI)" IsChecked="True" FontSize="12"
+                            <CheckBox x:Name="NtfsCiBox" Content="应用到子目录(CI)" IsChecked="True" FontSize="{DynamicResource FontSizeSecondary}"
                                       Style="{DynamicResource CheckBoxSoft}" Margin="10,0,0,0" VerticalAlignment="Center" />
                             <Button Content="添加授权" Style="{DynamicResource DashButton}" Margin="10,0,0,0" Click="OnNtfsGrant" />
                             <Button Content="启用继承" Style="{DynamicResource DashButton}" Margin="10,0,0,0"
@@ -253,7 +279,7 @@
                     </StackPanel>
                     <DataGrid x:Name="NtfsGrid" Style="{DynamicResource SoftDataGrid}"
                               AutoGenerateColumns="False" IsReadOnly="True"
-                              CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="13">
+                              CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="{DynamicResource FontSizeBody}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="账号" Binding="{Binding entry.account}" Width="260" />
                             <DataGridTextColumn Header="权限" Binding="{Binding entry.rights}" Width="*" />

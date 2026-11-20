@@ -35,6 +35,17 @@ public abstract class SettingsCardBase : INotifyPropertyChanged
         protected set { _error = value; if (value is not null) _success = null; Raise(); }
     }
 
+    string? _busyText;
+    /// <summary>Busy 期间的进度说明（v2.2.0：长时 PowerShell 拉取 16-21s 不应静默；null 时显示通用文案）。</summary>
+    public string? BusyText
+    {
+        get => _busyText;
+        protected set { _busyText = value; Raise(); }
+    }
+
+    /// <summary>视图层据它显示进度行；协议配置卡以「读取中 or 执行中」覆写。</summary>
+    public virtual bool BusyVisible => Busy;
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>

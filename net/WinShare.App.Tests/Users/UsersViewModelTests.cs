@@ -103,7 +103,7 @@ public class UsersViewModelTests
 
         Assert.Equal(2, result.Ok);
         Assert.Equal(1, result.Failed);
-        Assert.Equal("已启用 2 个用户，1 个失败", LastNotify(history, "success"));
+        Assert.StartsWith("已启用 2 个用户，1 个失败：u2：stub fail", LastNotify(history, "warn")); // v2.2.0：warn + 原因
         Assert.Empty(vm.SelectedUsers); // 完成后清选（TS setSelectedUsers([])）
         Assert.Equal(new[] { "EnableUser:u1", "EnableUser:u2", "EnableUser:u3" },
             svc.Calls.Where(c => c.StartsWith("EnableUser:")).ToArray());
@@ -138,7 +138,7 @@ public class UsersViewModelTests
         vm.SetSelectedUsers(new[] { "u1", "u2" });
         svc.FailNames.Add("AddMember:devs:u2");
         var r = await vm.BatchAssignGroupAsync("devs");
-        Assert.Equal("已分配 1 个用户到组「devs」，1 个失败", log.Single(l => l.Item1 == "success").Item2);
+        Assert.StartsWith("已分配 1 个用户到组「devs」，1 个失败：u2：", log.Single(l => l.Item1 == "warn").Item2); // v2.2.0：warn + 原因
         Assert.Equal(1, r.Failed);
         Assert.Contains("AddMember:devs:u1", svc.Calls);
     }

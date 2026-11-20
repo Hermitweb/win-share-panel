@@ -24,7 +24,6 @@ public sealed class AppSettingsPageView : UserControl
     IUnsubscribe? _refreshSub;
     StackPanel? _usageRadios;
     StackPanel? _autostartRow;
-    TextBlock? _diskHint;
     StackPanel? _firewallRows;
     StackPanel? _securityPanel;
     StackPanel? _auditPanel;
@@ -146,11 +145,17 @@ public sealed class AppSettingsPageView : UserControl
         }
 
         tabs.Items.Add(MakeTab("关于与更新", BuildAboutCard(), BuildUpdateCard(), BuildTransferCard()));
-        tabs.Items.Add(MakeTab("偏好与运维", BuildUsageModeCard(), BuildAutoStartCard(),
+        tabs.Items.Add(MakeTab("偏好与运维", BuildUsageModeCard(), BuildWindowBehaviorCard(), BuildAutoStartCard(),
             BuildAlertRulesCard(), BuildFirewallCard(), BuildSecurityCard(), BuildAdvancedSettingsCard()));
         tabs.Items.Add(MakeTab("日志与回收站", BuildJournalCard(), BuildAuditCard(), BuildAppLogCard()));
         outer.Children.Add(tabHost); // 最后一个子元素填满剩余空间（内含 Star 行约束 TabControl）
-        return outer;
+        // v2.2.0 第二轮：页面级内容列限宽（同服务配置页口径）
+        return new System.Windows.Controls.Grid
+        {
+            MaxWidth = 920,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Children = { outer },
+        };
     }
 
     static TextBlock SectionHeader(string text)
@@ -186,10 +191,6 @@ public sealed class AppSettingsPageView : UserControl
                 ApplyAdvancedToBoxes(new AdvancedSettings());
                 SaveAdvancedSettings();
             })));
-        p.Children.Add(SettingsUi.FogText(
-            "以下取值原为程序内置常量，现可在部署后直接修改（无需改代码）：更新检查仓库、弱密码审计阈值、" +
-            "应用日志轮转上限、FTP 被动模式防火墙预设段。保存即时生效：更新检查下次点击即用新仓库、" +
-            "日志轮转下次写入即按新上限、安全体检下次扫描按新阈值。"));
         _advRows = new StackPanel();
         p.Children.Add(_advRows);
         // 设计期/单测（组合根未装配）回落默认值，不因 Store 缺席炸页面
@@ -292,13 +293,17 @@ public sealed class AppSettingsPageView : UserControl
         rows.Children.Add(AboutRow("下载页", _vm.ReleasesUrl, open: true));
         rows.Children.Add(AboutRow("运行时", _vm.RuntimeDescription));
 
-        // G2：UAC 重启入口（T3a 遗留缺口落点；ISystemService 缺席 → 禁用 + 写明原因）
+        // v2.2.0 第二轮：信息区与操作区分组（此前 UAC 操作混在只读信息流里）
+        rows.Children.Add(SectionHeader("管理操作"));
+
+        // G2 + v2.2.0：UAC 重启入口接线（此前 RelaunchAsAdminAction 未注入，点击必然失败）。
+        // 统一走 Elevation.RelaunchAndExitAsync：取消 → 静默；成功 → toast + 旧实例退出；
+        // 失败 → toast 人话错误。服务缺席时按钮禁用 + 写明原因（不留「点了没反应」的入口）。
         var sys = SettingsServiceSlots.SystemService;
         var relaunch = SettingsUi.Button("以管理员身份重启", async (_, _) =>
         {
-            if (sys is null) return;
-            try { await sys.RelaunchAsAdminAsync(); }
-            catch (Exception e) { MessageBox.Show($"UAC 重启失败：{e.Message}"); }
+            string? err = await Shell.Elevation.RelaunchAndExitAsync();
+            if (err is not null) Shell.ToastHost.Show(Shell.ToastLevel.Danger, err);
         });
         if (sys is null)
         {
@@ -316,7 +321,7 @@ public sealed class AppSettingsPageView : UserControl
         row.Children.Add(relaunch);
         rows.Children.Add(row);
 
-        rows.Children.Add(SettingsUi.FogText("本项目为 Windows 文件夹共享控制面板，需以管理员身份运行；不会自动下载或安装更新。", 6, 0));
+
     }
 
     StackPanel AboutRow(string label, string value, bool copyable = false, bool open = false)
@@ -368,9 +373,15 @@ public sealed class AppSettingsPageView : UserControl
     {
         var p = new StackPanel();
         var strip = SettingsUi.MessageStrip(_vm.Update);
-        p.Children.Add(SettingsUi.HeaderRow("检查更新",
-            SettingsUi.Button("打开下载页", async (_, _) => await _vm.Update.OpenReleaseAsync()),
-            SettingsUi.Button("检查更新", async (_, _) => await _vm.Update.CheckAsync(), primary: true)));
+        // v2.2.0 第二轮：主按钮在前、横排一行（此前 HeaderRow 纵排且次按钮排在主按钮上方）
+        var updateBtns = new StackPanel { Orientation = Orientation.Horizontal };
+        var openBtn = SettingsUi.Button("打开下载页", async (_, _) => await _vm.Update.OpenReleaseAsync());
+        openBtn.Margin = new Thickness(0, 0, 10, 0);
+        var checkBtn = SettingsUi.Button("检查更新", async (_, _) => await _vm.Update.CheckAsync(), primary: true);
+        checkBtn.ToolTip = "只查询最新版本，不会自动下载或安装；升级请从下载页获取安装包后手动覆盖。";
+        updateBtns.Children.Add(checkBtn);
+        updateBtns.Children.Add(openBtn);
+        p.Children.Add(SettingsUi.HeaderRow("检查更新", updateBtns));
         var status = new TextBlock
         {
             FontSize = 12,
@@ -388,24 +399,23 @@ public sealed class AppSettingsPageView : UserControl
             }
             else if (r is null)
             {
-                status.Text = "尚未检查。点击「检查更新」查询 GitHub Releases 上的最新版本；只检查，不自动下载安装。";
+                status.Text = "尚未检查";
                 status.Live(TextBlock.ForegroundProperty, "BrushFog");
             }
             else if (r.unavailable)
             {
-                status.Text = $"检查更新失败：{r.reason}。可直接打开下载页手动查看最新版本；或在能访问 GitHub 的网络/代理下重试。";
+                status.Text = $"检查更新失败：{r.reason}";
                 status.Foreground = SettingsUi.TagColor("orange");
             }
             else
             {
-                status.Text = $"当前版本 {r.current}　最新版本 {r.latest}　{(r.hasUpdate ? "有新版本" : "已是最新")}"
-                    + (r.hasUpdate ? "。本应用不会自动下载或安装更新，请从下载页获取安装包后手动覆盖安装。" : "");
+                status.Text = $"当前版本 {r.current}　最新版本 {r.latest}　{(r.hasUpdate ? "有新版本" : "已是最新")}";
                 status.Foreground = SettingsUi.TagColor(r.hasUpdate ? "green" : "gray");
             }
         }
         p.Children.Add(status);
         p.Children.Add(strip);
-        _vm.Update.PropertyChanged += (_, _) => Update();
+        _vm.Update.PropertyChanged += (_, _) => RunOnUi(Update);
         Update();
         return SettingsUi.Card(p);
     }
@@ -415,21 +425,23 @@ public sealed class AppSettingsPageView : UserControl
     Border BuildTransferCard()
     {
         var p = new StackPanel();
-        p.Children.Add(SettingsUi.HeaderRow("设置整体导入导出",
-            SettingsUi.Button("导入设置", (_, _) => DoImportSettings()),
-            SettingsUi.Button("导出设置", (_, _) => DoExportSettings(), primary: true)));
+        // v2.2.0 第二轮：主按钮在前、横排一行（同检查更新卡口径）
+        var transferBtns = new StackPanel { Orientation = Orientation.Horizontal };
+        var importBtn = SettingsUi.Button("导入设置", (_, _) => DoImportSettings());
+        importBtn.Margin = new Thickness(0, 0, 10, 0);
+        transferBtns.Children.Add(SettingsUi.Button("导出设置", (_, _) => DoExportSettings(), primary: true));
+        transferBtns.Children.Add(importBtn);
+        p.Children.Add(SettingsUi.HeaderRow("设置整体导入导出", transferBtns));
         var msg = SettingsUi.FogText("", 0, 4);
         p.Children.Add(msg);
-        p.Children.Add(SettingsUi.FogText(
-            "导出内容：主题、新手/专家模式、置顶共享、告警规则、开机自启意图、高级设置（更新源/审计阈值/日志轮转/FTP 被动段）。\n" +
-            "不含共享配置、权限模板、操作台账与连接趋势——那几类请在各自页面单独导出。导入会覆盖上述偏好项。"));
-        _vm.Transfer.PropertyChanged += (_, _) =>
+        p.Children.Add(SettingsUi.FogText("导入会覆盖：主题、使用模式、置顶共享、告警规则、开机自启与高级设置。"));
+        _vm.Transfer.PropertyChanged += (_, _) => RunOnUi(() =>
         {
             msg.Text = _vm.Transfer.Success ?? _vm.Transfer.Error ?? "";
             msg.Foreground = _vm.Transfer.Success is not null
                 ? SettingsUi.TagColor("green")
                 : SettingsUi.TagColor("red");
-        };
+        });
         return SettingsUi.Card(p);
     }
 
@@ -458,17 +470,21 @@ public sealed class AppSettingsPageView : UserControl
     {
         var dlg = new OpenFileDialog { Filter = "JSON 文件|*.json" };
         if (dlg.ShowDialog() != true) return;
+        // v2.2.0：导入会覆盖当前设置——先确认（此前无提示直接覆盖）
+        var confirm = MessageBox.Show("导入将覆盖当前应用设置（主题/模式/告警规则/高级设置等），继续？",
+            "导入设置", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.OK) return;
         try
         {
             var text = System.IO.File.ReadAllText(dlg.FileName);
             var applied = _vm.Transfer.Import(text);
             // 真源在 store：导入后刷新各卡（视图面重建绑定值）
             _ = Task.Run(async () => await _vm.RefreshAsync());
-            MessageBox.Show($"已应用 {applied.Count} 项设置：{string.Join("、", applied)}");
+            Shell.ToastHost.Show(Shell.ToastLevel.Success, $"已应用 {applied.Count} 项设置");
         }
         catch (Exception e)
         {
-            MessageBox.Show($"导入失败：{e.Message}", "导入设置", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(Common.ErrorText.Describe(e, "导入设置"), "导入设置", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -481,32 +497,95 @@ public sealed class AppSettingsPageView : UserControl
         // 纵向单列：模式/主题各自一行，标签与选项垂直排列；Checked 即提交逻辑不变
         var mode = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
         mode.Children.Add(SettingsUi.FogText("使用模式", 0, 4));
-        var novice = new RadioButton { Content = "新手模式", GroupName = "usage-mode", Margin = new Thickness(0, 0, 0, 4) };
-        var expert = new RadioButton { Content = "专家模式", GroupName = "usage-mode", Margin = new Thickness(0, 0, 0, 4) };
+        // v2.2.0 第二轮：单选横排（此前纵排两行，宽屏左侧窄柱）
+        var modeRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var novice = new RadioButton { Content = "新手模式", GroupName = "usage-mode", Margin = new Thickness(0, 0, 24, 0),
+                                       Style = (Style?)TryFindResource("SegmentRadio") }; // v2.2.0：补样式（此前裸原生控件黑字）
+        var expert = new RadioButton { Content = "专家模式", GroupName = "usage-mode",
+                                       Style = (Style?)TryFindResource("SegmentRadio") };
         novice.IsChecked = !_vm.Usage.AdvancedMode;
         expert.IsChecked = _vm.Usage.AdvancedMode;
         novice.Checked += async (_, _) => await _vm.Usage.ApplyModeAsync(false);
         expert.Checked += async (_, _) => await _vm.Usage.ApplyModeAsync(true);
-        mode.Children.Add(novice);
-        mode.Children.Add(expert);
+        modeRow.Children.Add(novice);
+        modeRow.Children.Add(expert);
+        mode.Children.Add(modeRow);
         p.Children.Add(mode);
         _usageRadios = mode;
 
         var theme = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
         theme.Children.Add(SettingsUi.FogText("外观主题", 0, 4));
-        var light = new RadioButton { Content = "浅色", GroupName = "theme", Margin = new Thickness(0, 0, 0, 4) };
-        var dark = new RadioButton { Content = "深色", GroupName = "theme", Margin = new Thickness(0, 0, 0, 4) };
+        var themeRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var light = new RadioButton { Content = "浅色", GroupName = "theme", Margin = new Thickness(0, 0, 24, 0),
+                                      Style = (Style?)TryFindResource("SegmentRadio") };
+        var dark = new RadioButton { Content = "深色", GroupName = "theme",
+                                     Style = (Style?)TryFindResource("SegmentRadio") };
         light.IsChecked = _vm.Usage.Theme == WinShare.Core.Contracts.ThemeMode.Light;
         dark.IsChecked = _vm.Usage.Theme == WinShare.Core.Contracts.ThemeMode.Dark;
         light.Checked += async (_, _) => await _vm.Usage.ApplyThemeAsync(WinShare.Core.Contracts.ThemeMode.Light);
         dark.Checked += async (_, _) => await _vm.Usage.ApplyThemeAsync(WinShare.Core.Contracts.ThemeMode.Dark);
-        theme.Children.Add(light);
-        theme.Children.Add(dark);
+        themeRow.Children.Add(light);
+        themeRow.Children.Add(dark);
+        theme.Children.Add(themeRow);
         p.Children.Add(theme);
-        p.Children.Add(SettingsUi.FogText(
-            "专家模式会展开高级参数（未认证超时 / 会话超时 / 每连接最大会话 / 请求压缩等），适合排障与调优；" +
-            "新手模式只显示常用项，避免误改底层参数。选择结果写入应用状态，重启后保持。"));
         p.Children.Add(SettingsUi.MessageStrip(_vm.Usage));
+        return SettingsUi.Card(p);
+    }
+
+    // ===== 窗口行为卡（v2.2.0 安装与运行配置：任务栏图标显示 / 关闭按钮行为） =====
+
+    Border BuildWindowBehaviorCard()
+    {
+        var p = new StackPanel();
+        p.Children.Add(SettingsUi.HeaderRow("窗口行为"));
+        var vm = _vm.WindowBehavior;
+
+        // 任务栏图标显示
+        var tbRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var tbChk = new CheckBox
+        {
+            Content = "在任务栏显示图标",
+            Style = (Style?)TryFindResource("CheckBoxSoft"),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 12, 0),
+        };
+        tbChk.Checked += async (_, _) => await vm.SetShowTaskbarAsync(true);
+        tbChk.Unchecked += async (_, _) => await vm.SetShowTaskbarAsync(false);
+        tbChk.IsChecked = vm.ShowInTaskbar;
+        tbRow.Children.Add(tbChk);
+        p.Children.Add(tbRow);
+
+        // 关闭按钮行为
+        var ctRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var ctChk = new CheckBox
+        {
+            Content = "关闭窗口时最小化到系统托盘",
+            Style = (Style?)TryFindResource("CheckBoxSoft"),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 12, 0),
+        };
+        ctChk.Checked += async (_, _) => await vm.SetCloseToTrayAsync(true);
+        ctChk.Unchecked += async (_, _) => await vm.SetCloseToTrayAsync(false);
+        ctChk.IsChecked = vm.CloseToTray;
+        ctRow.Children.Add(ctChk);
+
+        p.Children.Add(ctRow);
+
+        // 订阅 VM 变化 → 回填勾选态（写入中防抖由 Busy 门控）
+        // VM 的 PropertyChanged 可能在后台线程（Persist 续体）触发，直接赋值会抛
+        // InvalidOperationException「调用线程无法访问此对象」→ 统一转投 UI 线程。
+        void ApplyChecks()
+        {
+            tbChk.IsEnabled = !vm.Busy;
+            ctChk.IsEnabled = !vm.Busy;
+            tbChk.IsChecked = vm.ShowInTaskbar;
+            ctChk.IsChecked = vm.CloseToTray;
+        }
+        ApplyChecks();
+        vm.PropertyChanged += (_, _) => RunOnUi(ApplyChecks);
+
+
+        p.Children.Add(SettingsUi.MessageStrip(vm));
         return SettingsUi.Card(p);
     }
 
@@ -520,10 +599,8 @@ public sealed class AppSettingsPageView : UserControl
         var row = new StackPanel();
         _autostartRow = row;
         p.Children.Add(row);
-        p.Children.Add(SettingsUi.FogText(
-            "面向常驻服务器 / NAS 托管：开启后当前 Windows 用户登录时自动启动本面板（仅写用户登录项，不改动共享服务与账号凭据）。"));
         RebuildAutoStartRow();
-        _vm.AutoStart.PropertyChanged += (_, _) => RebuildAutoStartRow();
+        _vm.AutoStart.PropertyChanged += (_, _) => RunOnUi(RebuildAutoStartRow);
         return SettingsUi.Card(p);
     }
 
@@ -538,12 +615,19 @@ public sealed class AppSettingsPageView : UserControl
             row.Children.Add(SettingsUi.FogText(vm.UnavailableNote ?? "开机自启管理不可用"));
             return;
         }
-        var sw = new CheckBox { Content = vm.Pending is not null ? "写入中…" : vm.StateText, Margin = new Thickness(0, 0, 0, 4) };
+        // v2.2.0 第二轮：状态文字此前重复两处（复选框文案 + 下方雾字一模一样）
+        // → 复选框固定「开机自启」，状态只显示一次，且与复选框同一行
+        var swRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var sw = new CheckBox { Content = "开机自启", Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center,
+                                Style = (Style?)TryFindResource("CheckBoxSoft"),
+                                ToolTip = "Windows 用户登录时自动启动本面板" }; // v2.2.0：补样式
         sw.Checked += async (_, _) => { await vm.WriteAsync(true); };
         sw.Unchecked += async (_, _) => { await vm.WriteAsync(false); };
+        sw.IsEnabled = vm.Pending is null;
         sw.IsChecked = vm.Pending is not null ? vm.Pending : vm.Actual;
-        row.Children.Add(sw);
-        row.Children.Add(SettingsUi.FogText(vm.Pending is not null ? "写入中…" : vm.StateText));
+        swRow.Children.Add(sw);
+        swRow.Children.Add(SettingsUi.FogText(vm.Pending is not null ? "写入中…" : vm.StateText));
+        row.Children.Add(swRow);
     }
 
     // ===== 告警规则卡（四项各自即时提交；磁盘阈值草稿 + 失焦保存） =====
@@ -556,29 +640,33 @@ public sealed class AppSettingsPageView : UserControl
         var grid = new StackPanel();
         var vm = _vm.Alerts;
 
-        var idleCombo = SettingsUi.ComboField("空闲会话提醒", "SelectedIdle", vm,
-            ["关闭", "15 分钟", "30 分钟", "60 分钟"], width: 110);
-        // 下拉选项→数值提交（label 顺序对齐 AlertRulesCardViewModel.IdleOptions）；
-        // 索引取控件依赖 SettingsUi.FieldRow 的 [0]=标签、[1]=控件 子元素顺序
+        // v2.2.0 第二轮修复：此前走 ComboField 会把 int 属性绑到 SelectedItem(string)，
+        // 绑定失败 → 初始永远空白。改为手动构建：初始索引按 VM 值回填，选择后按映射提交。
         var idleMap = new[] { 0, 15, 30, 60 };
-        var idleCb = (ComboBox)((StackPanel)idleCombo).Children[1];
+        var labels = new[] { "关闭", "15 分钟", "30 分钟", "60 分钟" };
+        var idleCb = new ComboBox { Style = SettingsUi.Style("ComboBoxSoft"), Width = 110, HorizontalAlignment = HorizontalAlignment.Left };
+        idleCb.ItemsSource = labels;
+        var curIdx = Array.IndexOf(idleMap, vm.SelectedIdle);
+        idleCb.SelectedIndex = curIdx >= 0 ? curIdx : 0;
         idleCb.SelectionChanged += (_, _) =>
         {
             var idx = idleCb.SelectedIndex;
             if (idx >= 0 && idx < idleMap.Length) _ = vm.SaveIdleAsync(idleMap[idx]);
         };
-        idleCb.HorizontalAlignment = HorizontalAlignment.Left;
-        grid.Children.Add(idleCombo);
-        grid.Children.Add(SettingsUi.FogText("会话空闲超过该时长时在监控页提示（关闭=不提示）"));
+        grid.Children.Add(SettingsUi.FieldRow("空闲会话提醒", idleCb));
 
-        var row = new StackPanel();
-        row.Children.Add(SettingsUi.Toggle("SMB1 接入告警", nameof(AlertRulesCardViewModel.Smb1Alert), vm));
-        row.Children.Add(SettingsUi.Toggle("弱口令 / 空口令告警", nameof(AlertRulesCardViewModel.WeakPasswordAlert), vm));
-        _ = row;
-        grid.Children.Add(row);
+
+        // v2.2.0 第二轮：两个开关横排一行（此前纵排）
+        var togglesRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var t1 = SettingsUi.Toggle("SMB1 接入告警", nameof(AlertRulesCardViewModel.Smb1Alert), vm);
+        t1.Margin = new Thickness(0, 0, 28, 0);
+        togglesRow.Children.Add(t1);
+        togglesRow.Children.Add(SettingsUi.Toggle("弱口令 / 空口令告警", nameof(AlertRulesCardViewModel.WeakPasswordAlert), vm));
+        grid.Children.Add(togglesRow);
 
         var diskRow = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
-        var tb = new TextBox { Width = 100, HorizontalAlignment = HorizontalAlignment.Left };
+        var tb = new TextBox { Width = 100, HorizontalAlignment = HorizontalAlignment.Left,
+                               Style = (Style?)TryFindResource("InputBoxSoft") }; // v2.2.0：补样式
         // DiskDraft 为只读展示属性（经 SetDiskDraft 写）：TextBox 显示走 OneWay，输入经 TextChanged 走 SetDiskDraft，失焦保存
         tb.SetBinding(TextBox.TextProperty, new System.Windows.Data.Binding("DiskDraft")
         {
@@ -591,14 +679,22 @@ public sealed class AppSettingsPageView : UserControl
             if (int.TryParse(tb.Text?.Trim(), out var n)) vm.SetDiskDraft(n);
         };
         tb.LostFocus += (_, _) => { _ = vm.SaveDiskAsync(); };
-        diskRow.Children.Add(SettingsUi.FogText("磁盘低水位阈值（GB）", 0, 4));
+        // v2.2.0 第二轮：标签/输入/提示同行（此前纵排，输入孤零零挂在左侧）
+        diskRow.Orientation = Orientation.Horizontal;
+        // v2.2.0 第二轮：标签列与 FieldRow 的 150px 栅格对齐（同卡「空闲会话提醒」行）
+        var diskLabel = SettingsUi.FogText("磁盘低水位阈值（GB）", 0, 0);
+        diskLabel.VerticalAlignment = VerticalAlignment.Center;
+        diskLabel.Margin = new Thickness(0, 0, 12, 0);
+        diskLabel.Width = 150;
+        diskLabel.TextAlignment = TextAlignment.Left;
+        diskLabel.ToolTip = "共享所在盘剩余空间低于该值时标黄提醒（失焦即保存）。";
+        diskRow.Children.Add(diskLabel);
+        tb.VerticalAlignment = VerticalAlignment.Center;
         diskRow.Children.Add(tb);
-        _diskHint = SettingsUi.FogText("共享所在盘剩余空间低于该值时标黄提醒（失焦即保存）");
-        diskRow.Children.Add(_diskHint);
         grid.Children.Add(diskRow);
 
         p.Children.Add(grid);
-        p.Children.Add(SettingsUi.FogText("改动即时写入应用状态：只覆盖所改的那一项，其余规则保持不变。"));
+
         p.Children.Add(SettingsUi.MessageStrip(vm));
         return SettingsUi.Card(p);
     }
@@ -610,20 +706,18 @@ public sealed class AppSettingsPageView : UserControl
         var p = new StackPanel();
         p.Children.Add(SettingsUi.HeaderRow("防火墙规则（WinShare Panel 组）",
             SettingsUi.Button("刷新", async (_, _) => await _vm.Firewall.ReloadAsync())));
-        p.Children.Add(SettingsUi.FogText(
-            "只管理本应用「WinShare Panel」显示组内创建的规则：列表只列该组，新增与删除也只作用于该组，" +
-            "不会读取或改动系统自带、以及其他软件创建的防火墙规则。"));
 
         var vm = _vm.Firewall;
         // 纵向单列：预设下拉 / 起止端口 / 添加按钮 / 规则列表 / 消息条 自上而下逐行排列
-        var pickRow = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
-        var combo = new ComboBox { Style = SettingsUi.Style("ComboBoxSoft"), Width = 300, HorizontalAlignment = HorizontalAlignment.Left };
+        // v2.2.0 第二轮：预设行走 FieldRow 150px 标签栅格（与协议表单字段对齐）
+        var pickRow = SettingsUi.FieldRow("预设", new ComboBox
+        {
+            Style = SettingsUi.Style("ComboBoxSoft"), Width = 300, HorizontalAlignment = HorizontalAlignment.Left,
+        });
+        var combo = (ComboBox)pickRow.Children[1];
         combo.ItemsSource = FirewallCardViewModel.Presets.ToList();
         combo.DisplayMemberPath = nameof(FirewallPresetDef.Label);
-        vm.PropertyChanged += (_, _) =>
-        {
-            combo.SelectedValue = vm.SelectedKind;
-        };
+        vm.PropertyChanged += (_, _) => RunOnUi(() => combo.SelectedValue = vm.SelectedKind);
         combo.SelectionChanged += async (_, _) =>
         {
             if (combo.SelectedItem is FirewallPresetDef def)
@@ -632,10 +726,9 @@ public sealed class AppSettingsPageView : UserControl
             }
         };
         combo.SelectedValue = vm.SelectedKind;
-        pickRow.Children.Add(SettingsUi.FogText("预设", 0, 0));
-        pickRow.Children.Add(combo);
+        pickRow.Margin = new Thickness(0, 0, 0, 4);
 
-        var rangeRow = new StackPanel { Margin = new Thickness(0, 4, 0, 4) };
+        var rangeRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 4) };
         // v2.1：预填取高级设置 ftpPassiveFrom/To（原硬编码 50000/51000；Store 缺席回落默认）
         (int DefFrom, int DefTo) advRange;
         try
@@ -645,9 +738,20 @@ public sealed class AppSettingsPageView : UserControl
         }
         catch { advRange = (50000, 51000); }
         var from = new TextBox { Width = 100, Text = advRange.DefFrom.ToString(), HorizontalAlignment = HorizontalAlignment.Left,
+                                 Style = (Style?)TryFindResource("InputBoxSoft"),
             ToolTip = "「FTP 被动段」预设规则的起始端口（默认值可在「高级设置」卡配置）" };
         var to = new TextBox { Width = 100, Text = advRange.DefTo.ToString(), HorizontalAlignment = HorizontalAlignment.Left,
+                               Style = (Style?)TryFindResource("InputBoxSoft"),
             ToolTip = "「FTP 被动段」预设规则的结束端口（默认值可在「高级设置」卡配置）" };
+        // v2.2.0：端口非法即时红字提示（此前只在点「添加」时静默失败，用户不知道哪里错）
+        var rangeHint = new TextBlock { FontSize = 11, Margin = new Thickness(0, 2, 0, 4), TextWrapping = TextWrapping.Wrap };
+        rangeHint.SetResourceReference(TextBlock.ForegroundProperty, "BrushDangerStrong");
+        void SyncRangeHint()
+        {
+            bool bad = vm.NeedRange && !vm.RangeOk && (from.Text.Trim().Length > 0 || to.Text.Trim().Length > 0);
+            rangeHint.Text = bad ? "端口需为 1-65535 的数字，且起始 ≤ 结束" : "";
+            rangeHint.Visibility = bad ? Visibility.Visible : Visibility.Collapsed;
+        }
         void SyncRange()
         {
             _ = int.TryParse(from.Text.Trim(), out var f);
@@ -656,17 +760,34 @@ public sealed class AppSettingsPageView : UserControl
         }
         from.LostFocus += (_, _) => SyncRange();
         to.LostFocus += (_, _) => SyncRange();
-        rangeRow.Children.Add(SettingsUi.FogText("起始", 0, 2));
+        from.TextChanged += (_, _) => SyncRange();
+        to.TextChanged += (_, _) => SyncRange();
+        // v2.2.0 第二轮：前导 150px 标签列（与预设行栅格对齐）
+        var rangeLabel = SettingsUi.FogText("被动端口", 0, 0);
+        rangeLabel.VerticalAlignment = VerticalAlignment.Center;
+        rangeLabel.Margin = new Thickness(0, 0, 12, 0);
+        rangeLabel.Width = 150;
+        rangeRow.Children.Add(rangeLabel);
+        var fromLabel = SettingsUi.FogText("起始", 0, 0);
+        fromLabel.VerticalAlignment = VerticalAlignment.Center;
+        fromLabel.Margin = new Thickness(0, 0, 8, 0);
+        rangeRow.Children.Add(fromLabel);
+        from.VerticalAlignment = VerticalAlignment.Center;
         rangeRow.Children.Add(from);
-        rangeRow.Children.Add(SettingsUi.FogText("结束", 0, 2));
+        var toLabel = SettingsUi.FogText("结束", 0, 0);
+        toLabel.VerticalAlignment = VerticalAlignment.Center;
+        toLabel.Margin = new Thickness(14, 0, 8, 0);
+        rangeRow.Children.Add(toLabel);
+        to.VerticalAlignment = VerticalAlignment.Center;
         rangeRow.Children.Add(to);
         SyncRange();
-
+        vm.PropertyChanged += (_, _) => Dispatcher.BeginInvoke(new Action(SyncRangeHint));
         var add = SettingsUi.Button("添加预设规则", async (_, _) => await vm.AddAsync(), primary: true);
         add.HorizontalAlignment = HorizontalAlignment.Left;
         var controls = new StackPanel();
         controls.Children.Add(pickRow);
         controls.Children.Add(rangeRow);
+        controls.Children.Add(rangeHint);
         controls.Children.Add(add);
         _firewallRows = controls;
         p.Children.Add(controls);
@@ -703,7 +824,15 @@ public sealed class AppSettingsPageView : UserControl
                     Foreground = SettingsUi.TagColor(r.enabled ? "green" : "orange"),
                     FontWeight = FontWeights.SemiBold,
                 });
-                var del = SettingsUi.Button("删除", async (_, _) => await vm.RemoveAsync(r.name));
+                var del = SettingsUi.Button("删除", async (_, _) =>
+                {
+                    // v2.2.0：删除不再静默直接执行——确认一次（防误触）
+                    var res = MessageBox.Show($"删除防火墙规则「{r.name}」？（只删除 WinShare Panel 组内这一条）",
+                        "删除确认", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                    if (res != MessageBoxResult.OK) return;
+                    await vm.RemoveAsync(r.name);
+                    Shell.ToastHost.Show(Shell.ToastLevel.Success, $"已删除防火墙规则「{r.name}」");
+                });
                 del.HorizontalAlignment = HorizontalAlignment.Left;
                 del.ToolTip = "只删除 WinShare Panel 组内这一条规则，不影响系统与其他软件的规则。";
                 row.Children.Add(del);
@@ -711,7 +840,7 @@ public sealed class AppSettingsPageView : UserControl
             }
         }
         RebuildRules();
-        vm.PropertyChanged += (_, _) => RebuildRules();
+        vm.PropertyChanged += (_, _) => RunOnUi(RebuildRules);
         return SettingsUi.Card(p);
     }
 
@@ -726,7 +855,7 @@ public sealed class AppSettingsPageView : UserControl
         p.Children.Add(_securityPanel);
         p.Children.Add(SettingsUi.MessageStrip(_vm.Security));
         RebuildSecurity();
-        _vm.Security.PropertyChanged += (_, _) => RebuildSecurity();
+        _vm.Security.PropertyChanged += (_, _) => RunOnUi(RebuildSecurity);
         return SettingsUi.Card(p);
     }
 
@@ -738,7 +867,7 @@ public sealed class AppSettingsPageView : UserControl
         var vm = _vm.Security;
         if (vm.Running)
         {
-            panel.Children.Add(SettingsUi.FogText("正在枚举本地账号（Get-LocalUser）…"));
+            panel.Children.Add(SettingsUi.FogText("正在枚举本地账号…"));
             return;
         }
         if (vm.ReportError is { } err)
@@ -749,7 +878,7 @@ public sealed class AppSettingsPageView : UserControl
         var report = vm.Report;
         if (report is null)
         {
-            panel.Children.Add(SettingsUi.FogText("尚未体检（点击「重新体检」枚举本地账号）"));
+            panel.Children.Add(SettingsUi.FogText("尚未体检"));
             return;
         }
         var at = report.at > 0
@@ -790,7 +919,6 @@ public sealed class AppSettingsPageView : UserControl
 
                 panel.Children.Add(row);
             }
-            panel.Children.Add(SettingsUi.FogText("建议：为共享账号设置口令并开启密码过期策略（本地用户页可改），不再使用的账号请禁用。", 4, 0));
         }
     }
 
@@ -806,7 +934,7 @@ public sealed class AppSettingsPageView : UserControl
     Border BuildJournalCard()
     {
         var p = new StackPanel();
-        p.Children.Add(SettingsUi.HeaderRow("操作回收站",
+        p.Children.Add(SettingsUi.HeaderRow("操作回收站 · 最近 200 条",
             SettingsUi.Button("刷新", (_, _) => RebuildJournal()),
             SettingsUi.Button("清空", (_, _) =>
             {
@@ -818,7 +946,6 @@ public sealed class AppSettingsPageView : UserControl
                 RebuildJournal();
                 MessageBox.Show($"已清空 {n} 条操作记录", "操作回收站");
             })));
-        p.Children.Add(SettingsUi.FogText("最近 200 条操作留档：共享删除/禁用/权限变更可一键撤销；创建与非 SMB 操作仅留档。"));
         _journalPanel = new StackPanel();
         p.Children.Add(_journalPanel);
         RebuildJournal();
@@ -848,7 +975,7 @@ public sealed class AppSettingsPageView : UserControl
         }
         if (entries.Count == 0)
         {
-            panel.Children.Add(SettingsUi.FogText("暂无操作记录（删除/禁用共享后此处会出现可撤销条目）"));
+            panel.Children.Add(SettingsUi.FogText("暂无操作记录"));
             return;
         }
 
@@ -893,14 +1020,14 @@ public sealed class AppSettingsPageView : UserControl
         }
         if (entries.Count > 50)
         {
-            panel.Children.Add(SettingsUi.FogText($"仅显示最近 50 条（共 {entries.Count} 条）", 4, 0));
+            panel.Children.Add(SettingsUi.FogText($"最近 50 条 / 共 {entries.Count} 条", 4, 0));
         }
     }
 
     Border BuildAuditCard()
     {
         var p = new StackPanel();
-        p.Children.Add(SettingsUi.HeaderRow("审计日志",
+        p.Children.Add(SettingsUi.HeaderRow("审计日志 · 最近 200 条",
             SettingsUi.Button("刷新", (_, _) => { _vm.Audit.Reload(); RebuildAudit(); }),
             SettingsUi.Button("复制", (_, _) =>
             {
@@ -928,7 +1055,6 @@ public sealed class AppSettingsPageView : UserControl
                 _vm.Audit.Reload();
                 RebuildAudit();
             })));
-        p.Children.Add(SettingsUi.FogText("最近 200 条操作审计（谁做了什么、结果与说明）。运行日志见下方「应用日志」。"));
         _auditPanel = new StackPanel();
         p.Children.Add(_auditPanel);
         RebuildAudit();
@@ -1004,7 +1130,7 @@ public sealed class AppSettingsPageView : UserControl
     Border BuildAppLogCard()
     {
         var p = new StackPanel();
-        p.Children.Add(SettingsUi.HeaderRow("应用日志",
+        p.Children.Add(SettingsUi.HeaderRow("应用日志 · 最近 300 行",
             SettingsUi.Button("打开日志文件夹", (_, _) => WinShare.App.Shell.AppShell.OpenLogDirectory()),
             SettingsUi.Button("刷新", (_, _) => { _vm.AppLog.Load(); RefreshAppLog(); }),
             SettingsUi.Button("复制", (_, _) =>
@@ -1030,7 +1156,6 @@ public sealed class AppSettingsPageView : UserControl
                 _vm.AppLog.Load();
                 RefreshAppLog();
             })));
-        p.Children.Add(SettingsUi.FogText("显示 app.log 最近 300 行（%APPDATA%\\WinSharePanel\\logs\\）；含主进程运行日志，报错后可在此复制完整堆栈。"));
         _appLogBox = SettingsUi.MonospaceView(_vm.AppLog.Lines);
         p.Children.Add(_appLogBox);
         RefreshAppLog();
@@ -1058,5 +1183,16 @@ public sealed class AppSettingsPageView : UserControl
         {
             MessageBox.Show(e.Message, "导出失败");
         }
+    }
+
+    /// <summary>
+    /// VM 的 PropertyChanged 可能在后台线程（Persist / RefreshAsync 续体）触发，
+    /// 直接赋值控件会抛 InvalidOperationException「调用线程无法访问此对象」。
+    /// 所有 VM → UI 回写统一经此转投 UI 线程。
+    /// </summary>
+    void RunOnUi(Action action)
+    {
+        if (Dispatcher.CheckAccess()) action();
+        else Dispatcher.BeginInvoke(new Action(action));
     }
 }

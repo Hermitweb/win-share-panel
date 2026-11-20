@@ -21,21 +21,27 @@
             <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Nav.Sessions}"
                        Style="{DynamicResource PageTitle}" VerticalAlignment="Center" />
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <TextBlock Text="刷新间隔" FontSize="12" Foreground="{DynamicResource BrushFog}"
-                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                <!-- v2.2.0 第五批：倒计时 chip 移到下拉左侧并明确语义（此前夹在「暂停」旁像第三个按钮） -->
+                <Border x:Name="CountdownTag" CornerRadius="{DynamicResource RadiusTag}" Padding="8,2" Margin="0,0,8,0"
+                        Background="{DynamicResource BrushInfoBg}" VerticalAlignment="Center"
+                        ToolTip="距下次自动刷新">
+                    <TextBlock x:Name="CountdownText" Text="5s" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushInfoFg}" />
+                </Border>
+                <TextBlock Text="每" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushFog}"
+                           VerticalAlignment="Center" Margin="0,0,6,0" />
                 <ComboBox x:Name="IntervalCombo" Width="80" Style="{DynamicResource ComboBoxSoft}"
-                          SelectionChanged="OnIntervalChanged">
+                          SelectionChanged="OnIntervalChanged" ToolTip="自动刷新间隔">
                     <ComboBoxItem Content="1s" Tag="1" />
                     <ComboBoxItem Content="5s" Tag="5" IsSelected="True" />
                     <ComboBoxItem Content="10s" Tag="10" />
                     <ComboBoxItem Content="30s" Tag="30" />
                 </ComboBox>
                 <Button x:Name="BtnPause" Content="暂停" Style="{DynamicResource DashButton}"
-                        Margin="8,0,0,0" Click="OnPauseToggle" />
-                <Border x:Name="CountdownTag" CornerRadius="{DynamicResource RadiusTag}" Padding="8,2" Margin="8,0,0,0"
-                        Background="{DynamicResource BrushInfoBg}" VerticalAlignment="Center">
-                    <TextBlock x:Name="CountdownText" Text="5s" FontSize="12" Foreground="{DynamicResource BrushInfoFg}" />
-                </Border>
+                        Margin="8,0,0,0" Click="OnPauseToggle" ToolTip="暂停自动刷新" />
+                <!-- v2.2.0 第二轮：轮询失败保留旧数据时提示新鲜度（此前完全静默） -->
+                <TextBlock x:Name="StaleNote" Text="数据可能不是最新（最近一次刷新失败）" FontSize="{DynamicResource FontSizeCaption}"
+                           Foreground="{DynamicResource BrushWarnFg}" VerticalAlignment="Center"
+                           Margin="10,0,0,0" Visibility="Collapsed" />
             </StackPanel>
         </DockPanel>
 
@@ -64,12 +70,12 @@
                     <Button x:Name="BtnBatchClose" Content="批量断开" Style="{DynamicResource RowActionButtonDanger}"
                             Margin="8,0,0,0" Click="OnBatchClose" />
                 </StackPanel>
-                <TextBlock x:Name="SelectedCount" Text="已选 0" FontSize="12"
+                <TextBlock x:Name="SelectedCount" Text="已选 0" FontSize="{DynamicResource FontSizeSecondary}"
                            Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
 
-        <TextBlock x:Name="NoticeBar" Grid.Row="3" FontSize="12" Foreground="{DynamicResource BrushDanger}"
+        <TextBlock x:Name="NoticeBar" Grid.Row="3" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushDanger}"
                    Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap"
                    HorizontalAlignment="Left" />
 
@@ -91,12 +97,12 @@
                     <Grid>
                         <DataGrid x:Name="SessionGrid" Style="{DynamicResource SoftDataGrid}" AutoGenerateColumns="False" IsReadOnly="True"
                                   SelectionUnit="FullRow" CanUserAddRows="False"
-                                  GridLinesVisibility="Horizontal" FontSize="13"
+                                  GridLinesVisibility="Horizontal" FontSize="{DynamicResource FontSizeBody}"
                                   SelectionChanged="OnSessionSelectionChanged">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="用户/客户端" Binding="{Binding session.clientUserName}" Width="160" />
-                                <DataGridTextColumn Header="计算机" Binding="{Binding session.clientComputerName}" Width="160" />
-                                <DataGridTextColumn Header="开始时间" Binding="{Binding StartText}" Width="160" />
+                                <DataGridTextColumn Header="用户/客户端" Binding="{Binding session.clientUserName}" Width="140" />
+                                <DataGridTextColumn Header="计算机" Binding="{Binding session.clientComputerName}" Width="140" />
+                                <DataGridTextColumn Header="开始时间" Binding="{Binding StartText}" Width="140" />
                                 <DataGridTextColumn Header="打开文件" Binding="{Binding session.clientOpenFiles}" Width="90" />
                                 <DataGridTextColumn Header="空闲(秒)" Binding="{Binding session.clientIdleTime}" Width="90" />
                                 <DataGridTemplateColumn Header="操作" Width="100">
@@ -109,9 +115,15 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+<!-- v2.2.0 第五批：空态落在表格区顶部（首屏可见），不再居于超高卡片正中 -->
+                    <StackPanel x:Name="SessionsEmpty" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,24,0,0"
+                                IsHitTestVisible="False" Visibility="Collapsed">
+                        <TextBlock Text="暂无活动会话" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource BrushFog}"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
                         <DataGrid x:Name="FileGrid" Style="{DynamicResource SoftDataGrid}"
                                   AutoGenerateColumns="False" IsReadOnly="True"
-                                  CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="13"
+                                  CanUserAddRows="False" GridLinesVisibility="Horizontal" FontSize="{DynamicResource FontSizeBody}"
                                   Visibility="Collapsed">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="路径" Binding="{Binding path}" Width="*" />
@@ -121,13 +133,18 @@
                                 <DataGridTemplateColumn Header="操作" Width="100">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button Content="关闭" FontSize="12" Padding="6,1"
+                                            <Button Content="关闭" FontSize="{DynamicResource FontSizeSecondary}" Padding="6,1"
                                                     Foreground="#FF4D4F" Click="OnCloseFile" Tag="{Binding}" />
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+<StackPanel x:Name="FilesEmpty" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,24,0,0"
+                                IsHitTestVisible="False" Visibility="Collapsed">
+                        <TextBlock Text="暂无打开的文件" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource BrushFog}"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
                     </Grid>
                 </DockPanel>
             </Border>
@@ -137,12 +154,12 @@
                 <DataGrid x:Name="NfsSessionGrid" Style="{DynamicResource SoftDataGrid}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           SelectionUnit="FullRow" CanUserAddRows="False"
-                          GridLinesVisibility="Horizontal" FontSize="13"
+                          GridLinesVisibility="Horizontal" FontSize="{DynamicResource FontSizeBody}"
                           SelectionChanged="OnSessionSelectionChanged">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="用户/客户端" Binding="{Binding session.clientUserName}" Width="160" />
-                        <DataGridTextColumn Header="计算机" Binding="{Binding session.clientComputerName}" Width="160" />
-                        <DataGridTextColumn Header="开始时间" Binding="{Binding StartText}" Width="160" />
+                        <DataGridTextColumn Header="用户/客户端" Binding="{Binding session.clientUserName}" Width="140" />
+                        <DataGridTextColumn Header="计算机" Binding="{Binding session.clientComputerName}" Width="140" />
+                        <DataGridTextColumn Header="开始时间" Binding="{Binding StartText}" Width="140" />
                         <DataGridTextColumn Header="打开文件" Binding="{Binding session.clientOpenFiles}" Width="90" />
                         <DataGridTextColumn Header="空闲(秒)" Binding="{Binding session.clientIdleTime}" Width="90" />
                         <DataGridTemplateColumn Header="操作" Width="100">
@@ -160,7 +177,7 @@
             <!-- ===== FTP/WebDAV：无原生会话 API 空态（对齐 TS Empty description） ===== -->
             <Border x:Name="EmptyPanel" Style="{DynamicResource CardStyle}" Visibility="Collapsed">
                 <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                           FontSize="13" Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap"
+                           FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap"
                            MaxWidth="520" TextAlignment="Center"
                            Text="FTP/WebDAV 无原生会话 API。可通过 IIS 日志（%SystemDrive%\inetpub\logs\LogFiles）查看连接记录。" />
             </Border>

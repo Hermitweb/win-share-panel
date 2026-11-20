@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using WinShare.App.Common;
 using WinShare.Core.Contracts;
 
 namespace WinShare.App.Shares;
@@ -10,7 +11,7 @@ namespace WinShare.App.Shares;
 /// - 高级属性（SMB）：经 IShareService.UpdateShareAsync（UpdateShareOpts）
 /// - 连接 / 打开文件：各恰好一次取数，独立刷新序号（TS connNonce/filesNonce 语义）
 /// - 站点配置（NFS/FTP/WebDAV）：经 IProtocolService.AdapterUpdateAsync（UpdateShareInput）
-/// 服务缺席时走占位降级路径（如实报"未接入"，不崩不臆造）。
+/// 服务缺席时走占位降级路径（如实报"未就绪"，不崩不臆造）；v2.2.0 错误经 ErrorText 人话化、打开文件失败不再静默。
 /// </summary>
 public sealed class ShareDetailViewModel : INotifyPropertyChanged
 {
@@ -20,12 +21,13 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
     readonly IProtocolService? _protocol;
     readonly ISystemService? _system;
 
-    public ShareDetailViewModel(Share share, IShareService? shareService, IProtocolService? protocolService, ISystemService? systemService)
+    public ShareDetailViewModel(Share share, IShareService? shareService, IProtocolService? protocolService, ISystemService? systemService, bool advancedMode = false)
     {
         Share = share;
         _share = shareService;
         _protocol = protocolService;
         _system = systemService;
+        AdvancedMode = advancedMode; // v2.2.0 第二轮：详情抽屉高级参数折叠（新手收起）
         IsSmb = share.protocol == Protocol.Smb;
         ActiveTab = "info";
         SslPolicyText = Share.sslPolicy?.ToString() ?? "SslAllow";
@@ -45,6 +47,9 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
 
     public Share Share { get; }
     public bool IsSmb { get; }
+
+    /// <summary>v2.2.0 第二轮：使用模式（详情抽屉「高级参数」折叠依据；新手收起、专家展开）。</summary>
+    public bool AdvancedMode { get; }
     public bool HasSiteConfigTab => !IsSmb;
 
     /// <summary>当前 Tab（TS useState tab；打开/换共享回 "info"）。</summary>
@@ -105,7 +110,7 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
     /// <summary>TS handleSave：SMB 高级属性保存；服务缺席/失败如实回报。</summary>
     public async Task<string> SaveSmbPropsAsync()
     {
-        if (_share is null) return "保存属性需要共享契约服务（未接入）";
+        if (_share is null) return "保存属性需要共享服务：请重启应用后重试；若持续出现请查看应用日志";
         try
         {
             await _share.UpdateShareAsync(Share.name, new UpdateShareOpts
@@ -121,7 +126,7 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            return e.Message;
+            return ErrorText.Describe(e, "保存属性");
         }
     }
 
@@ -138,7 +143,7 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         if (_share is null)
         {
             ConnectionsLoading = false;
-            ConnectionsError = "连接信息需要共享契约服务（未接入）";
+            ConnectionsError = "连接信息需要共享服务：请重启应用后重试；若持续出现请查看应用日志";
             OnPc();
             return;
         }
@@ -149,7 +154,7 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            ConnectionsError = e.Message;
+            ConnectionsError = ErrorText.Describe(e, "读取连接");
         }
         finally
         {
@@ -158,8 +163,10 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         }
     }
 
-    // ===== 打开文件（TS filesNonce 独立刷新；失败静默置空——既有语义） =====
+    // ===== 打开文件（TS filesNonce 独立刷新；v2.2.0 失败不再静默置空——保留旧数据+错误行） =====
     public IReadOnlyList<ShareOpenFile> OpenFiles { get; private set; } = Array.Empty<ShareOpenFile>();
+    /// <summary>v2.2.0：最近一次打开文件读取失败提示（空=正常）。</summary>
+    public string FilesError { get; private set; } = "";
 
     public async Task RefreshOpenFilesAsync()
     {
@@ -169,9 +176,10 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         {
             OpenFiles = await _share.GetShareOpenFilesAsync(Share.name);
         }
-        catch
+        catch (Exception e)
         {
-            OpenFiles = Array.Empty<ShareOpenFile>();
+            // v2.2.0：失败不再静默清空——保留旧数据 + 错误提示（空态文案由视图拼接错误行）
+            FilesError = ErrorText.Describe(e, "读取打开文件");
         }
         OnPc();
     }
@@ -182,7 +190,7 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
     /// </summary>
     public async Task<string> CloseAllFilesAsync()
     {
-        if (_share is null) return "关闭打开文件需要共享契约服务（未接入）";
+        if (_share is null) return "关闭打开文件需要共享服务：请重启应用后重试；若持续出现请查看应用日志";
         try
         {
             var r = await _share.CloseShareOpenFilesAsync(Share.name);
@@ -194,14 +202,14 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            return e.Message;
+            return ErrorText.Describe(e, "关闭打开文件");
         }
     }
 
     /// <summary>v2.1 面板解锁：关闭单个打开文件（TS closeFile(fileId)；经 SMB adapter 通道，成功后连带刷新）。</summary>
     public async Task<string> CloseFileAsync(string fileId)
     {
-        if (_protocol is null) return "关闭打开文件需要协议路由契约服务（未接入）";
+        if (_protocol is null) return "关闭打开文件需要协议路由服务：请重启应用后重试；若持续出现请查看应用日志";
         try
         {
             await _protocol.GetAdapter(Protocol.Smb).CloseFileAsync(fileId);
@@ -211,14 +219,14 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            return e.Message;
+            return ErrorText.Describe(e, "关闭文件");
         }
     }
 
     /// <summary>v2.1 面板解锁：断开单个连接（TS closeSession(clientUserName)；经 SMB adapter 通道，成功后连带刷新）。</summary>
     public async Task<string> DisconnectConnectionAsync(string clientUserName)
     {
-        if (_protocol is null) return "断开连接需要协议路由契约服务（未接入）";
+        if (_protocol is null) return "断开连接需要协议路由服务：请重启应用后重试；若持续出现请查看应用日志";
         try
         {
             await _protocol.GetAdapter(Protocol.Smb).CloseSessionAsync(clientUserName);
@@ -228,7 +236,7 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            return e.Message;
+            return ErrorText.Describe(e, "断开连接");
         }
     }
 
@@ -260,7 +268,7 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
     public async Task<string> SaveSiteConfigAsync()
     {
         if (IsSmb) return "保存属性";
-        if (_protocol is null) return "站点配置保存需要协议路由契约服务（未接入）";
+        if (_protocol is null) return "站点配置保存需要协议路由服务：请重启应用后重试；若持续出现请查看应用日志";
         try
         {
             await _protocol.AdapterUpdateAsync(Share.name, BuildSiteConfigInput());
@@ -268,7 +276,7 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            return e.Message;
+            return ErrorText.Describe(e, "保存站点配置");
         }
     }
 
@@ -280,7 +288,7 @@ public sealed class ShareDetailViewModel : INotifyPropertyChanged
         {
             nameof(ActiveTab), nameof(HostName), nameof(NetPath),
             nameof(Connections), nameof(ConnectionsLoading), nameof(ConnectionsError),
-            nameof(OpenFiles),
+            nameof(OpenFiles), nameof(FilesError),
         })
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

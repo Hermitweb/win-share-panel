@@ -18,6 +18,7 @@ namespace WinShare.App.Views.Shares;
 public partial class SharesPageView : UserControl
 {
     SharesViewModel? _vm;
+    internal SharesViewModel? Vm => _vm; // v2.2.0 第四轮：MainWindow 断点刷新访问
     Window? _wizard;
     Window? _edit;
     bool _wired;
@@ -58,7 +59,8 @@ public partial class SharesPageView : UserControl
             SharesServices.User,
             SharesServices.Disk,
             AppServices.SaveFileWithDialogAsync,
-            OpenImportFileAsync);
+            OpenImportFileAsync,
+            firewallService: SharesServices.Firewall);
         DataContext = _vm;
         Grid.DataContext = _vm;
 
@@ -109,10 +111,39 @@ public partial class SharesPageView : UserControl
     }
 
     // ===== VM → 控件映射 =====
+    /// <summary>
+    /// 列显隐改由代码控制：DataGridColumn.Visibility 不是依赖属性，XAML 里的
+    /// Visibility 绑定不会生效（此前全部协议专属列恒显 → 表头「端口/认证」重名、
+    /// 表格横向溢出把「删除」裁掉、协议标签被压扁）。
+    /// 断点隐藏顺序固定：名称/协议/状态/操作 永不隐藏，先藏描述类，再藏派生列。
+    /// </summary>
+    void ApplyColumnVisibility()
+    {
+        if (_vm is null) return;
+        static Visibility V(bool on) => on ? Visibility.Visible : Visibility.Collapsed;
+
+        ColProtocol.Visibility = V(_vm.ShowProtocolColumn);
+        ColDesc.Visibility = V(_vm.ShowDescriptionColumn);
+        // 极窄屏（<1100）再退掉派生列：加密/连接数（名称/协议/状态/操作始终保留）
+        ColEncrypted.Visibility = V(_vm.ShowEncryptedColumn && !_vm.VeryCompactColumns);
+        ColConn.Visibility = V(!_vm.VeryCompactColumns);
+        ColWebdavPort.Visibility = V(_vm.ShowWebdavPortColumn);
+        ColWebdavAnon.Visibility = V(_vm.ShowWebdavColumns);
+        ColWebdavAuthor.Visibility = V(_vm.ShowAuthoringColumn);
+
+        ColFtpPort.Visibility = V(_vm.ShowFtpColumns);
+        ColFtpSsl.Visibility = V(_vm.ShowFtpColumns);
+        ColFtpAuth.Visibility = V(_vm.ShowFtpColumns);
+
+        ColNfsAuth.Visibility = V(_vm.ShowNfsColumns);
+        ColNfsPerm.Visibility = V(_vm.ShowNfsColumns);
+    }
+
     void ApplyVm()
     {
         if (_vm is null) return;
         Grid.ItemsSource = _vm.Rows;
+        ApplyColumnVisibility();
 
         // 批量工具栏
         BatchBar.Visibility = _vm.HasSelection ? Visibility.Visible : Visibility.Collapsed;
@@ -132,6 +163,8 @@ public partial class SharesPageView : UserControl
         var uninstalled = _vm.CurrentProtoUninstalled;
         Grid.Visibility = uninstalled ? Visibility.Collapsed : Visibility.Visible;
         EmptyUninstalled.Visibility = uninstalled ? Visibility.Visible : Visibility.Collapsed;
+        // v2.2.0 第二轮：零共享空态（未安装空态优先；有筛选时不引导，避免盖住「筛选无结果」语境）
+        EmptyNoShares.Visibility = _vm.ShowEmptyNoShares && !uninstalled ? Visibility.Visible : Visibility.Collapsed;
         if (uninstalled)
         {
             var proto = _vm.ActiveProtocol;
@@ -187,13 +220,55 @@ public partial class SharesPageView : UserControl
         }
 
         // 状态提示（TS message.success/warning 的页面内等价面；色走主题 token）
+        // v2.2.0：状态变化时成功文案同步右下角 toast，且状态条自动清除（此前旧提示永挂页底）
         var tip = _vm.StatusMsg;
         StatusTip.Text = tip;
         StatusTip.Visibility = string.IsNullOrEmpty(tip) ? Visibility.Collapsed : Visibility.Visible;
         StatusTip.Foreground = TryFindResource(_vm.StatusIsWarning ? "BrushWarnFg" : "BrushSuccess") as Brush
             ?? StatusTip.Foreground;
+        if (!string.IsNullOrEmpty(tip) && tip != _lastStatus)
+        {
+            _lastStatus = tip;
+            if (!_vm.StatusIsWarning) Shell.ToastHost.Show(Shell.ToastLevel.Success, tip);
+            ScheduleStatusClear(_vm.StatusIsWarning ? 15 : 8);
+        }
+        else if (string.IsNullOrEmpty(tip))
+        {
+            _lastStatus = "";
+        }
 
-        LoadingTip.Visibility = _vm.Loading && _vm.Hydrated ? Visibility.Visible : Visibility.Collapsed;
+        // v2.2.0 第二轮修复：首载 7 路并行 PowerShell 可达 7-9s——期间此前既无行、无空态也无
+        // 加载提示（LoadingTip 旧条件 Loading && Hydrated 在首载时都不满足），页面看起来像坏了
+        // v2.2.0 第五批：加载态给骨架行与可读进度（替代空白表体 + 孤立 chip）
+        bool skeleton = _vm.Loading && _vm.Rows.Count == 0;
+        LoadingSkeleton.Visibility = skeleton ? Visibility.Visible : Visibility.Collapsed;
+        // 骨架与表格同处一个 Grid：骨架显示时必须收起表格，否则两层叠在一起（表头被压住）
+        Grid.Visibility = skeleton ? Visibility.Collapsed : Visibility.Visible;
+        if (skeleton) EnsureSkeletonRows();
+    }
+
+    string _lastStatus = "";
+    System.Windows.Threading.DispatcherTimer? _statusClearTimer;
+
+    /// <summary>状态条自动清除（成功 8s / 警告 15s——失败也滞留太久会盖住下一次操作反馈）。</summary>
+    void ScheduleStatusClear(int seconds)
+    {
+        _statusClearTimer ??= new System.Windows.Threading.DispatcherTimer();
+        _statusClearTimer.Stop();
+        _statusClearTimer.Interval = TimeSpan.FromSeconds(seconds);
+        _statusClearTimer.Tick -= OnStatusClearTick;
+        _statusClearTimer.Tick += OnStatusClearTick;
+        _statusClearTimer.Start();
+    }
+
+    void OnStatusClearTick(object? sender, EventArgs e)
+    {
+        _statusClearTimer?.Stop();
+        if (_vm is not null && !string.IsNullOrEmpty(_vm.StatusMsg))
+        {
+            _vm.ClearStatus();
+            ApplyVm();
+        }
     }
 
     static WinShare.Core.Contracts.Protocol ProtocolOf(string proto) =>
@@ -256,6 +331,8 @@ public partial class SharesPageView : UserControl
     // ===== 搜索/筛选 =====
     void OnSearchChanged(object sender, TextChangedEventArgs e)
     {
+        // v2.2.0 第二轮：占位提示随输入切换
+        SearchHint.Visibility = TxtSearch.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (_vm is null) return;
         _vm.Keyword = TxtSearch.Text;
         ApplyVm();
@@ -346,16 +423,50 @@ public partial class SharesPageView : UserControl
     }
 
     // ===== 拖拽创建（TS handleDrop：拖入文件夹 → 填路径带名 → 开向导） =====
+    /// <summary>骨架行（6 行 × 4 块，宽度参差模拟真实表格；一次构建，后续复用）。</summary>
+    void EnsureSkeletonRows()
+    {
+        if (SkeletonRows.Children.Count > 0) return;
+        var widths = new[] { 70.0, 180.0, 150.0, 90.0 };
+        for (int r = 0; r < 6; r++)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 14) };
+            for (int c = 0; c < widths.Length; c++)
+            {
+                var block = new Border
+                {
+                    Height = 14,
+                    Width = widths[c],
+                    CornerRadius = new CornerRadius(7),
+                    Background = (System.Windows.Media.Brush?)TryFindResource("BrushBgMist"),
+                    Margin = new Thickness(0, 0, 18, 0),
+                    Opacity = 0.7,
+                };
+                row.Children.Add(block);
+            }
+            SkeletonRows.Children.Add(row);
+        }
+    }
+
     void OnDragOver(object sender, DragEventArgs e)
     {
         // WPF IDataObject 无 GetDataFormats；用 GetDataPresent 判 FileDrop
-        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
-            ? DragDropEffects.Copy : DragDropEffects.None;
+        bool fileDrop = e.Data.GetDataPresent(DataFormats.FileDrop);
+        e.Effects = fileDrop ? DragDropEffects.Copy : DragDropEffects.None;
+        // v2.2.0 第五批：拖拽能力改为「悬停即显」的浮层反馈（此前是标题下常驻一句说明）
+        if (DropHint is not null) DropHint.Visibility = fileDrop ? Visibility.Visible : Visibility.Collapsed;
         e.Handled = true;
+    }
+
+    /// <summary>拖拽离开页面 → 收起浮层。</summary>
+    void OnDragLeave(object sender, DragEventArgs e)
+    {
+        if (DropHint is not null) DropHint.Visibility = Visibility.Collapsed;
     }
 
     void OnDrop(object sender, DragEventArgs e)
     {
+        if (DropHint is not null) DropHint.Visibility = Visibility.Collapsed;
         if (_vm is null) return;
         // 文件夹拖入（FileDrop）：取路径 → 填表单带名 → 开向导（TS handleDrop）
         if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0)
@@ -369,21 +480,45 @@ public partial class SharesPageView : UserControl
     void OpenWizardWindow()
     {
         if (_vm is null) return;
-        if (_wizard is not null) { _wizard.Activate(); return; }
-        _wizard = new ShareCreateWizardWindow(_vm)
+        // v2.2.0 第五批：向导单实例。此前只判 _wizard 非空，而窗口被用户关掉后该字段仍非空
+        // （Closed 未复位）→ Activate 抛异常 / 或重复打开出多个同位置向导叠层。
+        var existing = Application.Current?.Windows
+            .OfType<ShareCreateWizardWindow>()
+            .FirstOrDefault(w => w.IsLoaded);
+        if (existing is not null)
+        {
+            existing.Activate();
+            existing.Topmost = true;
+            existing.Topmost = false;
+            return;
+        }
+        var wizard = new ShareCreateWizardWindow(_vm)
         {
             Owner = Window.GetWindow(this) ?? Application.Current?.Windows.OfType<Window>().FirstOrDefault(),
             Title = "新建共享",
         };
-        _wizard.Show();
+        _wizard = wizard;
+        wizard.Closed += (_, _) => { if (ReferenceEquals(_wizard, wizard)) _wizard = null; };
+        wizard.Show();
     }
 
     void OpenEditWindow()
     {
         if (_vm is null || _vm.EditForm is not { } form) return;
-        if (_edit is not null) { _edit.Activate(); return; }
-        _edit = new ShareEditWindow(_vm, form) { Owner = Window.GetWindow(this) };
-        _edit.Show();
+        var existing = Application.Current?.Windows
+            .OfType<ShareEditWindow>()
+            .FirstOrDefault(w => w.IsLoaded);
+        if (existing is not null)
+        {
+            existing.Activate();
+            existing.Topmost = true;
+            existing.Topmost = false;
+            return;
+        }
+        var edit = new ShareEditWindow(_vm, form) { Owner = Window.GetWindow(this) };
+        _edit = edit;
+        edit.Closed += (_, _) => { if (ReferenceEquals(_edit, edit)) _edit = null; };
+        edit.Show();
     }
 
     void OpenDetailDrawer()
@@ -393,6 +528,11 @@ public partial class SharesPageView : UserControl
         if (_vm is null || _vm.DetailTarget is not { } row) return;
         DetailDrawer.SetShare(row.Share, _vm.MakeDetailVm(row.Share));
         DetailHost.Visibility = Visibility.Visible;
+        // v2.2.1 可达性：抽屉打开后焦点移入（键盘用户 Tab 序列从抽屉首个控件开始，
+        // 而不是继续停留在被遮罩盖住的页面表格里）
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input,
+            new Action(() => DetailDrawer.MoveFocus(
+                new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First))));
     }
 
     void OpenPermDrawer()
@@ -400,6 +540,10 @@ public partial class SharesPageView : UserControl
         if (_vm is null || _vm.PermShare is not { } share) return;
         PermDrawer.SetShare(share, _vm.MakePermissionVm(share));
         PermHost.Visibility = Visibility.Visible;
+        // v2.2.1 可达性：同详情抽屉，打开即移焦（Esc 关闭链路已接未保存确认）
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input,
+            new Action(() => PermDrawer.MoveFocus(
+                new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First))));
     }
 
     // ===== 快捷键（对齐 Shares.tsx hotkey：Ctrl+N 新建 / Del 批量删除 / Space 批量启停） =====
@@ -408,6 +552,23 @@ public partial class SharesPageView : UserControl
     void OnPageKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (_vm is null) return;
+        // v2.2.1：Esc 关闭页内抽屉（详情/权限）——键盘用户此前只能鼠标点遮罩（评审 G-K1）；
+        // 权限抽屉沿用遮罩关闭的未保存确认路径，不绕过。
+        if (e.Key == Key.Escape)
+        {
+            if (PermHost.Visibility == Visibility.Visible)
+            {
+                OnPermBackdrop(this, null!);
+                e.Handled = true;
+                return;
+            }
+            if (DetailHost.Visibility == Visibility.Visible)
+            {
+                DetailHost.Visibility = Visibility.Collapsed;
+                e.Handled = true;
+                return;
+            }
+        }
         var shift = (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control)
             == System.Windows.Input.ModifierKeys.Control;
         if (e.Key == Key.N && shift)
@@ -431,5 +592,16 @@ public partial class SharesPageView : UserControl
     }
 
     void OnDetailBackdrop(object sender, MouseButtonEventArgs e) => DetailHost.Visibility = Visibility.Collapsed;
-    void OnPermBackdrop(object sender, MouseButtonEventArgs e) => PermHost.Visibility = Visibility.Collapsed;
+
+    /// <summary>v2.2.0：权限抽屉遮罩关闭前确认未保存修改（此前点遮罩即丢，添加的行无声消失）。</summary>
+    void OnPermBackdrop(object sender, MouseButtonEventArgs e)
+    {
+        if (PermHost.Visibility == Visibility.Visible && PermDrawer.IsDirty)
+        {
+            var res = MessageBox.Show("有未保存的权限修改，关闭将丢弃这些修改。确定关闭？", "未保存的修改",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (res != MessageBoxResult.Yes) return;
+        }
+        PermHost.Visibility = Visibility.Collapsed;
+    }
 }

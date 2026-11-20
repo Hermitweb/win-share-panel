@@ -299,7 +299,7 @@ public class SessionsViewModelTests
         var (ok, failed) = await vm.BatchCloseAsync(new[] { "ok1", "bad", "ok2" });
         Assert.Equal(2, ok);
         Assert.Equal(1, failed);
-        Assert.Equal("2 个成功，1 个失败", notes.Single(n => n.Item1 == "error").Item2);
+        Assert.Equal("2 个成功，1 个失败：bad：stub fail close", notes.Single(n => n.Item1 == "error").Item2); // v2.2.0：带原因
         Assert.Empty(vm.SelectedSessions);
 
         var vm2 = new SessionsViewModel(feed);
@@ -364,5 +364,26 @@ public class SessionsViewModelTests
         Assert.Equal(30, vm.Countdown);
         await vm.RefreshNowAsync();
         Assert.Equal(30, vm.Countdown); // refreshNow 重置倒计时到间隔值
+    }
+    // ===== v2.2.0 第二轮：轮询失败保留旧数据 + 新鲜度标记（此前完全静默） =====
+
+    [Fact]
+    public async Task 后续轮询失败_保留旧数据且置stale_成功刷新后复位()
+    {
+        var feed = new StubSessionsDataFeed();
+        var vm = new SessionsViewModel(feed);
+
+        await vm.RefreshAsync();
+        Assert.False(vm.IsStale);
+        var before = vm.Sessions;
+
+        feed.ThrowProtos.Add(Protocol.Smb); // SMB 取数开始失败
+        await vm.RefreshAsync();
+        Assert.True(vm.IsStale);
+        Assert.Equal(before, vm.Sessions); // 旧数据保留（未被清空）
+
+        feed.ThrowProtos.Clear();
+        await vm.RefreshAsync();
+        Assert.False(vm.IsStale); // 成功刷新后复位
     }
 }

@@ -65,6 +65,8 @@ public partial class ShareDetailDrawer : UserControl
         SetTag(CCaching, vm.CachingModeText, "Manual");
         ChkEncryptData.IsChecked = vm.EncryptData;
         ChkHidden.IsChecked = vm.Hidden;
+        // v2.2.0 第二轮：「高级参数」折叠——新手收起、专家展开
+        ExpPropsAdvanced.IsExpanded = vm.AdvancedMode;
 
         // ===== 站点配置预填 =====
         SiteNfs.Visibility = share.protocol == Protocol.Nfs ? Visibility.Visible : Visibility.Collapsed;
@@ -100,17 +102,38 @@ public partial class ShareDetailDrawer : UserControl
         // 网络路径（主机名到位后更新）
         VNetPath.Text = string.IsNullOrEmpty(vm.NetPath) ? "—" : vm.NetPath;
 
-        // 连接
+        // 连接（v2.2.0：加载失败不再不可见——空态行显示错误原因）
         var conns = vm.Connections;
         ConnCountText.Text = $"当前 {conns?.concurrentUsers ?? 0} 个连接";
         ConnsGrid.ItemsSource = conns?.clientConnections?.ToList();
         ConnsEmpty.Visibility = conns?.clientConnections is { Count: > 0 } ? Visibility.Collapsed : Visibility.Visible;
+        ConnsEmpty.Text = string.IsNullOrEmpty(vm.ConnectionsError)
+            ? "暂无活动连接"
+            : vm.ConnectionsError;
 
-        // 打开文件
+        // 打开文件（v2.2.0：读取失败不再静默清空——保留旧列表 + 空态/错误行提示）
         FilesCountText.Text = $"{vm.OpenFiles.Count} 个打开文件";
         FilesGrid.ItemsSource = vm.OpenFiles.ToList();
         FilesEmpty.Visibility = vm.OpenFiles.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+        FilesEmpty.Text = string.IsNullOrEmpty(vm.FilesError)
+            ? "暂无打开文件"
+            : vm.FilesError;
         BtnCloseAll.Visibility = vm.OpenFiles.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// v2.2.0：结果文案三态着色（此前固定灰字——「已保存」和异常一模一样）。
+    /// 含「失败」或以「请」开头 = 错误（红）；「已」开头 = 成功（绿）；其余中性灰。
+    /// </summary>
+    void ShowResultMsg(System.Windows.Controls.TextBlock target, string msg)
+    {
+        target.Text = msg;
+        if (string.IsNullOrEmpty(msg)) return;
+        string? key = msg.Contains("失败") || msg.StartsWith("请") ? "BrushDangerStrong"
+            : msg.StartsWith("已") ? "BrushSuccess"
+            : null;
+        target.Foreground = (key is not null ? TryFindResource(key) as System.Windows.Media.Brush : null)
+            ?? target.Foreground;
     }
 
     // ===== Tab 切换（1 列纵向流：选中区块对应内容区显示，其余区块收起） =====
@@ -137,7 +160,7 @@ public partial class ShareDetailDrawer : UserControl
         vm.FolderEnumerationModeText = (CFem.SelectedItem as ComboBoxItem)?.Tag as string ?? "Unrestricted";
         vm.EncryptData = ChkEncryptData.IsChecked == true;
         vm.Hidden = ChkHidden.IsChecked == true;
-        LSaveSmbMsg.Text = await vm.SaveSmbPropsAsync();
+        ShowResultMsg(LSaveSmbMsg, await vm.SaveSmbPropsAsync());
     }
 
     // ===== 连接/打开文件刷新（TS connNonce/filesNonce 独立） =====
@@ -164,7 +187,7 @@ public partial class ShareDetailDrawer : UserControl
             "确认关闭", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (res != MessageBoxResult.OK) return;
         var msg = await vm.CloseAllFilesAsync();
-        if (msg.Length > 0) LSaveSmbMsg.Text = msg;
+        if (msg.Length > 0) ShowResultMsg(LSaveSmbMsg, msg);
         RefreshDynamicVm();
     }
 
@@ -175,14 +198,14 @@ public partial class ShareDetailDrawer : UserControl
         if ((sender as FrameworkElement)?.DataContext is not SmbOpenFile file) return;
         if (string.IsNullOrEmpty(file.fileId))
         {
-            LSaveSmbMsg.Text = "该文件缺少 fileId，无法关闭";
+            ShowResultMsg(LSaveSmbMsg, "该文件缺少 fileId，无法关闭");
             return;
         }
         var res = MessageBox.Show(
             $"关闭 {file.clientUserName} 打开的文件？\n{file.path}\n\n可能导致客户端数据丢失",
             "确认关闭", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (res != MessageBoxResult.OK) return;
-        LSaveSmbMsg.Text = await vm.CloseFileAsync(file.fileId);
+        ShowResultMsg(LSaveSmbMsg, await vm.CloseFileAsync(file.fileId));
         RefreshDynamicVm();
     }
 
@@ -195,7 +218,7 @@ public partial class ShareDetailDrawer : UserControl
             $"断开 {conn.clientUserName} 的会话？该用户打开的 {conn.openFiles} 个文件将被强制关闭。",
             "确认断开", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (res != MessageBoxResult.OK) return;
-        LSaveSmbMsg.Text = await vm.DisconnectConnectionAsync(conn.clientUserName);
+        ShowResultMsg(LSaveSmbMsg, await vm.DisconnectConnectionAsync(conn.clientUserName));
         RefreshDynamicVm();
     }
 
@@ -221,7 +244,7 @@ public partial class ShareDetailDrawer : UserControl
         vm.PhysicalPath = TSitePath.Text;
         vm.WebdavAnonymousEnabled = ChkWdavAnonSite.IsChecked == true;
         vm.WebdavAuthoringEnabled = ChkWdavAuthoring.IsChecked == true;
-        LSaveSiteMsg.Text = await vm.SaveSiteConfigAsync();
+        ShowResultMsg(LSaveSiteMsg, await vm.SaveSiteConfigAsync());
     }
 
     /// <summary>按 Tag 选 ComboBox 项（枚举字符串大小写归一，宽松匹配）。</summary>

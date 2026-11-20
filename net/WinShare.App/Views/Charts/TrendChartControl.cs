@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using WinShare.App.Events;
@@ -20,7 +22,7 @@ public class TrendChartControl : System.Windows.Controls.Control
 {
     // 画笔全部缓存复用（原 OnRender 每帧 new Pen/SolidColorBrush）；系列色冻结（主题无关），
     // 坐标轴/网格取主题 token（BrushBorder）——原先写死浅色值，深色主题下刺眼。
-    static readonly Brush BrushSessions = Freeze("#1677FF");
+    static readonly Brush BrushSessions = Freeze("#66A3FF"); // v2.2.0 第四轮：暗底对比 3.78→6.09 达 AA
     static readonly Brush BrushOpenFiles = Freeze("#FA8C16");
     static readonly Pen SessionsPen = FrozenPen(BrushSessions, 2);
     static readonly Pen OpenFilesPen = FrozenPen(BrushOpenFiles, 2);
@@ -128,21 +130,24 @@ public class TrendChartControl : System.Windows.Controls.Control
         var yMax = Math.Max(1.0, Math.Ceiling((double)allValues.Max()));
         Func<long, double, double> yOf = (_, v) => top + plotH - v * plotH / yMax;
 
-        // 网格 + y 轴刻度（3 段）
+        // 网格 + y 轴刻度（3 段；刻度值去重——此前 i=0..3 在 yMax=1 时产出 1,1,0,0 重复刻度）
         var gridPen = _gridPen;
+        var drawnTicks = new HashSet<long>();
         for (var i = 0; i <= 3; i++)
         {
             var v = yMax * i / 3.0;
             var y = yOf(0, v);
             dc.DrawLine(gridPen, new Point(left, y), new Point(w - right, y));
-            DrawText(dc, ((long)Math.Round(v)).ToString(), left - 8, y - 8, 11, Brushes.Fog);
+            var tick = (long)Math.Round(v);
+            if (drawnTicks.Add(tick))
+                DrawText(dc, tick.ToString(), left - 8, y - 8, 11, Brushes.Fog);
         }
         // x 轴时间刻度（5 个）
         for (var i = 0; i <= 4; i++)
         {
             var ts = tMin + (long)((tMax - tMin) * i / 4.0);
             var x = xOf(ts);
-            DrawText(dc, FormatTime(ts), x - 14, h - bottom + 6, 11, Brushes.Fog);
+            DrawText(dc, FormatTime(ts, tMax - tMin), x - 14, h - bottom + 6, 11, Brushes.Fog);
         }
         dc.DrawLine(_axisPen, new Point(left, h - bottom), new Point(w - right, h - bottom));
 
@@ -153,12 +158,29 @@ public class TrendChartControl : System.Windows.Controls.Control
             DrawLineSeries(dc, series, brush, pen, xOf, yOf, showSymbol);
         }
 
-        // 图例（双模式顶部；对齐 ECharts legend top:0）
+        // 图例（双模式顶部）：右对齐 + 按实测文本宽度排布。
+        // 此前按「3 字宽 = 36px」估算且文字居中绘制，色块直接压在首字上（不可读）。
         if (Mode == "both")
         {
-            var ly = 8.0;
-            DrawLegend(dc, 12, ly, "连接数", BrushSessions);
-            DrawLegend(dc, 72, ly, "打开文件", BrushOpenFiles);
+            const double ly = 8.0;
+            const double dotR = 4.5;      // 圆点半径
+            const double dotGap = 8;      // 圆点 → 文字
+            const double itemGap = 20;    // 段间距
+            var items = new (string Text, Brush Color)[]
+            {
+                ("连接数", BrushSessions),
+                ("打开文件", BrushOpenFiles),
+            };
+            var widths = items.Select(it => MeasureText(it.Text, 12)).ToArray();
+            double total = 0;
+            for (int i = 0; i < items.Length; i++)
+                total += dotR * 2 + dotGap + widths[i] + (i > 0 ? itemGap : 0);
+            double lx = Math.Max(left, w - right - total);
+            for (int i = 0; i < items.Length; i++)
+            {
+                DrawLegend(dc, lx, ly, items[i].Text, items[i].Color);
+                lx += dotR * 2 + dotGap + widths[i] + itemGap;
+            }
         }
     }
 
@@ -198,8 +220,19 @@ public class TrendChartControl : System.Windows.Controls.Control
 
     void DrawLegend(DrawingContext dc, double x, double y, string text, Brush color)
     {
-        dc.DrawEllipse(color, null, new Point(x, y + 5), 5, 5);
-        DrawText(dc, text, x + 10, y, 12, Brushes.Ink);
+        const double dotR = 4.5;
+        dc.DrawEllipse(color, null, new Point(x + dotR, y + 6), dotR, dotR);
+        // 左对齐（此前居中绘制导致色块压在首字上）
+        DrawText(dc, text, x + dotR * 2 + 8, y, 12, Brushes.Ink, TextAlignment.Left);
+    }
+
+    /// <summary>文本宽度实测（图例排布用；避免按字数估算导致重叠）。</summary>
+    static double MeasureText(string text, double size)
+    {
+        var ft = new FormattedText(text, CultureInfo.GetCultureInfo("zh-CN"),
+            FlowDirection.LeftToRight, new Typeface("Microsoft YaHei"), size, Brushes.Ink)
+        { TextAlignment = TextAlignment.Left };
+        return ft.WidthIncludingTrailingWhitespace;
     }
 
     void DrawEmpty(DrawingContext dc)
@@ -207,17 +240,21 @@ public class TrendChartControl : System.Windows.Controls.Control
         DrawText(dc, "（暂无采样点）", ActualWidth / 2 - 40, ActualHeight / 2, 12, Brushes.Fog);
     }
 
-    static string FormatTime(long tsMs)
+    static string FormatTime(long tsMs, long spanMs = 0)
     {
         var dt = DateTimeOffset.FromUnixTimeMilliseconds(tsMs).LocalDateTime;
-        return dt.ToString("HH:mm", CultureInfo.InvariantCulture);
+        // v2.2.0 第二轮：采样窗口 < 3 分钟时精确到秒（此前 5 分钟窗口内 4 个刻度全是同一分钟，无法读出先后）
+        return spanMs > 0 && spanMs < 180_000
+            ? dt.ToString("HH:mm:ss", CultureInfo.InvariantCulture)
+            : dt.ToString("HH:mm", CultureInfo.InvariantCulture);
     }
 
-    void DrawText(DrawingContext dc, string text, double x, double y, double size, Brush brush)
+    void DrawText(DrawingContext dc, string text, double x, double y, double size, Brush brush,
+                  TextAlignment align = TextAlignment.Center)
     {
         var ft = new FormattedText(text, CultureInfo.GetCultureInfo("zh-CN"),
             FlowDirection.LeftToRight, new Typeface("Microsoft YaHei"), size, brush)
-        { TextAlignment = TextAlignment.Center };
+        { TextAlignment = align };
         dc.DrawText(ft, new Point(x, y));
     }
 

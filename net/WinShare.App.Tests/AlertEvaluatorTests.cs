@@ -165,4 +165,36 @@ public class AlertEvaluatorTests
         Assert.Equal("ok", AlertEvaluator.DiskLevel(new DiskUsage { freePct = 60, freeGB = 100 }));
         Assert.Equal("unknown", AlertEvaluator.DiskLevel(null));
     }
+// ===== v2.2.0：告警一键修复（fixKind 决定按钮是执行修复还是仅跳转） =====
+
+[Fact]
+public void Smb1_AndGuest_Items_CarryAutoFixKind()
+{
+    var items = AlertEvaluator.Evaluate(new AlertEvaluator.AttentionInput
+    {
+        alertRules = Rules(),
+        smbConfig = new SmbServerConfig
+        {
+            enableSMB1Protocol = true,
+            enableGuestUserAccess = true,
+            enableInsecureGuestLogons = true,
+        },
+        security = new SecurityReport { Checked = 2, issues = new List<SecurityIssue> { new() { user = "u", level = SecurityLevel.Fail } } },
+    });
+    Assert.Equal("smb1", items.Single(i => i.key == "smb1").fixKind);
+    Assert.Equal("guest", items.Single(i => i.key == "guest").fixKind);
+}
+
+[Fact]
+public void Password_AndDisk_Items_NavigateOnly_NoFixKind()
+{
+    var items = AlertEvaluator.Evaluate(new AlertEvaluator.AttentionInput
+    {
+        alertRules = Rules(),
+        security = new SecurityReport { Checked = 1, issues = new List<SecurityIssue> { new() { user = "u", level = SecurityLevel.Fail } } },
+        disks = new List<DiskUsage> { new() { drive = "C", totalGB = 100, freeGB = 1, freePct = 1 } },
+    });
+    Assert.Null(items.Single(i => i.key == "password").fixKind);
+    Assert.Null(items.Single(i => i.key == "disk:C").fixKind);
+}
 }

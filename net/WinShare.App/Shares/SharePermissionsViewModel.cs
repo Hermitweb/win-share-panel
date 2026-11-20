@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using WinShare.App.Common;
 using WinShare.Core.Contracts;
 
 namespace WinShare.App.Shares;
@@ -10,7 +11,8 @@ namespace WinShare.App.Shares;
 /// - 添加账号三护栏：空账号/已存在（TS handleAdd 逐条对齐）
 /// - 候选账号 = 本地用户 + 本地组（TS loadCandidates，前 12 个提示 + "等"）
 /// - NTFS Tab：ACL 视图 + 编辑（v2.1 解锁：添加/移除授权、继承控制，icacls 通道；TS loadNtfs 事件路径语义）
-/// 服务缺席时走占位降级（如实报"未接入"）。
+/// - v2.2.0：IsDirty 未保存修改跟踪（遮罩关闭前确认，防误触丢改动）；错误经 ErrorText 人话化
+/// 服务缺席时走占位降级（如实报"未就绪"）。
 /// </summary>
 public sealed class SharePermissionsViewModel : INotifyPropertyChanged
 {
@@ -45,6 +47,9 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
     }
 
     public List<PermRow> Rows { get; private set; } = new();
+
+    /// <summary>v2.2.0：行有未保存修改（遮罩关闭前确认用）。加载完成/保存成功后复位。</summary>
+    public bool IsDirty { get; private set; }
 
     /// <summary>TS toRow：deny/NoAccess 一律显示 Deny。</summary>
     static PermRow ToRow(SharePermission p) => new()
@@ -104,6 +109,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
         finally
         {
             Loading = false;
+            IsDirty = false; // 以服务端为准，未保存标记复位
             RaiseAll();
         }
     }
@@ -111,7 +117,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
     /// <summary>TS loadNtfs：点了加载才读的只读 ACL 视图（事件路径，不在打开路径上）。</summary>
     public async Task<string> LoadNtfsAsync()
     {
-        if (_user is null) return "NTFS 读取需要用户契约服务（未接入）";
+        if (_user is null) return "功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志";
         NtfsLoading = true;
         RaiseAll();
         try
@@ -122,7 +128,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
         catch (Exception e)
         {
             Ntfs = null;
-            return e.Message;
+            return ErrorText.Describe(e, "读取 NTFS 权限");
         }
         finally
         {
@@ -136,7 +142,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
     /// <summary>添加授权（rights 白名单 F/M/RX/R/W；inheritDirs/inheritFiles → (CI)/(OI)）。"" = 成功。</summary>
     public async Task<string> GrantNtfsAsync(string account, string rights, bool inheritDirs, bool inheritFiles)
     {
-        if (_user is null) return "NTFS 编辑需要用户契约服务（未接入）";
+        if (_user is null) return "功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志";
         if (string.IsNullOrWhiteSpace(account)) return "请输入或选择账号";
         try
         {
@@ -146,14 +152,14 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            return e.Message;
+            return ErrorText.Describe(e, "添加授权");
         }
     }
 
     /// <summary>移除账号在该共享路径的全部授权（Allow/Deny 一并移除）。"" = 成功。</summary>
     public async Task<string> RevokeNtfsAsync(string account)
     {
-        if (_user is null) return "NTFS 编辑需要用户契约服务（未接入）";
+        if (_user is null) return "功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志";
         try
         {
             await _user.RevokeNtfsAsync(Share.path, account.Trim());
@@ -162,14 +168,14 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            return e.Message;
+            return ErrorText.Describe(e, "移除授权");
         }
     }
 
     /// <summary>启用/禁用继承（禁用=继承项复制为显式项）。"" = 成功。</summary>
     public async Task<string> SetNtfsInheritanceAsync(bool enabled)
     {
-        if (_user is null) return "NTFS 编辑需要用户契约服务（未接入）";
+        if (_user is null) return "功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志";
         try
         {
             await _user.SetNtfsInheritanceAsync(Share.path, enabled);
@@ -178,7 +184,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            return e.Message;
+            return ErrorText.Describe(e, "调整继承");
         }
     }
 
@@ -191,6 +197,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
         if (acct.Length == 0) return "请输入账号名";
         if (Rows.Any(r => r.account == acct)) return "该账号已存在";
         Rows.Add(new PermRow { account = acct, accountType = type, access = access });
+        IsDirty = true;
         RaiseAll();
         return "";
     }
@@ -198,6 +205,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
     public void RemoveRow(string account)
     {
         Rows.RemoveAll(r => r.account == account);
+        IsDirty = true;
         RaiseAll();
     }
 
@@ -207,6 +215,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
         if (row is null) return;
         Rows.Remove(row);
         Rows.Add(new PermRow { account = row.account, accountType = row.accountType, access = access });
+        IsDirty = true;
         RaiseAll();
     }
 
@@ -216,7 +225,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
     /// </summary>
     public async Task<string> SaveAsync()
     {
-        if (_user is null) return "权限保存需要用户契约服务（未接入）";
+        if (_user is null) return "功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志";
         Saving = true;
         RaiseAll();
         try
@@ -228,7 +237,7 @@ public sealed class SharePermissionsViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            return e.Message;
+            return ErrorText.Describe(e, "保存权限");
         }
         finally
         {

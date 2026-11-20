@@ -116,7 +116,7 @@ public sealed class ProtocolDetectionViewModel : SettingsCardBase
         }
         catch (Exception e)
         {
-            return e.Message;
+            return Common.ErrorText.Describe(e, "安装功能"); // v2.2.0：人话化（原 e.Message 直出）
         }
         finally
         {

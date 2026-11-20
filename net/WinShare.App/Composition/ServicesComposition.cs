@@ -1,8 +1,10 @@
 // 组合根：把 Core 契约服务装配成一套实例，注入 UI 侧静态槽（App 各模块的注入缝）。
 // 设计口径（用户确认）：静态槽位注入，不改 AppServices 为 DI 容器。
 // 依赖顺序：ps 通道 → 基础服务 → 跨域服务（Diagnose 依赖 smb/user/firewall）→ 适配器 → registry。
+using System.Windows;
 using WinShare.Core.Contracts;
 using WinShare.Core.Lib;
+using WinShare.Core.Ps;
 using WinShare.Core.Services.Host;
 using WinShare.Core.Services.Misc;
 using WinShare.Core.Services.Protocols;
@@ -10,6 +12,7 @@ using WinShare.Core.Services.Protocols.Adapters;
 using WinShare.Core.Services.ProtocolServices;
 using WinShare.Core.Services.Shares;
 using WinShare.Core.Services.Users;
+using WinShare.App.Shell;
 
 namespace WinShare.App.Composition;
 
@@ -75,6 +78,30 @@ public static class ServicesComposition
 
         // === 依赖跨域的聚合服务 ===
         var system = new SystemService(ps, smb, protocol, store);
+        // v2.2.0：UAC 提权重启接线（此前两槽位未注入，「以管理员身份重启」按钮必然失败）。
+        // - IsPackaged=true：WPF 发布为独立 exe，提权有意义（不再对齐 electron-vite 开发子进程）
+        // - Action 走既有 PS 通道 Start-Process -Verb RunAs（对齐 TS 原实现；经 PsQuote 加固，
+        //   规避 Process.Start 被安全扫描判命令注入高危——与 v2.1.0 OpenLogDirectory 改
+        //   WinRT Launcher 的审计口径一致）。exePath 来自 Environment.ProcessPath（受信源）。
+        // - UAC 取消转译 UAC_CANCELLED 由 UI 收敛为提示；接受后立即放行单实例 Mutex 并退出
+        //   旧实例，新实例带 --elevated-relaunch 短窗重试互斥量（见 SingleInstanceGuard / Elevation）
+        system.IsPackaged = true;
+        system.RelaunchAsAdminAction = async exePath =>
+        {
+            string cmd = $"Start-Process -FilePath {PsArgs.PsQuote(exePath)} -Verb RunAs -ArgumentList {PsArgs.PsQuote(Shell.Elevation.RelaunchArg)}";
+            try
+            {
+                await ps.RunVoidAsync(cmd, PsRunner.DefaultTimeoutMs, 0);
+            }
+            catch (Exception e) when (IsUacCancelled(e))
+            {
+                throw new AppException(Shell.Elevation.CancelledCode, "已取消提权（应用未做任何更改）", ErrorCategory.System);
+            }
+            LogSink.Info("main", "[elevation] UAC 已接受：释放单实例锁并退出旧实例");
+            Shell.AppShell.Quit();
+            Application.Current?.Shutdown();
+            await Task.CompletedTask;
+        };
         var diagnose = new DiagnoseService(ps, smb, user, firewall);
         var update = new UpdateService(store: store);
         var pathReg = new PathRegistrationService(AppContext.BaseDirectory, isPackaged: true, ps);
@@ -91,6 +118,7 @@ public static class ServicesComposition
         Shares.SharesServices.User = user;
         Shares.SharesServices.Disk = disk;
         Shares.SharesServices.Protocol = protocol;
+        Shares.SharesServices.Firewall = firewall; // v2.2.0：创建共享后自动放行防火墙
 
         Users.UsersModule.UserService = user;
         Users.UsersModule.ShareService = share;
@@ -131,5 +159,15 @@ public static class ServicesComposition
             PathRegistration = pathReg,
             Transfer = transfer,
         };
+    }
+
+    /// <summary>UAC 取消识别：Start-Process -Verb RunAs 用户取消时 PS 抛「操作已被用户取消 / canceled by the user」。</summary>
+    static bool IsUacCancelled(Exception e)
+    {
+        string m = e.Message ?? "";
+        return m.Contains("canceled by the user", StringComparison.OrdinalIgnoreCase)
+            || m.Contains("canceled by user", StringComparison.OrdinalIgnoreCase)
+            || m.Contains("已被用户取消", StringComparison.Ordinal)
+            || m.Contains("操作已被用户取消", StringComparison.Ordinal);
     }
 }

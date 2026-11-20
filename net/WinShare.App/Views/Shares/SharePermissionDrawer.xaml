@@ -14,7 +14,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock x:Name="DrawerTitle" Grid.Row="0" Text="权限管理" FontSize="16"
+        <TextBlock x:Name="DrawerTitle" Grid.Row="0" Text="权限管理" FontSize="{DynamicResource FontSizeTitle}"
                    FontWeight="SemiBold" Margin="0,0,0,12" />
 
         <!-- TS Tabs：共享权限 / NTFS 权限；1 列纵向流：区块选择器纵向堆叠，正文区纵向全展开、选中区块可见 -->
@@ -25,12 +25,14 @@
                          Checked="OnTabChanged" Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
         </StackPanel>
 
-        <StackPanel x:Name="TabContent" Grid.Row="2">
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <!-- v2.2.0 第六批：内容区可滚动——长内容此前把「保存」按钮推出可视区（F19 同类项） -->
+                <StackPanel x:Name="TabContent">
             <!-- 共享权限（TS：行表格 + 添加账号 + 候选提示 + 保存确认） -->
             <StackPanel x:Name="SecShare" Margin="0,8,0,0">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <TextBlock Text="修改后点击「保存」生效。Deny 优先于其他权限。" FontSize="12"
+                        <TextBlock Text="Deny 优先于其他权限。" FontSize="{DynamicResource FontSizeSecondary}"
                                    Foreground="{DynamicResource BrushFog}" />
                         <Button Content="重新加载" Style="{DynamicResource RowActionButton}" Click="OnReload"
                                 HorizontalAlignment="Right" Margin="0,4,0,0" />
@@ -38,7 +40,7 @@
                     <DataGrid x:Name="RowsGrid" Style="{DynamicResource SoftDataGrid}"
                               AutoGenerateColumns="False" CanUserAddRows="False"
                               IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                              FontSize="12" RowHeaderWidth="0" Margin="0,0,0,12">
+                              FontSize="{DynamicResource FontSizeSecondary}" RowHeaderWidth="0" Margin="0,0,0,12">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="账号" Binding="{Binding account}" Width="180" />
                             <DataGridTextColumn Header="类型" Binding="{Binding accountType}" Width="90" />
@@ -57,18 +59,20 @@
                              Padding="8" CornerRadius="{DynamicResource RadiusInput}"
                              BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                         <StackPanel>
-                        <TextBlock Text="添加账号" FontSize="12" Foreground="{DynamicResource BrushFog}"
+                        <TextBlock Text="添加账号" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushFog}"
                                    Margin="0,0,0,6" />
                         <!-- 1 列纵向流：账号/类型/权限/添加各自独占一行（每行控件靠左，宽度收敛） -->
                         <StackPanel>
-                            <TextBox x:Name="TxtNewAccount" Width="220" HorizontalAlignment="Left"
-                                     Style="{DynamicResource InputBoxSoft}" Margin="0,0,0,6" />
-                            <ComboBox x:Name="CmbNewType" Width="90" HorizontalAlignment="Left" FontSize="13"
+                            <!-- v2.2.0：手输框升级为可下拉选择账号（本地用户+组候选），保留手输能力 -->
+                            <ComboBox x:Name="TxtNewAccount" Width="300" HorizontalAlignment="Left"
+                                      IsEditable="True" FontSize="{DynamicResource FontSizeBody}"
+                                      Style="{DynamicResource ComboBoxSoft}" Margin="0,0,0,6" />
+                            <ComboBox x:Name="CmbNewType" Width="110" HorizontalAlignment="Left" FontSize="{DynamicResource FontSizeBody}"
                                       Style="{DynamicResource ComboBoxSoft}" SelectedIndex="0" Margin="0,0,0,6">
                                 <ComboBoxItem Content="用户" Tag="User" />
                                 <ComboBoxItem Content="组" Tag="Group" />
                             </ComboBox>
-                            <ComboBox x:Name="CmbNewAccess" Width="110" HorizontalAlignment="Left" FontSize="13"
+                            <ComboBox x:Name="CmbNewAccess" Width="140" HorizontalAlignment="Left" FontSize="{DynamicResource FontSizeBody}"
                                       Style="{DynamicResource ComboBoxSoft}" SelectedIndex="2" Margin="0,0,0,6">
                                 <ComboBoxItem Content="完全控制" Tag="Full" />
                                 <ComboBoxItem Content="更改" Tag="Change" />
@@ -78,14 +82,14 @@
                             <Button Content="添加" Style="{DynamicResource RowActionButton}" Click="OnAddRow"
                                     HorizontalAlignment="Left" />
                         </StackPanel>
-                        <TextBlock x:Name="CandTip" FontSize="11" Foreground="{DynamicResource BrushFog}"
+                        <TextBlock x:Name="CandTip" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource BrushFog}"
                                    Margin="0,6,0,0" TextWrapping="Wrap" />
-                        <TextBlock x:Name="RowMsg" FontSize="12" Foreground="{DynamicResource BrushDangerStrong}"
+                        <TextBlock x:Name="RowMsg" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushDangerStrong}"
                                    Margin="0,4,0,0" Visibility="Collapsed" />
                         <!-- 按钮区（页脚操作行）：横向右对齐保持 -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                             <Button Content="保存" Style="{DynamicResource DashButton}" Click="OnSave" />
-                            <TextBlock x:Name="SaveMsg" FontSize="12" VerticalAlignment="Center"
+                            <TextBlock x:Name="SaveMsg" FontSize="{DynamicResource FontSizeSecondary}" VerticalAlignment="Center"
                                        Margin="8,0,0,0" Foreground="{DynamicResource BrushFog}" />
                         </StackPanel>
                         </StackPanel>
@@ -96,16 +100,16 @@
             <!-- NTFS 权限（TS：只读 ACL 视图 + v2.1 编辑授权：添加/移除/继承，icacls 通道） -->
             <StackPanel x:Name="SecNtfs" Margin="0,8,0,0">
                 <StackPanel Margin="0,0,0,8">
-                    <TextBlock x:Name="NtfsPathText" FontSize="12" Foreground="{DynamicResource BrushFog}"
+                    <TextBlock x:Name="NtfsPathText" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushFog}"
                                TextWrapping="Wrap" />
-                    <Button Content="加载" Style="{DynamicResource RowActionButton}" Click="OnLoadNtfs"
+                    <Button Content="重新加载" Style="{DynamicResource RowActionButton}" Click="OnLoadNtfs"
                             HorizontalAlignment="Right" Margin="0,4,0,0" />
                 </StackPanel>
                     <Grid>
                         <DataGrid x:Name="NtfsGrid" Style="{DynamicResource SoftDataGrid}"
                                   AutoGenerateColumns="False" CanUserAddRows="False"
                                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                                  FontSize="12" RowHeaderWidth="0">
+                                  FontSize="{DynamicResource FontSizeSecondary}" RowHeaderWidth="0">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="账号" Binding="{Binding account}" Width="*" />
                                 <DataGridTextColumn Header="权限" Binding="{Binding rights}" Width="*" />
@@ -122,19 +126,19 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-                        <TextBlock x:Name="NtfsEmpty" Text="点击「加载」查看 NTFS ACL" FontSize="13"
+                        <TextBlock x:Name="NtfsEmpty" Text="正在读取 NTFS ACL…" FontSize="{DynamicResource FontSizeBody}"
                                    Foreground="{DynamicResource BrushFog}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Grid>
                 <!-- 编辑授权（v2.1 解锁：添加授权 + 继承控制，写入后自动重读 ACL） -->
                 <StackPanel Margin="0,8,0,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="账号：" FontSize="12" VerticalAlignment="Center" />
-                        <ComboBox x:Name="NtfsAccountBox" Width="200" IsEditable="True" FontSize="12"
+                        <TextBlock Text="账号：" FontSize="{DynamicResource FontSizeSecondary}" VerticalAlignment="Center" />
+                        <ComboBox x:Name="NtfsAccountBox" Width="280" IsEditable="True" FontSize="{DynamicResource FontSizeSecondary}"
                                   Style="{DynamicResource ComboBoxSoft}"
                                   ToolTip="可从下拉选择本地用户/组，或直接输入（支持 DOMAIN\user）" />
-                        <TextBlock Text="级别：" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0" />
-                        <ComboBox x:Name="NtfsRightsBox" Width="120" FontSize="12" SelectedIndex="1"
+                        <TextBlock Text="级别：" FontSize="{DynamicResource FontSizeSecondary}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                        <ComboBox x:Name="NtfsRightsBox" Width="120" FontSize="{DynamicResource FontSizeSecondary}" SelectedIndex="1"
                                   Style="{DynamicResource ComboBoxSoft}">
                             <ComboBoxItem Content="读取" Tag="R" />
                             <ComboBoxItem Content="读取和执行" Tag="RX" />
@@ -142,9 +146,9 @@
                             <ComboBoxItem Content="修改" Tag="M" />
                             <ComboBoxItem Content="完全控制" Tag="F" />
                         </ComboBox>
-                        <CheckBox x:Name="NtfsOiBox" Content="应用到文件(OI)" IsChecked="True" FontSize="12"
+                        <CheckBox x:Name="NtfsOiBox" Content="应用到文件(OI)" IsChecked="True" FontSize="{DynamicResource FontSizeSecondary}"
                                   Style="{DynamicResource CheckBoxSoft}" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        <CheckBox x:Name="NtfsCiBox" Content="应用到子目录(CI)" IsChecked="True" FontSize="12"
+                        <CheckBox x:Name="NtfsCiBox" Content="应用到子目录(CI)" IsChecked="True" FontSize="{DynamicResource FontSizeSecondary}"
                                   Style="{DynamicResource CheckBoxSoft}" Margin="10,0,0,0" VerticalAlignment="Center" />
                         <Button Content="添加授权" Style="{DynamicResource DashButton}" Margin="10,0,0,0" Click="OnNtfsGrant" />
                         <Button Content="启用继承" Style="{DynamicResource DashButton}" Margin="10,0,0,0"
@@ -152,10 +156,11 @@
                         <Button Content="禁用继承" Style="{DynamicResource DashButton}" Margin="8,0,0,0"
                                 Click="OnNtfsInheritOff" ToolTip="继承项复制为显式项，可安全编辑（icacls /inheritance:d）" />
                     </StackPanel>
-                    <TextBlock x:Name="NtfsMsg" FontSize="12" Foreground="{DynamicResource BrushFog}"
+                    <TextBlock x:Name="NtfsMsg" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushFog}"
                                Margin="0,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
                 </StackPanel>
             </StackPanel>
         </StackPanel>
+                </ScrollViewer>
     </Grid>
 </UserControl>

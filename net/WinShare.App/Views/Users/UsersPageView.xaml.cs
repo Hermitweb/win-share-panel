@@ -36,7 +36,7 @@ public partial class UsersPageView : UserControl
             if (_wired) return;
             _wired = true;
             _vm = UsersModule.CreateViewModel();
-            _vm.Notify = (_, text) => ShowNotice(text);
+            _vm.Notify = (kind, text) => ShowNotice(kind, text);
             // 合并为每调度周期一次（一次刷新会改多个属性，逐个重建表格很浪费）
             _vm.PropertyChanged += (_, _) =>
             {
@@ -75,11 +75,42 @@ public partial class UsersPageView : UserControl
     // 数据到控件映射
     // =====================================================================
 
+    /// <summary>用户表骨架行（5 行 × 4 块；一次构建复用）。</summary>
+    void EnsureUserSkeletonRows()
+    {
+        if (UsersSkeletonRows.Children.Count > 0) return;
+        var widths = new[] { 140.0, 140.0, 80.0, 200.0 };
+        for (int r = 0; r < 5; r++)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 14) };
+            foreach (var w in widths)
+            {
+                row.Children.Add(new Border
+                {
+                    Height = 14,
+                    Width = w,
+                    CornerRadius = new CornerRadius(7),
+                    Background = (System.Windows.Media.Brush?)TryFindResource("BrushBgMist"),
+                    Margin = new Thickness(0, 0, 18, 0),
+                    Opacity = 0.7,
+                });
+            }
+            UsersSkeletonRows.Children.Add(row);
+        }
+    }
+
     void ApplyVm()
     {
         if (_vm is null) return;
 
         UsersGrid.ItemsSource = _vm.UserRows;
+        // v2.2.0 第五批：加载态（骨架）与空态分离——此前只有「无用户」提示，
+        // 加载中/筛选无结果都表现为一张空白表，界面像坏了
+        bool loading = _vm.Loading;
+        bool noRows = _vm.UserRows.Count == 0;
+        UsersLoading.Visibility = loading && noRows ? Visibility.Visible : Visibility.Collapsed;
+        if (loading && noRows) EnsureUserSkeletonRows();
+        UsersEmpty.Visibility = !loading && noRows ? Visibility.Visible : Visibility.Collapsed;
         GroupsGrid.ItemsSource = _vm.GroupRows;
         NtfsGrid.ItemsSource = _vm.NtfsRows;
         FillNtfsAccountBox();
@@ -99,10 +130,74 @@ public partial class UsersPageView : UserControl
         BtnExportJson.IsEnabled = canExport;
         BtnExportHtml.IsEnabled = canExport;
 
-        // 首轮失败/服务缺席提示
+        // 首轮失败/服务缺席提示（v2.2.0：不再无条件覆盖通知条——动作反馈与首轮错误各占其位）
         var err = _vm.ErrorText;
-        NoticeBar.Text = err;
-        NoticeBar.Visibility = err.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (err.Length > 0)
+        {
+            _noticeIsFirstRound = true;
+            NoticeBar.Text = err;
+            NoticeBar.Foreground = TryFindResource("BrushDanger") as System.Windows.Media.Brush ?? NoticeBar.Foreground;
+            NoticeBar.Visibility = Visibility.Visible;
+        }
+        else if (_noticeIsFirstRound)
+        {
+            _noticeIsFirstRound = false;
+            NoticeBar.Visibility = Visibility.Collapsed;
+        }
+
+        // v2.2.0 第二轮：NTFS 路径下拉候选 = 本机普通共享（不变不重置，避免输入中清空）
+        SyncNtfsPathCandidates();
+    }
+
+    /// <summary>NTFS 路径候选（显示「path（共享名）」，选中回填 path；保留手输任意路径）。</summary>
+    void SyncNtfsPathCandidates()
+    {
+        var options = _vm.Shares
+            .Where(s => !string.IsNullOrEmpty(s.path))
+            .Select(s => $"{s.path}（{s.name}）")
+            .ToList();
+        if (!ReferenceEquals(NtfsPathBox.Tag, options))
+        {
+            NtfsPathBox.ItemsSource = options;
+            NtfsPathBox.Tag = options;
+        }
+    }
+
+    /// <summary>候选展示形态 → 纯路径（手输原样返回）。</summary>
+    static string NormalizeNtfsPathInput(string raw)
+    {
+        var t = raw.Trim();
+        int idx = t.LastIndexOf('（');
+        return idx > 0 && t.EndsWith("）") ? t[..idx].Trim() : t;
+    }
+
+    bool _noticeIsFirstRound;
+
+    /// <summary>
+    /// v2.2.0：通知分级——success/warn 走右下角 toast（此前「用户已创建」等成功文案一律红条，
+    /// 用户误以为出错）；error 保留页内红条。
+    /// </summary>
+    void ShowNotice(string kind, string text)
+    {
+        _noticeIsFirstRound = false;
+        if (kind == "success")
+        {
+            NoticeBar.Visibility = Visibility.Collapsed;
+            Shell.ToastHost.Show(Shell.ToastLevel.Success, text);
+        }
+        else if (kind == "warn")
+        {
+            NoticeBar.Visibility = Visibility.Collapsed;
+            Shell.ToastHost.Show(Shell.ToastLevel.Warn, text);
+        }
+        else
+        {
+            NoticeBar.Text = text;
+            NoticeBar.Foreground = TryFindResource("BrushDanger") as System.Windows.Media.Brush ?? NoticeBar.Foreground;
+            NoticeBar.Visibility = Visibility.Visible;
+        }
+        StatusTip.Text = text;
+        StatusTip.Visibility = Visibility.Visible;
     }
 
     /// <summary>矩阵动态列：首列共享 + 每账号一列（宽权限列头标注；单元格=Deny 优先标签）。</summary>
@@ -182,6 +277,7 @@ public partial class UsersPageView : UserControl
 
     void OnFilterChanged(object sender, RoutedEventArgs e)
     {
+        SearchHint.Visibility = SearchBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (_vm is null) return;
         _pendingKeyword = SearchBox.Text;
         _pendingOnlyEnabled = OnlyEnabledChk.IsChecked == true;
@@ -277,7 +373,8 @@ public partial class UsersPageView : UserControl
         if (_vm is null || _vm.SelectedUsers.Count == 0) return;
         var dlg = new BatchAssignDialog(_vm.SelectedUsers.ToList(), _vm.Groups.ToList())
         { Owner = Window.GetWindow(this) };
-        if (dlg.ShowDialog() == true && dlg.SelectedGroup.Length > 0)
+        if (Shell.UiTestHooks.NoActivate) dlg.Show(); // 取证模式：非模态、不抢前台
+        else if (dlg.ShowDialog() == true && dlg.SelectedGroup.Length > 0)
             _ = _vm.BatchAssignGroupAsync(dlg.SelectedGroup).ContinueWith(_ => RefreshGrids());
     }
 
@@ -307,7 +404,8 @@ public partial class UsersPageView : UserControl
         if (_vm is null) return;
         // 对话框内部完成创建 + 组分配（对齐 UserCreateModal）；成功 → 刷新
         var dlg = new UserCreateDialog(_vm) { Owner = Window.GetWindow(this) };
-        if (dlg.ShowDialog() == true)
+        if (Shell.UiTestHooks.NoActivate) dlg.Show(); // 取证模式：非模态、不抢前台
+        else if (dlg.ShowDialog() == true)
             _ = RefreshGrids();
     }
 
@@ -316,7 +414,8 @@ public partial class UsersPageView : UserControl
         if (_vm is null) return;
         // 对话框内部已调用 vm.CreateGroupAsync 并置 Operated（成功才 DialogResult=true）
         var dlg = new GroupCreateDialog(_vm) { Owner = Window.GetWindow(this) };
-        if (dlg.ShowDialog() == true)
+        if (Shell.UiTestHooks.NoActivate) dlg.Show(); // 取证模式：非模态、不抢前台
+        else if (dlg.ShowDialog() == true)
             _ = RefreshGrids();
     }
 
@@ -378,10 +477,10 @@ public partial class UsersPageView : UserControl
     async void OnNtfsView(object sender, RoutedEventArgs e)
     {
         if (_vm is null) return;
-        var path = NtfsPathBox?.Text.Trim() ?? "";
+        var path = NormalizeNtfsPathInput(NtfsPathBox?.Text ?? ""); // 剥「path（共享名）」候选形态
         if (path.Length == 0)
         {
-            ShowNotice("请输入要查看的 NTFS 路径");
+            ShowNotice("请输入或选择要查看的 NTFS 路径");
             return;
         }
         await _vm.ViewNtfsAsync(path);
@@ -446,13 +545,7 @@ public partial class UsersPageView : UserControl
     // 小工具
     // =====================================================================
 
-    void ShowNotice(string text)
-    {
-        NoticeBar.Text = text;
-        NoticeBar.Visibility = Visibility.Visible;
-        StatusTip.Text = text;
-        StatusTip.Visibility = Visibility.Visible;
-    }
+    void ShowNotice(string text) => ShowNotice("error", text);
 
     /// <summary>VM 后台任务完成 → UI 线程刷新全部面板（Dispatcher 兜底）。</summary>
     async Task RefreshGrids()

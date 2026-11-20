@@ -68,7 +68,13 @@ public sealed class SettingsPageView : UserControl
         content.Children.Add(diagCard);
         content.Children.Add(sections);
         outer.Children.Add(content);
-        return outer;
+        // v2.2.0 第二轮：页面级内容列限宽（1920 宽屏下表单不再无限拉伸，全部卡在同一居中列内等宽）
+        return new System.Windows.Controls.Grid
+        {
+            MaxWidth = 920,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Children = { outer },
+        };
     }
 
     DockPanel BuildHeader()
@@ -89,7 +95,7 @@ public sealed class SettingsPageView : UserControl
         {
             diagnose.IsEnabled = false;
             diagnose.ToolTip = _vm.Diagnose.DegradedNote;
-            actions.Children.Add(SettingsUi.FogText("诊断面板尚未就绪（诊断服务未注册），服务实现后此入口自动可用"));
+            actions.Children.Add(SettingsUi.FogText("诊断面板尚未就绪"));
         }
         actions.Children.Add(diagnose);
         DockPanel.SetDock(actions, Dock.Right);
@@ -107,7 +113,7 @@ public sealed class SettingsPageView : UserControl
         }
         else
         {
-            p.Children.Add(SettingsUi.FogText("配置页按探测结果降级（如 SMB QUIC 不支持时保存自动跳过）。"));
+
         }
         _osDetails = new StackPanel();
         p.Children.Add(_osDetails);
@@ -125,7 +131,7 @@ public sealed class SettingsPageView : UserControl
         var os = _vm.OsCompat.Os;
         if (os is null)
         {
-            target.Children.Add(SettingsUi.FogText("OS 信息读取中…（服务缺席时保持此占位）"));
+            target.Children.Add(SettingsUi.FogText("OS 信息读取中…"));
             return;
         }
         static string Bit(bool on, string name) => $"{name}：{(on ? "支持" : "不支持")}";
@@ -157,11 +163,22 @@ public sealed class SettingsPageView : UserControl
         }
         _diagnoseItems = new StackPanel();
         p.Children.Add(_diagnoseItems);
+        // v2.2.0 第二轮：挂结果面（此前修复失败写 Error 无处显示——「什么都不显示」）
+        p.Children.Add(SettingsUi.MessageStrip(_vm.Diagnose));
         RebuildDiagnoseItems();
         _vm.Diagnose.PropertyChanged += (_, _) => RebuildDiagnoseItems();
         _vm.Diagnose.Changed += RebuildDiagnoseItems;
         return SettingsUi.Card(p);
     }
+
+    /// <summary>诊断修复项的人话影响说明（确认框用；v2.2.0 第二轮此前点击直接执行无确认）。</summary>
+    static string FixConfirmText(WinShare.Core.Contracts.DiagnoseFixKind fix) => fix switch
+    {
+        WinShare.Core.Contracts.DiagnoseFixKind.ServiceLanman => "将启动本机 SMB 服务（LanmanServer）。启动后共享立即可访问，继续？",
+        WinShare.Core.Contracts.DiagnoseFixKind.FirewallSmb => "将在防火墙「WinShare Panel」组内添加 SMB 445/TCP 入站放行规则（只动组内规则，不改系统规则）。继续？",
+        WinShare.Core.Contracts.DiagnoseFixKind.AclReadEveryone => "将给该共享目录授予 Everyone 读取 ACL（NTFS 层）。任何本机用户都可读取该目录内容，确认目录无敏感文件后继续？",
+        _ => "执行该项修复？",
+    };
 
     void RebuildDiagnoseItems()
     {
@@ -199,7 +216,21 @@ public sealed class SettingsPageView : UserControl
             {
                 var repair = SettingsUi.Button("修复", async (_, _) =>
                 {
-                    await _vm.Diagnose.ApplyFixAsync(fix, null);
+                    // v2.2.0 第二轮：确认 → 执行 → toast 结果 → 自动重跑诊断刷新状态
+                    // （此前返回值被丢弃、Error 无处显示、状态不更新——修复像没发生过）
+                    var res = MessageBox.Show(FixConfirmText(fix), "修复确认",
+                        MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                    if (res != MessageBoxResult.OK) return;
+                    string? msg = await _vm.Diagnose.ApplyFixAsync(fix, null);
+                    if (_vm.Diagnose.Error is not null)
+                    {
+                        // 失败：VM 已写 Error（MessageStrip 同步显示），toast 确保看见
+                        Shell.ToastHost.Show(Shell.ToastLevel.Danger, _vm.Diagnose.Error);
+                        return;
+                    }
+                    Shell.ToastHost.Show(Shell.ToastLevel.Success,
+                        string.IsNullOrEmpty(msg) ? "修复完成" : msg);
+                    await _vm.Diagnose.RunAsync(null);
                 });
                 repair.HorizontalAlignment = HorizontalAlignment.Left;
                 row.Children.Add(repair);

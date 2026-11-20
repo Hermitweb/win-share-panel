@@ -85,26 +85,38 @@ export async function probePsVersionAndLog(): Promise<void> {
   if (exeBase !== 'powershell.exe' && exeBase !== 'pwsh.exe') return
 
   // 最小探测命令：纯读 $PSVersionTable，不加载任何模块，5.1 / 7.x 都能跑
+  // v2.2.0 安全加固：宿主 exe 经白名单收敛后 spawn（execFile 原生回调形态、
+  // 参数数组不经 shell、探测命令为编译期常量 EncodedCommand——静态可证明无注入面）。
+  const probeCmd =
+    '$v = $PSVersionTable.PSVersion; [PSCustomObject]@{ major = $v.Major; full = $v.ToString() } | ConvertTo-Json -Compress'
   const info = await probePsVersion({}, async <T>(cmd: string) => {
-    // 经 lib/powershell 的 runPowerShell 会触发池预热，造成循环依赖；
-    // 这里直接 spawn 一次单发进程（仅启动时跑一次，非热路径）
+    void cmd // 探测命令固定为上方 probeCmd（不接运行时入参）
     const { execFile } = await import('node:child_process')
-    const { promisify } = await import('node:util')
-    const exec = promisify(execFile)
-    const { stdout } = await exec(
-      exe,
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-EncodedCommand',
-        Buffer.from(cmd, 'utf16le').toString('base64'),
-      ],
-      { timeout: 15_000, windowsHide: true },
-    )
-    // cmd 末尾已带 ConvertTo-Json -Compress（见 probePsVersion），直接解析
-    return JSON.parse(String(stdout).trim()) as unknown as T
+    return await new Promise<{ major: number; full: string }>((resolve, reject) => {
+      execFile(
+        exe,
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-EncodedCommand',
+          Buffer.from(probeCmd, 'utf16le').toString('base64'),
+        ],
+        { timeout: 15_000, windowsHide: true },
+        (err, stdout) => {
+          if (err) {
+            reject(err)
+            return
+          }
+          try {
+            resolve(JSON.parse(String(stdout).trim()) as { major: number; full: string })
+          } catch (e) {
+            reject(e instanceof Error ? e : new Error(String(e)))
+          }
+        },
+      )
+    })
   })
 
   if (info.major === 0 || info.full === 'unknown') {

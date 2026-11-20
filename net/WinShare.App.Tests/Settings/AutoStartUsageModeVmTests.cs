@@ -92,4 +92,22 @@ public class AutoStartUsageModeVmTests
         Assert.Equal(1, notified);
         Assert.Equal(ThemeMode.Dark, store.Load().theme);
     }
+    // ===== v2.2.0 第二轮：使用模式切换回调（顶栏徽标/菜单跟随） =====
+
+    [Fact]
+    public async Task 使用模式_onModeChanged回调_成功切换触发一次()
+    {
+        var store = new AppSettingsStore(TempDir());
+        bool? fired = null;
+        int count = 0;
+        var vm = new UsageModeCardViewModel(store, onModeChanged: advanced =>
+        {
+            fired = advanced;
+            count++;
+        });
+        var r = await vm.ApplyModeAsync(true);
+        Assert.Null(r);
+        Assert.True(fired);
+        Assert.Equal(1, count);
+    }
 }

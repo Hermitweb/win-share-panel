@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using WinShare.App.Users;
+using WinShare.App.Views.Settings; // v2.2.0 第三轮：SettingsUi.Live 扩展（标签前景跟随主题）
 using WinShare.Core.Contracts;
 
 namespace WinShare.App.Views.Users;
@@ -21,12 +22,13 @@ public sealed class BatchAssignDialog : Window
 
     public BatchAssignDialog(IReadOnlyList<string> selectedUsers, IReadOnlyList<LocalGroup> groups)
     {
+        Shell.UiTestHooks.Prepare(this);
         Title = $"分配 {selectedUsers.Count} 个用户到组";
         Width = 420;
         SizeToContent = SizeToContent.Height;
 
-        var okBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "分配", IsDefault = true, IsEnabled = false, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0) };
-        var cancelBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "取消", IsCancel = true, MinWidth = 80 };
+        var okBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "分配", IsDefault = true, IsEnabled = false, MinWidth = 88, Margin = new Thickness(8, 0, 0, 0) };
+        var cancelBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "取消", IsCancel = true, MinWidth = 88 };
 
         var combo = new ComboBox { Style = (Style?)TryFindResource("ComboBoxSoft"), FontSize = 13 };
         foreach (var g in groups)
@@ -100,13 +102,16 @@ public sealed class GroupCreateDialog : Window
 
     public GroupCreateDialog(UsersViewModel vm)
     {
+        Shell.UiTestHooks.Prepare(this);
         Title = "新建本地组";
         Width = 420;
         SizeToContent = SizeToContent.Height;
+        Background = (System.Windows.Media.Brush?)TryFindResource("BrushCard"); // v2.2.0 第三轮：对话框底跟随主题
 
         var nameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 8), ToolTip = "如 ProjectEditors" };
         var descBox = new TextBox
         {
+            Style = (Style?)TryFindResource("InputBoxSoft"),
             FontSize = 13,
             Padding = new Thickness(6, 4, 6, 4),
             AcceptsReturn = true,
@@ -123,8 +128,8 @@ public sealed class GroupCreateDialog : Window
             Visibility = Visibility.Collapsed,
             Margin = new Thickness(0, 0, 0, 8),
         };
-        var okBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "创建", MinWidth = 80 };
-        var cancelBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "取消", IsCancel = true, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0) };
+        var okBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "创建", MinWidth = 88 };
+        var cancelBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "取消", IsCancel = true, MinWidth = 88, Margin = new Thickness(8, 0, 0, 0) };
 
         okBtn.Click += async (_, _) =>
         {
@@ -158,9 +163,9 @@ public sealed class GroupCreateDialog : Window
             Margin = new Thickness(16),
             Children =
             {
-                new TextBlock { Text = "组名", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) },
+                new TextBlock { Text = "组名", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"),
                 nameBox,
-                new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) },
+                new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"),
                 descBox,
                 err,
                 new StackPanel
@@ -188,19 +193,26 @@ public sealed class UserCreateDialog : Window
     public UserCreateDialog(UsersViewModel vm)
     {
         _vm = vm;
+        Shell.UiTestHooks.Prepare(this);
         Title = "新建本地用户";
         Width = 520;
+        // v2.2.0 第五批：内容区滚动 + 底部固定操作条（此前整窗 SizeToContent 撑高，
+        // 「分配到组」控件被底部按钮压住/裁掉 → 分组功能不可用）
         SizeToContent = SizeToContent.Height;
+        MaxHeight = SystemParameters.WorkArea.Height - 80;
+        Background = (System.Windows.Media.Brush?)TryFindResource("BrushCard"); // v2.2.0 第三轮：对话框底跟随主题
 
         var nameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "如 john.doe" };
-        var pwdBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
+        // v2.2.0：明文 TextBox 改 PasswordBox（掩码显示；InputBoxSoft 是 TextBox 样式不可套用，仅保留字号内边距）
+        var pwdBox = new PasswordBox { Style = (Style?)TryFindResource("PasswordBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
         var pwdStrength = new TextBlock { FontSize = 12, Margin = new Thickness(0, 2, 0, 8) };
         // 1 列纵向流：生成按钮独立一行（原在密码框右侧）
         var genBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "⚡ 生成密码", Padding = new Thickness(8, 2, 8, 2), FontSize = 12, Margin = new Thickness(0, 4, 0, 0), HorizontalAlignment = HorizontalAlignment.Left, ToolTip = "生成 12 位随机强密码" };
-        var confirmBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
+        var confirmBox = new PasswordBox { Style = (Style?)TryFindResource("PasswordBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
         var fullNameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), ToolTip = "用户显示名（可选）" };
         var descBox = new TextBox
         {
+            Style = (Style?)TryFindResource("InputBoxSoft"),
             FontSize = 13,
             Padding = new Thickness(6, 4, 6, 4),
             AcceptsReturn = true,
@@ -215,11 +227,19 @@ public sealed class UserCreateDialog : Window
 
         // 分配到组（多选 checkbox；对齐 TS 多选 Select；1 列纵向流）
         var groupChks = new StackPanel { Margin = new Thickness(0, 4, 0, 8) };
+        var groupEmpty = new TextBlock
+        {
+            Text = "未读取到本地组（可先在「本地组」页刷新）",
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Visibility = vm.Groups.Count == 0 ? Visibility.Visible : Visibility.Collapsed,
+        }.Live(TextBlock.ForegroundProperty, "BrushFog");
         foreach (var g in vm.Groups)
             groupChks.Children.Add(new CheckBox
             {
+                Style = (Style?)TryFindResource("CheckBoxSoft"), // v2.2.0 第五批：弹窗内禁用系统默认样式
                 Content = $"{g.name}{(string.IsNullOrEmpty(g.description) ? "" : $" ({g.description})")}",
-                FontSize = 12,
+                FontSize = 13,
                 Margin = new Thickness(0, 0, 0, 4),
                 Tag = g.name,
             });
@@ -232,21 +252,21 @@ public sealed class UserCreateDialog : Window
             Margin = new Thickness(0, 0, 0, 8),
             TextWrapping = TextWrapping.Wrap,
         };
-        var okBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "创建", MinWidth = 80, IsDefault = true };
-        var cancelBtn = new Button { Content = "取消", IsCancel = true, MinWidth = 80, Margin = new Thickness(8, 0, 0, 0) };
+        var okBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "创建", MinWidth = 88, IsDefault = true };
+        var cancelBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "取消", IsCancel = true, MinWidth = 88, Margin = new Thickness(8, 0, 0, 0) }; // v2.2.0：补样式（此前裸原生按钮）
         okBtn.Click += async (_, _) =>
         {
             var problem = UsersValidators.ValidateUserName(nameBox.Text.Trim());
             if (problem is not null) { err.Text = problem; err.Visibility = Visibility.Visible; return; }
-            if (string.IsNullOrEmpty(pwdBox.Text)) { err.Text = "密码不能为空"; err.Visibility = Visibility.Visible; return; }
-            if (pwdBox.Text != confirmBox.Text) { err.Text = "两次输入的密码不一致"; err.Visibility = Visibility.Visible; return; }
+            if (string.IsNullOrEmpty(pwdBox.Password)) { err.Text = "密码不能为空"; err.Visibility = Visibility.Visible; return; }
+            if (pwdBox.Password != confirmBox.Password) { err.Text = "两次输入的密码不一致"; err.Visibility = Visibility.Visible; return; }
             err.Visibility = Visibility.Collapsed;
             okBtn.IsEnabled = false;
             var picked = groupChks.Children.OfType<CheckBox>().Where(c => c.IsChecked == true).Select(c => (string)c.Tag!).ToList();
             var opts = new CreateUserOpts
             {
                 name = nameBox.Text.Trim(),
-                password = pwdBox.Text,
+                password = pwdBox.Password,
                 fullName = fullNameBox.Text.Trim(),
                 description = descBox.Text.Trim(),
                 enabled = enabledChk.IsChecked == true,
@@ -270,7 +290,7 @@ public sealed class UserCreateDialog : Window
 
         void UpdateStrength()
         {
-            var s = PasswordGen.Evaluate(pwdBox.Text);
+            var s = PasswordGen.Evaluate(pwdBox.Password);
             pwdStrength.Text = s switch
             {
                 "weak" => "弱",
@@ -286,48 +306,75 @@ public sealed class UserCreateDialog : Window
                 _ => (Brush?)TryFindResource("BrushFog"),
             };
         }
-        pwdBox.TextChanged += (_, _) => UpdateStrength();
+        pwdBox.PasswordChanged += (_, _) => UpdateStrength();
         genBtn.Click += (_, _) =>
         {
             var pwd = PasswordGen.Generate(12);
-            pwdBox.Text = pwd;
-            confirmBox.Text = pwd;
+            pwdBox.Password = pwd;
+            confirmBox.Password = pwd;
             UpdateStrength();
         };
 
-        Content = new StackPanel
+        // v2.2.0 第二轮：内容限高滚动（新建用户表单字段多，矮屏防溢出——向导曾因此标题栏出屏）
+        // v2.2.0 第五批：按钮移出滚动区，固定在底部操作条（此前按钮在滚动内容末尾，
+        // 组控件与按钮重叠、组列表被裁）
+        var formContent = new StackPanel
         {
-            Margin = new Thickness(16),
+            Margin = new Thickness(16, 16, 16, 8),
             Children =
             {
-                new TextBlock { Text = "用户名", FontSize = 12, Margin = new Thickness(0, 0, 0, 2) },
+                new TextBlock { Text = "用户名", FontSize = 12, Margin = new Thickness(0, 0, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"),
                 nameBox,
-                new TextBlock { Text = "密码", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) },
+                new TextBlock { Text = "密码", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"),
                 // 1 列纵向流：密码框与生成按钮各占一行
                 new StackPanel
                 {
                     Children = { pwdBox, genBtn },
                 },
                 pwdStrength,
-                new TextBlock { Text = "确认密码", FontSize = 12, Margin = new Thickness(0, 4, 0, 2) },
+                new TextBlock { Text = "确认密码", FontSize = 12, Margin = new Thickness(0, 4, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"),
                 confirmBox,
-                new TextBlock { Text = "全名", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) },
+                new TextBlock { Text = "全名", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"),
                 fullNameBox,
-                new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) },
+                new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"),
                 descBox,
                 // 1 列纵向流：开关项各占一行（原横排）
                 new StackPanel { Margin = new Thickness(0, 8, 0, 0), Children = { enabledChk, mayChangeChk, neverExpChk } },
-                new TextBlock { Text = "分配到组（可选）", FontSize = 12, Margin = new Thickness(0, 8, 0, 2) },
+                new TextBlock { Text = "分配到组（可选）", FontSize = 12, Margin = new Thickness(0, 8, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"),
+                groupEmpty,
                 groupChks,
                 err,
-                new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    HorizontalAlignment = HorizontalAlignment.Right,
-                    Children = { okBtn, cancelBtn },
-                },
             },
         };
+        var footer = new Border
+        {
+            Padding = new Thickness(16, 8, 16, 12),
+            Background = (System.Windows.Media.Brush?)TryFindResource("BrushCard"),
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Children = { okBtn, cancelBtn },
+            },
+        };
+        // v2.2.0 第六批修复：内容区与底部操作条分两行（此前两者同落 Row 0，
+        // footer 后声明者在上把表单整体盖住——浅色主题实测暴露）。
+        // 附加属性用显式 SetRow 语句：对象初始化器里 `Grid.Row = x` 在本文件
+        // （引入了 WinShare.Core.Contracts）存在类型解析歧义。
+        var dialogHost = new Grid();
+        dialogHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        dialogHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var formScroll = new ScrollViewer
+        {
+            MaxHeight = 480,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = formContent,
+        };
+        System.Windows.Controls.Grid.SetRow(formScroll, 0);
+        System.Windows.Controls.Grid.SetRow(footer, 1);
+        dialogHost.Children.Add(formScroll);
+        dialogHost.Children.Add(footer);
+        Content = dialogHost;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
     }
 }
@@ -346,7 +393,7 @@ public sealed class GroupManageDialog : Window
 
     readonly TextBox _descBox;
     readonly TextBox _renameBox;
-    readonly TextBox _addBox;
+    readonly System.Windows.Controls.ComboBox _addBox;
     readonly DataGrid _batchGrid;
     readonly ListBox _membersList;
     readonly ComboBox _removeCombo;
@@ -356,9 +403,11 @@ public sealed class GroupManageDialog : Window
         _vm = vm;
         _groupName = group.name;
         _group = group;
+        Shell.UiTestHooks.Prepare(this);
         Title = $"管理组：{group.name}";
         Width = 560;
         Height = 620;
+        Background = (System.Windows.Media.Brush?)TryFindResource("BrushCard"); // v2.2.0 第三轮：对话框底跟随主题
 
         _descBox = new TextBox
         {
@@ -371,15 +420,19 @@ public sealed class GroupManageDialog : Window
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
         // 1 列纵向流：按钮左对齐独占一行
-        var saveDescBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "保存描述", MinWidth = 90, HorizontalAlignment = HorizontalAlignment.Left };
+        var saveDescBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "保存描述", MinWidth = 88, HorizontalAlignment = HorizontalAlignment.Left };
         saveDescBtn.Click += async (_, _) =>
         {
             if (await _vm.UpdateGroupDescriptionAsync(_groupName, _descBox.Text.Trim()) is { ok: true })
+            {
                 Operated = true;
+                // v2.2.0 第二轮：成功反馈（此前完全静默）
+                Shell.ToastHost.Show(Shell.ToastLevel.Success, "组描述已保存");
+            }
         };
 
         _renameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), Text = group.name, FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 4) };
-        var renameBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "重命名", MinWidth = 90, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
+        var renameBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "重命名", MinWidth = 88, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
         renameBtn.Click += async (_, _) =>
         {
             var (ok, _) = await _vm.RenameGroupAsync(_groupName, _renameBox.Text);
@@ -389,10 +442,13 @@ public sealed class GroupManageDialog : Window
                 _groupName = _renameBox.Text.Trim();
                 Title = $"管理组：{_groupName}";
                 await ReloadAfterChange();
+                // v2.2.0 第二轮：成功反馈（此前完全静默，用户不知道是否生效）
+                Shell.ToastHost.Show(Shell.ToastLevel.Success, $"组已重命名为「{_groupName}」");
             }
         };
 
-        _addBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 4), ToolTip = "手动输入用户名或组名（兼容域账号）" };
+        // v2.2.0：手输框升级为可下拉选择本地用户/组（保留手输兼容域账号）；候选异步预填
+        _addBox = new System.Windows.Controls.ComboBox { IsEditable = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 4), ToolTip = "下拉选择本地用户/组，或手动输入（兼容域账号）" };
         var addBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "添加", MinWidth = 70, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 8) };
         _addBox.KeyDown += (_, e) =>
         {
@@ -413,7 +469,7 @@ public sealed class GroupManageDialog : Window
         _batchGrid.Columns.Add(new DataGridCheckBoxColumn { Header = "添加", Binding = new Binding("Pick") });
         _batchGrid.Columns.Add(new DataGridTextColumn { Header = "用户名", Binding = new Binding("Name"), IsReadOnly = true });
         _batchGrid.Columns.Add(new DataGridTextColumn { Header = "全名", Binding = new Binding("FullName"), IsReadOnly = true });
-        var batchBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "批量添加", MinWidth = 90 };
+        var batchBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "批量添加", MinWidth = 88 };
         batchBtn.Click += async (_, _) =>
         {
             var picked = _batchGrid.Items.Cast<object>()
@@ -443,31 +499,37 @@ public sealed class GroupManageDialog : Window
 
         var root = new StackPanel { Margin = new Thickness(16) };
         // 1 列纵向流：描述框与保存按钮各占一行（原横排包装去掉）
-        root.Children.Add(new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
+        root.Children.Add(new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         root.Children.Add(_descBox);
         saveDescBtn.Margin = new Thickness(0, 4, 0, 12);
         root.Children.Add(saveDescBtn);
         // 1 列纵向流：输入框与按钮各占一行（原横排）
-        root.Children.Add(new TextBlock { Text = "组名（重命名）", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
+        root.Children.Add(new TextBlock { Text = "组名（重命名）", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         root.Children.Add(_renameBox);
         root.Children.Add(renameBtn);
-        root.Children.Add(new TextBlock { Text = "手动添加成员（兼容域账号）", FontSize = 12, Margin = new Thickness(0, 12, 0, 4) });
+        root.Children.Add(new TextBlock { Text = "手动添加成员（兼容域账号）", FontSize = 12, Margin = new Thickness(0, 12, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         root.Children.Add(_addBox);
         root.Children.Add(addBtn);
-        root.Children.Add(new TextBlock { Text = "从本地用户批量添加", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
+        root.Children.Add(new TextBlock { Text = "从本地用户批量添加", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         root.Children.Add(_batchGrid);
         root.Children.Add(batchBtn);
-        root.Children.Add(new TextBlock { Text = "当前成员（名称 · 类型 · 来源）", FontSize = 12, Margin = new Thickness(0, 12, 0, 4) });
+        root.Children.Add(new TextBlock { Text = "当前成员（名称 · 类型 · 来源）", FontSize = 12, Margin = new Thickness(0, 12, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         root.Children.Add(_membersList);
         // 1 列纵向流：移除成员区自上而下堆叠（原横排标签+下拉+按钮）
-        root.Children.Add(new TextBlock { Text = "移除成员：", FontSize = 12, Margin = new Thickness(0, 8, 0, 4) });
+        root.Children.Add(new TextBlock { Text = "移除成员：", FontSize = 12, Margin = new Thickness(0, 8, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         root.Children.Add(_removeCombo);
         root.Children.Add(removeBtn);
-        Content = root;
+        // v2.2.0 第二轮：固定高度窗内容超框时内部滚动（防重叠/裁切）
+        Content = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = root,
+        };
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         LoadMembers();
         LoadBatchOptions();
+        _ = FillAddCandidatesAsync(); // v2.2.0：手动添加成员的候选预填
 
         // 成员重取（按当前组名；重命名/增删后调用）
         async Task ReloadAfterChange()
@@ -482,10 +544,31 @@ public sealed class GroupManageDialog : Window
             if (await _vm.AddGroupMemberAsync(_groupName, _addBox.Text) is { ok: true })
             {
                 Operated = true;
-                _addBox.Clear();
+                _addBox.Text = "";
                 await ReloadAfterChange();
             }
         }
+    }
+
+    /// <summary>v2.2.0：手动添加成员下拉候选 = 本地用户+组（异步预填；保留已输入文本）。</summary>
+    async Task FillAddCandidatesAsync()
+    {
+        var feed = WinShare.App.Users.UsersModule.UserService;
+        if (feed is null) return;
+        try
+        {
+            var users = await feed.ListUsersAsync();
+            var groups = await feed.ListGroupsAsync();
+            var names = users.Select(u => u.name).Concat(groups.Select(g => g.name))
+                .Where(n => !string.IsNullOrEmpty(n)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var typed = _addBox.Text;
+            Dispatcher.Invoke(() =>
+            {
+                _addBox.ItemsSource = names;
+                if (!string.IsNullOrEmpty(typed)) _addBox.Text = typed;
+            });
+        }
+        catch { /* 候选取不到保持纯手输 */ }
     }
 
     void LoadMembers()
@@ -545,7 +628,7 @@ public sealed class UserEditDialog : Window
     readonly CheckBox _enabledChk;
     readonly CheckBox _mayChangeChk;
     readonly CheckBox _neverExpiresChk;
-    readonly TextBox _newPwdBox;
+    readonly PasswordBox _newPwdBox;
     readonly CheckBox _pwdSwitch;
     readonly TextBlock _pwdStrength;
     readonly ListBox _currentGroups;
@@ -558,9 +641,11 @@ public sealed class UserEditDialog : Window
         _vm = vm;
         _user = user;
         _userName = user.name;
+        Shell.UiTestHooks.Prepare(this);
         Title = $"用户详情：{user.name}";
         Width = 560;
         Height = 620;
+        Background = (System.Windows.Media.Brush?)TryFindResource("BrushCard"); // v2.2.0 第三轮：对话框底跟随主题
 
         // ===== 属性 Tab =====
         _nameBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), Text = user.name, FontSize = 13, Padding = new Thickness(6, 4, 6, 4) };
@@ -593,7 +678,7 @@ public sealed class UserEditDialog : Window
         _enabledChk = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "启用账号", IsChecked = user.enabled, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
         _mayChangeChk = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "允许修改密码", IsChecked = user.userMayChangePassword, FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
         _neverExpiresChk = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "密码永不过期", IsChecked = !user.passwordExpires, FontSize = 13 };
-        _newPwdBox = new TextBox { Style = (Style?)TryFindResource("InputBoxSoft"), FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Width = 220, Margin = new Thickness(0, 4, 0, 4), Visibility = Visibility.Collapsed };
+        _newPwdBox = new PasswordBox { FontSize = 13, Padding = new Thickness(6, 4, 6, 4), Width = 220, Margin = new Thickness(0, 4, 0, 4), Visibility = Visibility.Collapsed }; // v2.2.0：明文 TextBox → PasswordBox
         _pwdSwitch = new CheckBox { Style = (Style?)TryFindResource("CheckBoxSoft"), Content = "重设密码", FontSize = 12, IsChecked = false, Margin = new Thickness(0, 4, 0, 0) };
         _pwdSwitch.Checked += (_, _) =>
         {
@@ -601,17 +686,17 @@ public sealed class UserEditDialog : Window
             UpdateStrength();
         };
         _pwdSwitch.Unchecked += (_, _) => _newPwdBox.Visibility = Visibility.Collapsed;
-        _newPwdBox.TextChanged += (_, _) => UpdateStrength();
+        _newPwdBox.PasswordChanged += (_, _) => UpdateStrength();
         _pwdStrength = new TextBlock { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         var genPwdBtn = new Button { Style = (Style?)TryFindResource("DashButton"), Content = "生成", MinWidth = 56, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0) };
         genPwdBtn.ToolTip = "生成 12 位随机强密码";
         genPwdBtn.Click += (_, _) =>
         {
-            _newPwdBox.Text = PasswordGen.Generate(12);
+            _newPwdBox.Password = PasswordGen.Generate(12);
             UpdateStrength();
         };
 
-        var saveBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "保存", MinWidth = 90, IsDefault = true, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 12, 0, 0) };
+        var saveBtn = new Button { Style = (Style?)TryFindResource("PrimaryButton"), Content = "保存", MinWidth = 88, IsDefault = true, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 12, 0, 0) };
         saveBtn.Click += async (_, _) =>
         {
             var problem = UsersValidators.ValidateUserName(_nameBox.Text.Trim());
@@ -628,7 +713,7 @@ public sealed class UserEditDialog : Window
                 Enabled: _enabledChk.IsChecked == true,
                 UserMayChangePassword: _mayChangeChk.IsChecked == true,
                 PasswordNeverExpires: _neverExpiresChk.IsChecked == true,
-                NewPassword: _pwdSwitch.IsChecked == true ? _newPwdBox.Text : null);
+                NewPassword: _pwdSwitch.IsChecked == true ? _newPwdBox.Password : null);
             var (ok, _) = await _vm.SaveUserAsync(_userName, args);
             if (ok)
             {
@@ -653,12 +738,12 @@ public sealed class UserEditDialog : Window
 
         // 1 列纵向流：开关/密码行各占一行（原横排）
         var propsPanel = new StackPanel();
-        propsPanel.Children.Add(new TextBlock { Text = "用户名", FontSize = 12, Margin = new Thickness(0, 0, 0, 2) });
+        propsPanel.Children.Add(new TextBlock { Text = "用户名", FontSize = 12, Margin = new Thickness(0, 0, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         propsPanel.Children.Add(_nameBox);
         propsPanel.Children.Add(_hint);
-        propsPanel.Children.Add(new TextBlock { Text = "全名", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) });
+        propsPanel.Children.Add(new TextBlock { Text = "全名", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         propsPanel.Children.Add(_fullNameBox);
-        propsPanel.Children.Add(new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) });
+        propsPanel.Children.Add(new TextBlock { Text = "描述", FontSize = 12, Margin = new Thickness(0, 6, 0, 2) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         propsPanel.Children.Add(_descBox);
         propsPanel.Children.Add(_enabledChk);
         propsPanel.Children.Add(_mayChangeChk);
@@ -699,13 +784,13 @@ public sealed class UserEditDialog : Window
             }
         };
         var groupsPanel = new StackPanel();
-        groupsPanel.Children.Add(new TextBlock { Text = "当前所属组", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
+        groupsPanel.Children.Add(new TextBlock { Text = "当前所属组", FontSize = 12, Margin = new Thickness(0, 0, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         groupsPanel.Children.Add(_currentGroups);
-        groupsPanel.Children.Add(new TextBlock { Text = "添加到组", FontSize = 12, Margin = new Thickness(0, 8, 0, 4) });
+        groupsPanel.Children.Add(new TextBlock { Text = "添加到组", FontSize = 12, Margin = new Thickness(0, 8, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         // 1 列纵向流：下拉/按钮各占一行（原横排）
         groupsPanel.Children.Add(_addGroupCombo);
         groupsPanel.Children.Add(addGrpBtn);
-        groupsPanel.Children.Add(new TextBlock { Text = "从组移除：", FontSize = 12, Margin = new Thickness(0, 8, 0, 4) });
+        groupsPanel.Children.Add(new TextBlock { Text = "从组移除：", FontSize = 12, Margin = new Thickness(0, 8, 0, 4) }.Live(TextBlock.ForegroundProperty, "BrushFog"));
         groupsPanel.Children.Add(_removeCombo);
         groupsPanel.Children.Add(removeBtn);
 
@@ -759,9 +844,9 @@ public sealed class UserEditDialog : Window
         });
 
         // 1 列纵向流：区块选择器纵向堆叠，正文区自上而下全展开、选中区块可见（原 TabControl 页签隐藏结构取消）
-        var rbProps = new RadioButton { Content = "属性", GroupName = "UserDetailTab", IsChecked = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 6) };
-        var rbGroups = new RadioButton { Content = "所属组", GroupName = "UserDetailTab", FontSize = 13, Margin = new Thickness(0, 0, 0, 6) };
-        var rbPerms = new RadioButton { Content = "共享权限", GroupName = "UserDetailTab", FontSize = 13 };
+        var rbProps = new RadioButton { Content = "属性", GroupName = "UserDetailTab", IsChecked = true, FontSize = 13, Margin = new Thickness(0, 0, 0, 6), Style = (Style?)TryFindResource("SegmentRadio") }; // v2.2.0：补样式
+        var rbGroups = new RadioButton { Content = "所属组", GroupName = "UserDetailTab", FontSize = 13, Margin = new Thickness(0, 0, 0, 6), Style = (Style?)TryFindResource("SegmentRadio") };
+        var rbPerms = new RadioButton { Content = "共享权限", GroupName = "UserDetailTab", FontSize = 13, Style = (Style?)TryFindResource("SegmentRadio") };
         void ApplySectionVisibility()
         {
             propsPanel.Visibility = rbProps.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
@@ -780,7 +865,13 @@ public sealed class UserEditDialog : Window
         root.Children.Add(propsPanel);
         root.Children.Add(groupsPanel);
         root.Children.Add(permsPanel);
-        Content = root;
+        // v2.2.0 第二轮：内容限高滚动（与新建用户/组管理同口径）
+        Content = new ScrollViewer
+        {
+            MaxHeight = 660,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = root,
+        };
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         ReloadGroupViews();
@@ -876,7 +967,7 @@ public sealed class UserEditDialog : Window
 
     void UpdateStrength()
     {
-        var s = PasswordGen.Evaluate(_newPwdBox.Text);
+        var s = PasswordGen.Evaluate(_newPwdBox.Password);
         _pwdStrength.Text = s switch
         {
             "weak" => "弱",

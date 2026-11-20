@@ -86,6 +86,10 @@ public record AppState
     public IReadOnlyList<string> pinned { get; init; }
     public AlertRules alertRules { get; init; }
     public bool autoStart { get; init; }
+    /// <summary>v2.2.0：任务栏图标显示（默认显示；关闭到托盘时可隐藏）。</summary>
+    public bool showInTaskbar { get; init; } = true;
+    /// <summary>v2.2.0：关闭按钮行为（true=最小化到托盘驻留；false=直接退出）。</summary>
+    public bool closeToTray { get; init; } = true;
     public IReadOnlyList<HistoryPoint> dashboardHistory { get; init; }
     public IReadOnlyList<JournalEntry> journal { get; init; }
     /// <summary>v2.1：高级设置（隐藏常量面板化）。</summary>
@@ -103,6 +107,10 @@ public record AppStatePatch
     public IReadOnlyList<string>? pinned { get; init; }
     public AlertRules? alertRules { get; init; }
     public bool? autoStart { get; init; }
+    /// <summary>v2.2.0：任务栏图标显示（null = 未提供不写入）。</summary>
+    public bool? showInTaskbar { get; init; }
+    /// <summary>v2.2.0：关闭按钮行为（null = 未提供不写入）。</summary>
+    public bool? closeToTray { get; init; }
     public IReadOnlyList<HistoryPoint>? dashboardHistory { get; init; }
     public IReadOnlyList<JournalEntry>? journal { get; init; }
     /// <summary>v2.1：高级设置（null = 未提供不写入；非 null 整体替换，normalize 逐字段收敛）。</summary>

@@ -47,7 +47,7 @@ public sealed class SecurityCardViewModel : SettingsCardBase
         }
         catch (Exception e)
         {
-            ReportError = $"体检失败：{e.Message}";
+            ReportError = $"体检失败：{Common.ErrorText.Brief(e)}";
         }
         finally
         {

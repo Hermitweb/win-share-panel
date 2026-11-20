@@ -39,4 +39,9 @@ public static class SharesServices
     public static IUserService? User { get; set; }
     public static IDiskService? Disk { get; set; }
     public static IProtocolService? Protocol { get; set; }
+    /// <summary>v2.2.0：创建共享后自动放行防火墙（组合根注入；缺席时创建后跳过自动放行）。</summary>
+    public static IFirewallService? Firewall { get; set; }
+
+    /// <summary>v2.2.0 第四轮：页面区可用宽（MainWindow SizeChanged 写入；共享页断点依据）。</summary>
+    public static double AvailableWidth { get; set; } = 1200;
 }

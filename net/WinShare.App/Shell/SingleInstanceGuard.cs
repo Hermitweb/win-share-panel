@@ -23,7 +23,9 @@ public sealed class SingleInstanceGuard : IDisposable
     CancellationTokenSource? _cts;
     bool _disposed;
 
-    /// <summary>二实例调用：尝试向首实例发激活消息（成功=true，首实例已激活）。</summary>
+    /// <summary>
+    /// 二实例调用：尝试向首实例发激活消息（成功=true，首实例已激活）。
+    /// </summary>
     public static bool TryActivateExistingInstance()
     {
         try
@@ -42,9 +44,29 @@ public sealed class SingleInstanceGuard : IDisposable
         }
     }
 
-    public SingleInstanceGuard(Action onSecondInstanceActivate)
+    /// <summary>
+    /// acquireWait 非 null 时（仅提权重启链路）：首获失败不立即判二实例，短窗重试——
+    /// 旧实例「放锁（AppShell.Quit）→ 进程退出」与新提权实例「启动 → 争锁」存在毫秒级竞态，
+    /// 6s 窗口覆盖 UAC 接受后的启动间隔；普通二实例仍走立即失败 + 激活消息。
+    /// </summary>
+    public SingleInstanceGuard(Action onSecondInstanceActivate, TimeSpan? acquireWait = null)
     {
         _mutex = new Mutex(true, MutexName, out var first);
+        if (!first && acquireWait is { } wait)
+        {
+            var deadline = DateTime.UtcNow + wait;
+            while (!first && DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    first = _mutex.WaitOne(TimeSpan.FromMilliseconds(150));
+                }
+                catch (AbandonedMutexException)
+                {
+                    first = true; // 旧实例异常退出弃锁 → 接管所有权
+                }
+            }
+        }
         if (!first)
         {
             _mutex.Dispose();

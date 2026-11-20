@@ -142,7 +142,7 @@ public class ShareDrawerVmTests
     public async Task Detail_SaveSmbPropsRequiresService()
     {
         var vm = new ShareDetailViewModel(TestShares.Smb("Docs"), shareService: null, null, null);
-        Assert.Equal("保存属性需要共享契约服务（未接入）", await vm.SaveSmbPropsAsync());
+        Assert.Equal("保存属性需要共享服务：请重启应用后重试；若持续出现请查看应用日志", await vm.SaveSmbPropsAsync());
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class ShareDrawerVmTests
         shareSvc.FailOn.Add("Docs");
         var vm = new ShareDetailViewModel(TestShares.Smb("Docs"), shareSvc, null, null);
         await vm.RefreshConnectionsAsync();
-        Assert.Equal("模拟失败", vm.ConnectionsError);
+        Assert.Equal("读取连接失败：模拟失败", vm.ConnectionsError); // v2.2.0：ErrorText 人话化
     }
 
     [Fact]
@@ -216,7 +216,7 @@ public class ShareDrawerVmTests
     {
         var vm = new SharePermissionsViewModel(TestShares.Smb("Docs"), null, null, new FakeSharesFeed());
         vm.AddRow("alice", AccountType.User, "Full");
-        Assert.Equal("权限保存需要用户契约服务（未接入）", await vm.SaveAsync());
+        Assert.Equal("功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志", await vm.SaveAsync());
     }
 
     [Fact]

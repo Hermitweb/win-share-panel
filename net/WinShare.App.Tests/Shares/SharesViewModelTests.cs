@@ -131,7 +131,8 @@ public class SharesViewModelTests
         _vm.SetSelection(new[] { "smb:Docs", "smb:Music" });
         _share.FailOn.Add("Music"); // 第二个失败
         var msg = await _vm.ExecuteBatchDeleteAsync();
-        Assert.Equal("1 个成功，1 个失败", msg);
+        // v2.2.0：批量失败带逐条原因（前 3 条）
+        Assert.Equal("1 个成功，1 个失败：smb:Music：模拟失败", msg);
         Assert.True(_vm.StatusIsWarning);
         Assert.Single(_share.Deleted);
     }
@@ -160,7 +161,8 @@ public class SharesViewModelTests
         await _vm.LoadAsync();
         _vm.SetSelection(new[] { "smb:Docs", "smb:Ghost" }); // Ghost 不在列表
         var msg = await _vm.ExecuteBatchToggleAsync();
-        Assert.Equal("1 个成功，1 个失败", msg);
+        // v2.2.0：批量失败带逐条原因
+        Assert.Equal("1 个成功，1 个失败：smb:Ghost：not found", msg);
         var toggled = _share.Toggled.Single();
         Assert.Equal("Docs", toggled.name);
         Assert.False(toggled.enabled); // 原 Enabled → 切换到禁用
@@ -223,8 +225,9 @@ public class SharesViewModelTests
         MakeVm();
         _importText = "{oops";
         var msg = await _vm.ImportConfigAsync();
-        Assert.Equal("导入文件格式错误：JSON 解析失败", msg);
-        Assert.Equal("导入文件格式错误：JSON 解析失败", _vm.StatusMsg);
+        // v2.2.0：护栏文案仍精确，外层统一带动作前缀（ErrorText）
+        Assert.Equal("导入配置失败：导入文件格式错误：JSON 解析失败", msg);
+        Assert.Equal("导入配置失败：导入文件格式错误：JSON 解析失败", _vm.StatusMsg);
         Assert.True(_vm.StatusIsWarning);
     }
 
@@ -314,7 +317,7 @@ public class SharesViewModelTests
         form.Protocol = "nfs"; // 无协议路由 + 非 SMB → 降级路径
         form.Name = "n"; form.Path = @"E:\n";
         var msg = await _vm.CreateShareAsync();
-        Assert.Equal("创建共享需要契约服务（未接入）", msg);
+        Assert.Equal("功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志", msg);
         Assert.Equal(0, _share.Created.Count);
     }
 
@@ -433,5 +436,30 @@ public class SharesViewModelTests
         var perm = _vm.MakePermissionVm(share);
         Assert.Same(share, perm.Share);
     }
-}
+    // ===== v2.2.0 第二轮：零共享空态（引导新建） =====
 
+    [Fact]
+    public async Task ShowEmptyNoShares_ZeroRows_AllTab_NoFilter_True()
+    {
+        _feed = new FakeSharesFeed { Shares = new List<Share>() }; // 空共享
+        _vm = new SharesViewModel(
+            _feed, new AppSettingsStore(_stateDir), new AppEventBus(),
+            _share, _preset, protocolService: null, systemService: null, _user, _disk,
+            async (_, _) => { }, () => Task.FromResult(_importPickerReturnsNull ? (string?)null : _importText));
+        await _vm.LoadAsync();
+        Assert.Empty(_vm.Rows);
+        Assert.True(_vm.ShowEmptyNoShares);
+    }
+
+    [Fact]
+    public async Task ShowEmptyNoShares_WithRows_OrFiltered_OrProtocolTab_False()
+    {
+        MakeVm();
+        await _vm.LoadAsync();
+        Assert.False(_vm.ShowEmptyNoShares); // 有共享
+
+        _vm.Keyword = "Docs"; // setter 内部已重算行集合
+        Assert.Single(_vm.Rows);
+        Assert.False(_vm.ShowEmptyNoShares); // 关键字筛选语境不引导
+    }
+}

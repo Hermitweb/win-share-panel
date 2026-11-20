@@ -23,9 +23,8 @@
             <!-- 页头（对齐 Shares.tsx header：标题 + 快捷键提示 + 工具按钮组；标题统一 PageTitle + Nav.* 键） -->
             <DockPanel Grid.Row="0" Margin="0,0,0,16" LastChildFill="False">
                 <StackPanel DockPanel.Dock="Left" VerticalAlignment="Top">
-                    <TextBlock Text="{DynamicResource Nav.Share}" Style="{DynamicResource PageTitle}" />
-                    <TextBlock FontSize="12" Foreground="{DynamicResource BrushFog}" Margin="0,4,0,0"
-                               Text="提示：拖拽文件夹到本页可快速创建共享 · Ctrl+N 新建 · Del 批量删除 · Space 批量启停 · F5 刷新" />
+                    <TextBlock Text="{DynamicResource Nav.Share}" Style="{DynamicResource PageTitle}"
+                               ToolTip="快捷键：Ctrl+N 新建 · Del 删除 · Space 启停 · F5 刷新" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="导出" Style="{DynamicResource DashButton}" Click="OnExport" Margin="8,0,0,0" />
@@ -75,8 +74,15 @@
             <!-- 搜索 / 只看有人连接 / 批量工具栏（对齐 Electron 横向工具行） -->
             <DockPanel Grid.Row="3" Margin="0,0,0,8" LastChildFill="False">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBox x:Name="TxtSearch" Width="320" Style="{DynamicResource InputBoxSoft}"
-                             TextChanged="OnSearchChanged" />
+                    <!-- 占位提示必须后声明（画在输入框之上）：此前先声明被不透明输入框背景完全遮住 -->
+                    <Grid>
+                        <TextBox x:Name="TxtSearch" Width="320" Style="{DynamicResource InputBoxSoft}"
+                                 AutomationProperties.Name="搜索共享（按名称、路径、描述过滤）"
+                                 TextChanged="OnSearchChanged" />
+                        <TextBlock x:Name="SearchHint" Text="搜索名称、路径、描述…" FontSize="{DynamicResource FontSizeBody}"
+                                   Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushFog}" IsHitTestVisible="False" />
+                    </Grid>
                     <CheckBox x:Name="ChkOnlyConnected" Content="只看有人连接" Style="{DynamicResource CheckBoxSoft}"
                              
                               Checked="OnOnlyConnected" Unchecked="OnOnlyConnected"
@@ -84,7 +90,7 @@
                 </StackPanel>
                 <StackPanel x:Name="BatchBar" DockPanel.Dock="Right" Orientation="Horizontal"
                             VerticalAlignment="Center" Visibility="Collapsed">
-                    <TextBlock x:Name="TxtSelectedCount" Text="已选 0" FontSize="12"
+                    <TextBlock x:Name="TxtSelectedCount" Text="已选 0" FontSize="{DynamicResource FontSizeSecondary}"
                                Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
                     <Button Content="清空" Style="{DynamicResource RowActionButton}" Click="OnClearSelection"
                             Margin="8,0,0,0" />
@@ -98,30 +104,39 @@
             <!-- 共享列表（TS Table；DataGrid 多选 = rowSelection） -->
             <Border Grid.Row="4" Style="{DynamicResource CardStyle}">
                 <Grid>
-                    <DataGrid x:Name="Grid" Style="{DynamicResource SoftDataGrid}"
+                    <!-- v2.2.0 第五批：显式单列 * —— 否则内层 Grid 按内容自动撑宽，
+                         DataGrid 被撑到超出卡片右边界（末列「删除」被裁掉） -->
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />  <!-- 加载骨架（仅加载中可见） -->
+                        <RowDefinition Height="*" />   <!-- 表格 / 空态 -->
+                    </Grid.RowDefinitions>
+                    <DataGrid x:Name="Grid" Style="{DynamicResource SoftDataGrid}" Grid.Row="1"
                               AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                               RowHeaderWidth="0" SelectionMode="Extended"
-                              SelectionUnit="FullRow" FontSize="13"
+                              SelectionUnit="FullRow" FontSize="{DynamicResource FontSizeBody}"
                               SelectionChanged="OnSelectionChanged"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
                         <DataGrid.Columns>
                             <!-- 协议（仅「全部」Tab；TS activeProtocol==='all' 才渲染） -->
-                            <DataGridTemplateColumn Header="协议" Width="80"
-                                                    Visibility="{Binding ShowProtocolColumn, Converter={StaticResource BoolVis}}">
+                            <DataGridTemplateColumn x:Name="ColProtocol" Header="协议" Width="78" MinWidth="78">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Border Background="{DynamicResource BrushInfoFg}" CornerRadius="{DynamicResource RadiusTag}" Padding="8,1"
-                                                HorizontalAlignment="Left">
-                                            <TextBlock Text="{Binding ProtocolTagText}" Foreground="White" FontSize="12" />
+                                        <Border Background="{DynamicResource BrushInfoFg}" CornerRadius="{DynamicResource RadiusTag}" Padding="9,1"
+                                                HorizontalAlignment="Left" MinWidth="44">
+                                            <TextBlock Text="{Binding ProtocolTagText}" Foreground="White" FontSize="{DynamicResource FontSizeSecondary}"
+                                                       TextTrimming="None" />
                                         </Border>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
                             <!-- 名称：置顶星标 + 名称 + 磁盘水位标（TS name 列 render） -->
-                            <DataGridTemplateColumn Header="名称" Width="240">
+                            <DataGridTemplateColumn x:Name="ColName" Header="名称" Width="*" MinWidth="120">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
@@ -136,47 +151,38 @@
                                                     Visibility="{Binding WaterTagText, Converter={StaticResource TextVis}}"
                                                     Background="{DynamicResource BrushWarnBg}"
                                                     ToolTip="{Binding WaterTip}">
-                                                <TextBlock Text="{Binding WaterTagText}" FontSize="11" Foreground="{DynamicResource BrushWarnFg}" />
+                                                <TextBlock Text="{Binding WaterTagText}" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource BrushWarnFg}" />
                                             </Border>
                                         </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTextColumn Header="路径" Binding="{Binding PathText}" Width="180" />
-                            <DataGridTextColumn Header="描述" Binding="{Binding DescriptionText}" Width="120" />
+                            <DataGridTextColumn x:Name="ColPath" Header="路径" Binding="{Binding PathText}" Width="*" MinWidth="100" />
+                            <DataGridTextColumn x:Name="ColDesc" Header="描述" Binding="{Binding DescriptionText}" Width="*" MinWidth="80" />
 
                             <!-- FTP 专有列（TS activeProtocol==='ftp'） -->
-                            <DataGridTextColumn Header="端口" Binding="{Binding FtpPortText}" Width="70"
-                                                Visibility="{Binding ShowFtpColumns, Converter={StaticResource BoolVis}}" />
-                            <DataGridTextColumn Header="SSL" Binding="{Binding FtpSslText}" Width="130"
-                                                Visibility="{Binding ShowFtpColumns, Converter={StaticResource BoolVis}}" />
-                            <DataGridTextColumn Header="认证" Binding="{Binding FtpAuthText}" Width="90"
-                                                Visibility="{Binding ShowFtpColumns, Converter={StaticResource BoolVis}}" />
+                            <DataGridTextColumn x:Name="ColFtpPort" Header="FTP 端口" Binding="{Binding FtpPortText}" Width="86" />
+                            <DataGridTextColumn x:Name="ColFtpSsl" Header="FTP SSL" Binding="{Binding FtpSslText}" Width="96" />
+                            <DataGridTextColumn x:Name="ColFtpAuth" Header="FTP 认证" Binding="{Binding FtpAuthText}" Width="96" />
 
                             <!-- NFS 专有列（TS activeProtocol 为 all/nfs） -->
-                            <DataGridTextColumn Header="认证" Binding="{Binding NfsAuthText}" Width="100"
-                                                Visibility="{Binding ShowNfsColumns, Converter={StaticResource BoolVis}}" />
-                            <DataGridTextColumn Header="NFS权限" Binding="{Binding NfsPermText}" Width="90"
-                                                Visibility="{Binding ShowNfsColumns, Converter={StaticResource BoolVis}}" />
+                            <DataGridTextColumn x:Name="ColNfsAuth" Header="NFS 认证" Binding="{Binding NfsAuthText}" Width="96" />
+                            <DataGridTextColumn x:Name="ColNfsPerm" Header="NFS 权限" Binding="{Binding NfsPermText}" Width="88" />
 
                             <!-- WebDAV 专有列（TS activeProtocol==='webdav'） -->
-                            <DataGridTextColumn Header="端口" Binding="{Binding WebdavPortText}" Width="70"
-                                                Visibility="{Binding ShowWebdavColumns, Converter={StaticResource BoolVis}}" />
-                            <DataGridTextColumn Header="匿名" Binding="{Binding WebdavAnonText}" Width="70"
-                                                Visibility="{Binding ShowWebdavColumns, Converter={StaticResource BoolVis}}" />
-                            <DataGridTextColumn Header="作者" Binding="{Binding WebdavAuthoringText}" Width="70"
-                                                Visibility="{Binding ShowWebdavColumns, Converter={StaticResource BoolVis}}" />
+                            <DataGridTextColumn x:Name="ColWebdavPort" Header="WebDAV 端口" Binding="{Binding WebdavPortText}" Width="104" />
+                            <DataGridTextColumn x:Name="ColWebdavAnon" Header="WebDAV 匿名" Binding="{Binding WebdavAnonText}" Width="104" />
+                            <DataGridTextColumn x:Name="ColWebdavAuthor" Header="WebDAV 授权" Binding="{Binding WebdavAuthoringText}" Width="104" />
 
                             <!-- 加密（TS all/smb 且仅 SMB 行打"是"） -->
-                            <DataGridTextColumn Header="加密" Binding="{Binding EncryptedText}" Width="70"
-                                                Visibility="{Binding ShowEncryptedColumn, Converter={StaticResource BoolVis}}" />
+                            <DataGridTextColumn x:Name="ColEncrypted" Header="SMB 加密" Binding="{Binding EncryptedText}" Width="88" />
 
-                            <DataGridTextColumn Header="连接数" Binding="{Binding ConcurrentUsers}" Width="80" />
-                            <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="80" />
+                            <DataGridTextColumn x:Name="ColConn" Header="连接数" Binding="{Binding ConcurrentUsers}" Width="72" MinWidth="72" />
+                            <DataGridTextColumn x:Name="ColStatus" Header="状态" Binding="{Binding StatusText}" Width="72" MinWidth="72" />
 
                             <!-- 行内操作（TS actions 列：详情/启停/编辑/权限/删除，能力位门控） -->
-                            <DataGridTemplateColumn Header="操作" Width="280">
+                            <DataGridTemplateColumn x:Name="ColActions" Header="操作" Width="Auto" MinWidth="216">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
@@ -200,11 +206,11 @@
                     </DataGrid>
 
                     <!-- 未安装协议空态（TS Empty + 一键安装） -->
-                    <Grid x:Name="EmptyUninstalled" Visibility="Collapsed">
+                    <Grid x:Name="EmptyUninstalled" Grid.Row="1" Visibility="Collapsed">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock x:Name="EmptyTitle" FontSize="16" FontWeight="SemiBold"
+                            <TextBlock x:Name="EmptyTitle" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"
                                        HorizontalAlignment="Center" />
-                            <TextBlock x:Name="EmptyHint" FontSize="13" Foreground="{DynamicResource BrushFog}"
+                            <TextBlock x:Name="EmptyHint" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource BrushFog}"
                                        HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="420"
                                        Margin="0,8,0,8" TextAlignment="Center" />
                             <StackPanel x:Name="EmptyBadges" HorizontalAlignment="Center"
@@ -214,17 +220,52 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- 列表加载中遮罩（TS Table loading） -->
-                    <TextBlock x:Name="LoadingTip" Text="加载共享中…" FontSize="13"
-                               Foreground="{DynamicResource BrushFog}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Background="{DynamicResource BrushCard}"
-                               Padding="12,6" Visibility="Collapsed" />
+                    <!-- 零共享空态（v2.2.0 第二轮：引导新建——此前只有一张空白表格） -->
+                    <Grid x:Name="EmptyNoShares" Grid.Row="1" Visibility="Collapsed">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="还没有共享" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource BrushText}" />
+                            <TextBlock Text="点击下方「新建共享」，或直接把文件夹拖到本页——三步建好第一个共享。"
+                                       FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource BrushFog}"
+                                       HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="420"
+                                       Margin="0,8,0,12" TextAlignment="Center" />
+                            <Button Content="新建共享" Style="{DynamicResource DashButton}"
+                                    HorizontalAlignment="Center" Click="OnCreate" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 加载骨架（v2.2.0 第五批：探测常需 10s 以上，此前只有一张空白表 +
+                         一枚孤立 chip，界面像坏了。改为骨架行 + 可读进度） -->
+                    <StackPanel x:Name="LoadingSkeleton" Grid.Row="0" Visibility="Collapsed" Margin="0,4,0,12">
+                        <TextBlock x:Name="LoadingProgress" Text="正在探测 SMB / NFS / FTP / WebDAV…"
+                                   FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource BrushFog}"
+                                   Margin="0,0,0,12" />
+                        <StackPanel x:Name="SkeletonRows" />
+                    </StackPanel>
                 </Grid>
             </Border>
 
+            <!-- 拖拽悬停浮层（v2.2.0 第五批：拖拽能力改为「触发时出现」的反馈，
+                 不再在标题下常驻一句说明） -->
+            <Border x:Name="DropHint" Grid.Row="0" Grid.RowSpan="6" Visibility="Collapsed"
+                    Background="{DynamicResource BrushOverlayScrim}" BorderBrush="{DynamicResource BrushPrimary}"
+                    BorderThickness="2" CornerRadius="16" AllowDrop="True"
+                    DragLeave="OnDragLeave" DragOver="OnDragOver" Drop="OnDrop">
+                <Border Background="{DynamicResource BrushCard}" CornerRadius="16"
+                        Padding="28,20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="⤓" FontSize="34" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource BrushPrimary}" />
+                        <TextBlock Text="松开以创建共享" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Margin="0,8,0,0"
+                                   Foreground="{DynamicResource BrushText}" />
+                    </StackPanel>
+                </Border>
+            </Border>
+
             <!-- 状态提示（TS message.success/warning 的页面内等价面） -->
-            <TextBlock x:Name="StatusTip" Grid.Row="5" FontSize="12" Margin="0,8,0,0"
+            <TextBlock x:Name="StatusTip" Grid.Row="5" FontSize="{DynamicResource FontSizeSecondary}" Margin="0,8,0,0"
                        Foreground="{DynamicResource BrushFog}" TextWrapping="Wrap"
                        Visibility="Collapsed" />
 

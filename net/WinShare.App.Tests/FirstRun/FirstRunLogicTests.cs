@@ -130,4 +130,24 @@ public class FirstRunLogicTests
         if (instEx is not null) throw instEx;
         Assert.NotNull(instance);
     }
+// ===== v2.2.0：「以后再说」写一次性完成标记（MarkComplete），下次启动不再打扰 =====
+
+[Fact]
+public void MarkComplete_FlagStorePersists_AndSuppressesGuide()
+{
+    var flagFile = System.IO.Path.Combine(AppContext.BaseDirectory, "ws-firstrun-" + System.Guid.NewGuid().ToString("N") + ".flag"); // 测试 bin 目录可写（Temp 有 ACL 拒绝，见 AppSettingsStoreTests）
+    try
+    {
+        var store = new FirstRunFlagStore(flagFile); // pathOverride = 文件路径
+        Assert.Null(store.Read()); // 未标记
+        Assert.True(FirstRunLogic.ShouldShowGuide(Array.Empty<Share>(), advancedMode: false, store.Read()));
+        Assert.True(store.MarkComplete());
+        Assert.Equal(FirstRunLogic.DoneValue, store.Read());
+        Assert.False(FirstRunLogic.ShouldShowGuide(Array.Empty<Share>(), advancedMode: false, store.Read()));
+    }
+    finally
+    {
+        try { System.IO.File.Delete(flagFile); } catch { }
+    }
+}
 }

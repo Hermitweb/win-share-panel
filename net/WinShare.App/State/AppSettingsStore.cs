@@ -297,10 +297,12 @@ public sealed class AppSettingsStore
         return new AppState
         {
             theme = theme == "dark" ? ThemeMode.Dark : ThemeMode.Light,
-            advancedMode = GetBool("advancedMode", true),
+            advancedMode = GetBool("advancedMode", false), // v2.2.0：新装默认新手模式（向导可达）
             pinned = pinned,
             alertRules = alert,
             autoStart = GetBool("autoStart", false),
+            showInTaskbar = GetBool("showInTaskbar", true),
+            closeToTray = GetBool("closeToTray", true),
             dashboardHistory = history,
             journal = journal,
             advanced = advanced,
@@ -329,10 +331,12 @@ public sealed class AppSettingsStore
         var d = new AppState
         {
             theme = ThemeMode.Light,
-            advancedMode = true,
+            advancedMode = false, // v2.2.0：新装默认新手模式（与 Core Defaults 对齐）
             pinned = Array.Empty<string>(),
             alertRules = new AlertRules { idleAlertMinutes = null, smb1Alert = true, weakPasswordAlert = true, diskLowGb = 20 },
             autoStart = false,
+            showInTaskbar = true,
+            closeToTray = true,
             dashboardHistory = Array.Empty<HistoryPoint>(),
             journal = Array.Empty<JournalEntry>(),
         };
@@ -350,6 +354,8 @@ public sealed class AppSettingsStore
                 diskLowGb = r.diskLowGb >= 0 ? r.diskLowGb : 20,
             } : d.alertRules,
             autoStart = raw.autoStart,
+            showInTaskbar = raw.showInTaskbar,
+            closeToTray = raw.closeToTray,
             dashboardHistory = raw.dashboardHistory?.Where(p => p is { ts: > 0 }).TakeLast(HistoryMax).ToList()
                 ?? d.dashboardHistory,
             journal = raw.journal?.Where(j => !string.IsNullOrEmpty(j.id)).TakeLast(JournalMax).ToList()
@@ -374,6 +380,8 @@ public sealed class AppSettingsStore
             pinned = patch.pinned ?? prev.pinned,
             alertRules = mergedAlert,
             autoStart = patch.autoStart ?? prev.autoStart,
+            showInTaskbar = patch.showInTaskbar ?? prev.showInTaskbar,
+            closeToTray = patch.closeToTray ?? prev.closeToTray,
             dashboardHistory = patch.dashboardHistory ?? prev.dashboardHistory,
             journal = patch.journal ?? prev.journal,
             advanced = patch.advanced ?? prev.advanced,
@@ -393,6 +401,8 @@ public sealed class AppSettingsStore
                 pinned = state.pinned,
                 alertRules = state.alertRules,
                 autoStart = state.autoStart,
+                showInTaskbar = state.showInTaskbar, // v2.2.0：窗口行为落盘（此前漏拷导致设置卡写入后读回恒为默认值）
+                closeToTray = state.closeToTray,
                 dashboardHistory = state.dashboardHistory,
                 journal = state.journal,
                 advanced = state.advanced, // v2.1：高级设置落盘（显式拷贝，防默认值静默覆盖）

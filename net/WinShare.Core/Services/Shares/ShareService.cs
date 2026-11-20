@@ -87,7 +87,12 @@ public sealed class ShareService : IShareService
     public async Task<IReadOnlyList<Share>> ListSharesAsync()
     {
         JsonElement raw = await _ps.RunJsonAsync("Get-SmbShare", 15000, 0);
-        return Enumerate(raw).Select(MapShare).ToList();
+        // IPC$/管理型共享（Special/IPC）不进业务列表：此前泄漏到 UI（可打开「编辑共享」窗改系统共享），
+        // 且占位导致首启向导判定（shares.Count == 0）永不成立——新手永远看不到向导。
+        // 对齐本文件快照序列化处已有的 Special/IPC 排除语义。
+        return Enumerate(raw).Select(MapShare)
+            .Where(s => s.type != ShareType.Special && s.type != ShareType.IPC)
+            .ToList();
     }
 
     /// <summary>TS: getShare(name)。</summary>

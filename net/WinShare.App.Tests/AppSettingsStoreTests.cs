@@ -1,6 +1,7 @@
 using System.IO;
 using WinShare.App.State;
 using WinShare.Core.Contracts;
+using System.Linq;
 
 namespace WinShare.App.Tests;
 
@@ -28,7 +29,7 @@ public class AppSettingsStoreTests : IDisposable
         var s = store.Load();
 
         Assert.Equal(ThemeMode.Light, s.theme);
-        Assert.True(s.advancedMode);
+        Assert.False(s.advancedMode); // v2.2.0：新装默认新手模式（首启向导可达）
         Assert.Empty(s.pinned);
         Assert.Null(s.alertRules.idleAlertMinutes);
         Assert.True(s.alertRules.smb1Alert);
@@ -40,11 +41,30 @@ public class AppSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_PersistedAdvancedModeTrue_Preserved()
+    {
+        var dir = Path.Combine(_dir, "persisted-adv");
+        new AppSettingsStore(dir).SaveState(new AppStatePatch { advancedMode = true });
+        Assert.True(new AppSettingsStore(dir).Load().advancedMode);
+    }
+
+    // [v2.2.0] 窗口行为键持久化（false 写入后保留）
+    [Fact]
+    public void Load_PersistedWindowBehavior_Preserved()
+    {
+        var dir = Path.Combine(_dir, "persisted-win");
+        new AppSettingsStore(dir).SaveState(new AppStatePatch { showInTaskbar = false, closeToTray = false });
+        var s2 = new AppSettingsStore(dir).Load();
+        Assert.False(s2.showInTaskbar);
+        Assert.False(s2.closeToTray);
+    }
+
+    [Fact]
     public void Normalize_MalformedJson_ReturnsDefaults()
     {
         var s = AppSettingsStore.NormalizeFromJson("not json at all");
         Assert.Equal(ThemeMode.Light, s.theme);
-        Assert.True(s.advancedMode);
+        Assert.False(s.advancedMode); // v2.2.0：新装默认新手模式
         Assert.Empty(s.journal);
     }
 

@@ -17,28 +17,31 @@
     <!-- ===== 背景 / 文字（规范 2.1） ===== -->
     <Color x:Key="ColorBg">#FFFFFF</Color>
     <Color x:Key="ColorBgMist">#F4FAFD</Color>
+    <Color x:Key="ColorInputBg">#EAF3FA</Color> <!-- v2.2.0 第三轮：输入框底（比卡底灰一档） -->
     <Color x:Key="ColorCard">#FFFFFF</Color>
     <Color x:Key="ColorText">#3A4A5C</Color>
-    <Color x:Key="ColorFog">#8AA0B0</Color>
+    <Color x:Key="ColorFog">#5E7488</Color> <!-- v2.2.0：提亮至 AA 4.5:1+（白底小字） -->
     <Color x:Key="ColorBorder">#E3EEF6</Color>
+    <Color x:Key="ColorCheckBoxBorder">#A8C8DE</Color> <!-- v2.2.1 取证轮：18px 未勾选框在 #F4FAFD 卡底上 BrushBorder(≈1.05:1) 不可见，专用加深边框 -->
     <Color x:Key="ColorChartBg">#F4FAFD</Color>
 
     <!-- ===== 语义色（沿用可读性，降饱和以贴合浅蓝调）===== -->
-    <Color x:Key="ColorSuccess">#7BC8A4</Color>
+    <Color x:Key="ColorSuccess">#2E7D54</Color> <!-- v2.2.0 第三轮：文字用对比达 AA（白底 4.6:1） -->
     <Color x:Key="ColorWarning">#F0C27B</Color>
-    <Color x:Key="ColorDanger">#F0A8A8</Color>
+    <Color x:Key="ColorDanger">#D9363E</Color> <!-- v2.2.0 第三轮：文字用对比达 AA（白底 4.6:1） -->
 
     <!-- ===== 语义扩展（信息/警示标签与危险文本；浅色值 = 原硬编码视觉，深色字典给正确值） ===== -->
     <Color x:Key="ColorInfoBg">#E6F4FF</Color>
     <Color x:Key="ColorInfoFg">#1677FF</Color>
     <Color x:Key="ColorWarnBg">#FFFBE6</Color>
-    <Color x:Key="ColorWarnFg">#AD6800</Color>
+    <Color x:Key="ColorWarnFg">#8F5400</Color> <!-- v2.2.0 第三轮：微调至 AA（白底 5.0:1） -->
     <Color x:Key="ColorWarnDot">#FAAD14</Color>
     <Color x:Key="ColorDangerStrong">#FF4D4F</Color>
     <Color x:Key="ColorDangerDeep">#A8071A</Color>
 
     <SolidColorBrush x:Key="BrushBg" Color="{StaticResource ColorBg}" />
     <SolidColorBrush x:Key="BrushBgMist" Color="{StaticResource ColorBgMist}" />
+    <SolidColorBrush x:Key="BrushInputBg" Color="{StaticResource ColorInputBg}" />
     <SolidColorBrush x:Key="BrushCard" Color="{StaticResource ColorCard}" />
     <SolidColorBrush x:Key="BrushText" Color="{StaticResource ColorText}" />
     <SolidColorBrush x:Key="BrushFog" Color="{StaticResource ColorFog}" />
@@ -50,6 +53,10 @@
     <SolidColorBrush x:Key="BrushWarning" Color="{StaticResource ColorWarning}" />
     <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
     <SolidColorBrush x:Key="BrushBorder" Color="{StaticResource ColorBorder}" />
+    <SolidColorBrush x:Key="BrushCheckBoxBorder" Color="{StaticResource ColorCheckBoxBorder}" /> <!-- v2.2.1：未勾选框可辨（同 BrushInputBorder 修复思路） -->
+    <!-- v2.2.0 第五批：输入框边框对比 1.69:1 → 3.59:1（WCAG 1.4.11 非文本对比 ≥3:1；
+         原 #B9C9DA 与白底几乎不可辨，浅色主题下"没有输入框"） -->
+    <SolidColorBrush x:Key="BrushInputBorder" Color="#6E8AA6" />
     <SolidColorBrush x:Key="BrushChartBg" Color="{StaticResource ColorChartBg}" />
     <SolidColorBrush x:Key="BrushInfoBg" Color="{StaticResource ColorInfoBg}" />
     <SolidColorBrush x:Key="BrushInfoFg" Color="{StaticResource ColorInfoFg}" />
@@ -66,9 +73,11 @@
     <SolidColorBrush x:Key="BrushGlassStrong" Color="#FFFFFF" Opacity="0.82" />
     <SolidColorBrush x:Key="BrushGlassStroke" Color="#FFFFFF" Opacity="0.6" />
     <LinearGradientBrush x:Key="BrushBrandGradient" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#A8DCF5" Offset="0" />
-        <GradientStop Color="#C8B6E2" Offset="0.55" />
-        <GradientStop Color="#F5C6C6" Offset="1" />
+        <!-- v2.2.1 取证轮：原 #A8DCF5/#C8B6E2/#F5C6C6 与白字仅 ≈1.35:1（主按钮「创建/保存」字几乎不可辨），
+             加深至全渐变段 ≥3:1（对齐深色主题的饱和度，色相不变） -->
+        <GradientStop Color="#2E9BDB" Offset="0" />
+        <GradientStop Color="#8B76C2" Offset="0.55" />
+        <GradientStop Color="#C97979" Offset="1" />
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="BrushSoftGradient" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="#E8F4FB" Offset="0" />

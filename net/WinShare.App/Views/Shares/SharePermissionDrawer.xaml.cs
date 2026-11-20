@@ -44,7 +44,17 @@ public partial class SharePermissionDrawer : UserControl
         if (_vm is not { } vm) return;
         RowsGrid.ItemsSource = vm.Rows;
         CandTip.Text = vm.CandidatesTip;
+        // v2.2.0：「添加账号」下拉候选（本地用户+组）；不变不重置，避免输入中清空
+        var options = vm.Candidates;
+        if (!ReferenceEquals(TxtNewAccount.Tag, options))
+        {
+            TxtNewAccount.ItemsSource = options;
+            TxtNewAccount.Tag = options;
+        }
     }
+
+    /// <summary>v2.2.0：共享页遮罩关闭前读取——有未保存修改时先确认（防误触丢改动）。</summary>
+    public bool IsDirty => _vm?.IsDirty ?? false;
 
     // 1 列纵向流：区块选择器驱动内容区显隐（原 TabControl SelectedIndex 的等价面）
     void OnTabChanged(object sender, RoutedEventArgs e)
@@ -52,6 +62,12 @@ public partial class SharePermissionDrawer : UserControl
         if (RbShare is null || RbNtfs is null || SecShare is null || SecNtfs is null) return;
         SecShare.Visibility = RbShare.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         SecNtfs.Visibility = RbNtfs.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        // v2.2.0 第二轮：切到 NTFS 页签自动加载 ACL（首次 ItemsSource 为空时触发；
+        // 此前必须手动点「加载」——多一步、且空态文案才提示要点按钮）
+        if (RbNtfs.IsChecked == true && NtfsGrid.ItemsSource is null && _vm is not null)
+        {
+            _ = LoadNtfsIntoViewAsync();
+        }
     }
 
     void OnReload(object sender, RoutedEventArgs e) => _ = _vm?.LoadAsync();
@@ -65,8 +81,7 @@ public partial class SharePermissionDrawer : UserControl
         var access = (CmbNewAccess.SelectedItem as ComboBoxItem)?.Tag as string ?? "Read";
         var msg = vm.AddRow(TxtNewAccount.Text, type, access);
         TxtNewAccount.Text = "";
-        RowMsg.Text = msg;
-        RowMsg.Visibility = string.IsNullOrEmpty(msg) ? Visibility.Collapsed : Visibility.Visible;
+        ShowResultMsg(RowMsg, msg);
         if (string.IsNullOrEmpty(msg)) RefreshDynamicVm();
     }
 
@@ -87,21 +102,44 @@ public partial class SharePermissionDrawer : UserControl
         var res = MessageBox.Show("确认覆盖当前权限？", "保存权限",
             MessageBoxButton.OKCancel, MessageBoxImage.Question);
         if (res != MessageBoxResult.OK) return;
-        SaveMsg.Text = await vm.SaveAsync();
+        string msg = await vm.SaveAsync();
+        ShowResultMsg(SaveMsg, msg, fallbackBrush: (System.Windows.Media.Brush?)TryFindResource("BrushFog"));
+        if (msg.Length > 0 && !msg.Contains("失败") && !msg.StartsWith("请"))
+        {
+            Shell.ToastHost.Show(Shell.ToastLevel.Success, $"{DrawerTitle.Text.Split('：')[0]}：{msg}");
+        }
         RefreshDynamicVm();
     }
 
-    /// <summary>TS loadNtfs：点了加载才读的只读 ACL（事件路径，与打开路径分离）。</summary>
-    async void OnLoadNtfs(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// v2.2.0：结果文案三态着色（此前成功/失败同为灰字——「已保存」和异常长得一模一样）。
+    /// 规则：含「失败」或以「请」开头 = 错误（红）；「已」开头 = 成功（绿）；其余 = 中性（fallback）。
+    /// </summary>
+    void ShowResultMsg(System.Windows.Controls.TextBlock target, string msg, System.Windows.Media.Brush? fallbackBrush = null)
+    {
+        target.Text = msg;
+        target.Visibility = string.IsNullOrEmpty(msg) ? Visibility.Collapsed : Visibility.Visible;
+        if (string.IsNullOrEmpty(msg)) return;
+        string? key = msg.Contains("失败") || msg.StartsWith("请") ? "BrushDangerStrong"
+            : msg.StartsWith("已") ? "BrushSuccess"
+            : null;
+        target.Foreground = (key is not null ? TryFindResource(key) as System.Windows.Media.Brush : null)
+            ?? fallbackBrush ?? target.Foreground;
+    }
+
+    /// <summary>TS loadNtfs：ACL 读取（自动加载与「重新加载」按钮共用）。</summary>
+    async Task LoadNtfsIntoViewAsync()
     {
         if (_vm is not { } vm) return;
         var msg = await vm.LoadNtfsAsync();
         NtfsGrid.ItemsSource = vm.Ntfs?.entries.ToList();
         var has = vm.Ntfs?.entries is { Count: > 0 };
         NtfsEmpty.Visibility = has ? Visibility.Collapsed : Visibility.Visible;
-        NtfsEmpty.Text = msg.Length > 0 ? msg : "点击「加载」查看 NTFS ACL";
+        NtfsEmpty.Text = msg.Length > 0 ? msg : "暂无 ACL 条目";
         if (_vm is not null) FillNtfsAccountBox();
     }
+
+    async void OnLoadNtfs(object sender, RoutedEventArgs e) => await LoadNtfsIntoViewAsync();
 
     // ===== NTFS ACL 编辑（v2.1 面板解锁：icacls 通道；结果写 NtfsMsg 并重读网格） =====
 
@@ -173,7 +211,6 @@ public partial class SharePermissionDrawer : UserControl
     void ShowNtfsMsg(string msg)
     {
         if (string.IsNullOrEmpty(msg)) { NtfsMsg.Visibility = Visibility.Collapsed; return; }
-        NtfsMsg.Text = msg;
-        NtfsMsg.Visibility = Visibility.Visible;
+        ShowResultMsg(NtfsMsg, msg, fallbackBrush: (System.Windows.Media.Brush?)TryFindResource("BrushFog"));
     }
 }

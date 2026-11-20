@@ -59,7 +59,7 @@ public sealed class UpdateCheckerViewModel : SettingsCardBase
         {
             // 通道级异常（服务实现内部失败）——照样落在卡片里，不只在瞬时提示里
             Result = null;
-            ErrorText = e.Message;
+            ErrorText = Common.ErrorText.Describe(e, "检查更新");
         }
         finally
         {
@@ -86,7 +86,7 @@ public sealed class UpdateCheckerViewModel : SettingsCardBase
         }
         catch (Exception e)
         {
-            ErrorText = e.Message;
+            ErrorText = Common.ErrorText.Describe(e, "打开下载页");
             Raise(nameof(ErrorText));
             return Task.FromResult<string?>(ErrorText);
         }

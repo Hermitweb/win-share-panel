@@ -17,6 +17,8 @@ public class StateStoreTests
     {
         public string? theme { get; init; }
         public object? advancedMode { get; init; }
+        public object? showInTaskbar { get; init; }
+        public object? closeToTray { get; init; }
         public object? pinned { get; init; }
         public object? alertRules { get; init; }
         public object? autoStart { get; init; }
@@ -48,6 +50,8 @@ public class StateStoreTests
     private static object SeedState(
         string? theme = null,
         object? advancedMode = null,
+        object? showInTaskbar = null,
+        object? closeToTray = null,
         object? pinned = null,
         object? alertRules = null,
         object? autoStart = null,
@@ -58,6 +62,8 @@ public class StateStoreTests
         {
             theme = theme,
             advancedMode = advancedMode,
+            showInTaskbar = showInTaskbar,
+            closeToTray = closeToTray,
             pinned = pinned,
             alertRules = alertRules,
             autoStart = autoStart,
@@ -75,7 +81,7 @@ public class StateStoreTests
     private static void AssertDefaults(AppState s)
     {
         Assert.Equal(ThemeMode.Light, s.theme);
-        Assert.True(s.advancedMode);
+        Assert.False(s.advancedMode); // v2.2.0：新装默认新手模式（首启向导可达）
         Assert.Empty(s.pinned);
         Assert.Null(s.alertRules.idleAlertMinutes);
         Assert.True(s.alertRules.smb1Alert);
@@ -95,15 +101,35 @@ public class StateStoreTests
         Seed(SeedJson(SeedState(theme: "dark")));
         AppState s = _store.LoadState();
         Assert.Equal(ThemeMode.Dark, s.theme);
-        Assert.True(s.advancedMode);
+        Assert.False(s.advancedMode); // 缺字段补默认 → v2.2.0 起为新手模式
         Assert.Empty(s.pinned);
         Assert.Null(s.alertRules.idleAlertMinutes);
         Assert.True(s.alertRules.smb1Alert);
         Assert.True(s.alertRules.weakPasswordAlert);
         Assert.Equal(20, s.alertRules.diskLowGb);
         Assert.False(s.autoStart);
+        Assert.True(s.showInTaskbar);   // v2.2.0：任务栏图标默认显示
+        Assert.True(s.closeToTray);     // v2.2.0：关闭默认最小化到托盘
         Assert.Empty(s.dashboardHistory);
         Assert.Empty(s.journal);
+    }
+
+    // [v2.2.0] 老用户已持久化的专家模式不被新默认值覆盖（Defaults 仅作用于缺失字段）
+    [Fact]
+    public void Load_PersistedAdvancedModeTrue_Preserved()
+    {
+        Seed(SeedJson(SeedState(advancedMode: true)));
+        Assert.True(_store.LoadState().advancedMode);
+    }
+
+    // [v2.2.0] 窗口行为键持久化（false 写入后保留——Defaults 为 true 仅作用于缺失字段）
+    [Fact]
+    public void Load_PersistedWindowBehavior_Preserved()
+    {
+        Seed(SeedJson(SeedState(showInTaskbar: false, closeToTray: false)));
+        var st = _store.LoadState();
+        Assert.False(st.showInTaskbar);
+        Assert.False(st.closeToTray);
     }
 
     // [Source: stateStore.test.ts#loadState 旧/脏文件安全升级 > 多余未知字段不穿透（收敛回已知 schema）]
@@ -129,7 +155,7 @@ public class StateStoreTests
             journal: new object[] { new { id = "a" }, new { noId = true }, "junk", null })));
         AppState s = _store.LoadState();
         Assert.Equal(ThemeMode.Light, s.theme);
-        Assert.True(s.advancedMode);
+        Assert.False(s.advancedMode); // 脏值 "yes" 拒收 → 回默认（新手模式）
         Assert.Equal(new[] { "ok", "ok2" }, s.pinned);
         Assert.Null(s.alertRules.idleAlertMinutes);
         Assert.True(s.alertRules.smb1Alert);

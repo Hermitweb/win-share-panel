@@ -9,16 +9,16 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0">
-            <TextBlock Text="共享名（改名将重建共享，权限保留）" FontSize="12" Margin="0,0,0,4" />
-            <TextBox x:Name="TxtName" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12" />
-            <TextBlock Text="路径（改路径将重建共享，权限保留）" FontSize="12" Margin="0,0,0,4" />
-            <TextBox x:Name="TxtPath" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12" />
-            <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4" />
-            <TextBox x:Name="TxtDescription" Style="{DynamicResource InputBoxSoft}" FontSize="13" Margin="0,0,0,12" />
+            <TextBlock Foreground="{DynamicResource BrushFog}" Text="共享名（改名将重建共享，权限保留）" FontSize="{DynamicResource FontSizeSecondary}" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtName" Style="{DynamicResource InputBoxSoft}" FontSize="{DynamicResource FontSizeBody}" Margin="0,0,0,12" />
+            <TextBlock Foreground="{DynamicResource BrushFog}" Text="路径（改路径将重建共享，权限保留）" FontSize="{DynamicResource FontSizeSecondary}" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtPath" Style="{DynamicResource InputBoxSoft}" FontSize="{DynamicResource FontSizeBody}" Margin="0,0,0,12" />
+            <TextBlock Foreground="{DynamicResource BrushFog}" Text="描述" FontSize="{DynamicResource FontSizeSecondary}" Margin="0,0,0,4" />
+            <TextBox x:Name="TxtDescription" Style="{DynamicResource InputBoxSoft}" FontSize="{DynamicResource FontSizeBody}" Margin="0,0,0,12" />
 
             <!-- NFS 专有（TS editShare.protocol==='nfs'） -->
             <StackPanel x:Name="BlockNfs" Visibility="Collapsed">
-                <TextBlock Text="NFS 权限" FontSize="12" Margin="0,0,0,4" />
+                <TextBlock Foreground="{DynamicResource BrushFog}" Text="NFS 权限" FontSize="{DynamicResource FontSizeSecondary}" Margin="0,0,0,4" />
                 <StackPanel Margin="0,0,0,8">
                     <RadioButton x:Name="RadEditRw" GroupName="EditNfs" Content="读写" IsChecked="True" Margin="0,0,0,6"
                                  Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
@@ -30,7 +30,7 @@
 
             <!-- FTP 专有 -->
             <StackPanel x:Name="BlockFtp" Visibility="Collapsed">
-                <TextBlock Text="SSL 策略" FontSize="12" Margin="0,0,0,4" />
+                <TextBlock Foreground="{DynamicResource BrushFog}" Text="SSL 策略" FontSize="{DynamicResource FontSizeSecondary}" Margin="0,0,0,4" />
                 <StackPanel Margin="0,0,0,8">
                     <RadioButton x:Name="RadEditSslAllow" GroupName="EditSsl" Content="允许" IsChecked="True" Margin="0,0,0,6"
                                  Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
@@ -39,7 +39,7 @@
                     <RadioButton x:Name="RadEditSslCred" GroupName="EditSsl" Content="要求凭据"
                                  Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
                 </StackPanel>
-                <TextBlock Text="认证模式" FontSize="12" Margin="0,0,0,4" />
+                <TextBlock Foreground="{DynamicResource BrushFog}" Text="认证模式" FontSize="{DynamicResource FontSizeSecondary}" Margin="0,0,0,4" />
                 <StackPanel Margin="0,0,0,8">
                     <RadioButton x:Name="RadEditAnon" GroupName="EditAuth" Content="匿名" Margin="0,0,0,6"
                                  Style="{DynamicResource SegmentRadio}" HorizontalAlignment="Left" />
@@ -55,12 +55,12 @@
                 <CheckBox x:Name="ChkEditWdavAnon" Content="启用匿名访问" Style="{DynamicResource CheckBoxSoft}" Margin="0,0,0,8" />
             </StackPanel>
 
-            <TextBlock x:Name="LblError" FontSize="12" Foreground="{DynamicResource BrushDangerStrong}"
+            <TextBlock x:Name="LblError" FontSize="{DynamicResource FontSizeSecondary}" Foreground="{DynamicResource BrushDangerStrong}"
                        TextWrapping="Wrap" Visibility="Collapsed" Margin="0,8,0,0" />
         </StackPanel>
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="取消" Style="{DynamicResource DashButton}" Click="OnCancel" Margin="0,0,8,0" />
-            <Button Content="保存" Style="{DynamicResource PrimaryButton}" Click="OnSave" />
+            <Button Content="取消" Style="{DynamicResource DashButton}" Click="OnCancel" IsCancel="True" Margin="0,0,8,0" />
+            <Button Content="保存" Style="{DynamicResource PrimaryButton}" Click="OnSave" IsDefault="True" />
         </StackPanel>
     </Grid>
 </Window>

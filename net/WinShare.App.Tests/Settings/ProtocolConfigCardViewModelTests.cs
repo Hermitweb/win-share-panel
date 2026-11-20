@@ -10,14 +10,20 @@ namespace WinShare.App.Tests.Settings;
 public class ProtocolConfigCardViewModelTests
 {
     [Fact]
-    public void 新手模式补丁不含高级字段()
+    public void 补丁始终含高级字段_新手折叠可编辑所见即所存()
     {
+        // v2.2.0 第二轮：高级键不再按模式门控——新手折叠区展开后可编辑并提交（所见即所存）；
+        // 收起时镜像值=服务器现值，提交即无操作。此前新手不提交会让展开编辑保存被静默丢弃。
         var (svc, _) = StubProtocolService.BuildAllInstalled();
-        var vm = new SmbConfigCardViewModel(svc, advancedMode: false);
-        var patch = vm.BuildPatchForTesting();
-        Assert.DoesNotContain("sessionTimeoutSeconds", patch.Keys);
-        Assert.DoesNotContain("requestCompression", patch.Keys);
-        Assert.Contains("enableSMB1Protocol", patch.Keys);
+        var vmNovice = new SmbConfigCardViewModel(svc, advancedMode: false);
+        var patchNovice = vmNovice.BuildPatchForTesting();
+        Assert.Contains("sessionTimeoutSeconds", patchNovice.Keys);
+        Assert.Contains("requestCompression", patchNovice.Keys);
+        Assert.Contains("enableSMB1Protocol", patchNovice.Keys);
+
+        var vmExpert = new SmbConfigCardViewModel(svc, advancedMode: true);
+        var patchExpert = vmExpert.BuildPatchForTesting();
+        Assert.Contains("maxWorkItems", patchExpert.Keys);
     }
 
     [Fact]
@@ -127,7 +133,8 @@ public class ProtocolConfigCardViewModelTests
         var vm = new WebdavConfigCardViewModel(svc, advancedMode: true);
         vm.LoadAsync().Wait();
         vm.SaveAsync().Wait();
-        Assert.Equal("IIS 锁定写入失败", vm.Error);
+        // v2.2.0：ErrorText 人话化（IIS 规则命中）
+        Assert.StartsWith("保存协议配置失败：IIS 配置异常", vm.Error);
         adapters[Protocol.Webdav].ThrowOnSet = null;
         vm.SaveAsync().Wait();
         Assert.Equal("已保存", vm.Success);

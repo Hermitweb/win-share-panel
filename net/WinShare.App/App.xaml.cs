@@ -33,9 +33,13 @@ public partial class App : Application
         _ = crash;
 
         // 单实例：二实例 → 发激活消息并自退（对齐 requestSingleInstanceLock）
+        // 提权重启链路（--elevated-relaunch）：旧实例放锁与新实例争锁存在毫秒级竞态 → 给 6s 重试窗
+        bool elevatedRelaunch = Array.IndexOf(e.Args, Shell.Elevation.RelaunchArg) >= 0;
         try
         {
-            AppShell.CreateGuard(AppShell.ActivateMainWindow);
+            AppShell.CreateGuard(AppShell.ActivateMainWindow,
+                elevatedRelaunch ? TimeSpan.FromSeconds(6) : null);
+            if (elevatedRelaunch) LogSink.Info("main", "[elevation] 提权实例已接管（管理员模式重启链路）");
         }
         catch (NotFirstInstanceException)
         {
@@ -78,7 +82,13 @@ public partial class App : Application
         _ = Dispatcher.InvokeAsync(async () =>
         {
             try { await AppServices.DashboardViewModel.RefreshAsync(); }
-            catch (Exception e) { LogSink.Warn("main", "首屏数据加载失败：" + e.Message); }
+            catch (Exception e)
+            {
+                LogSink.Warn("main", "首屏数据加载失败：" + e.Message);
+                // v2.2.0：失败不再只进日志——揭幕后 toast 明示 + 给出下一步动作（此前用户只看到空仪表板）
+                Shell.ToastHost.Show(Shell.ToastLevel.Warn,
+                    "本机共享信息读取失败，页面数据可能不全。可点击顶栏「刷新」重试（详情见应用日志）");
+            }
             finally
             {
                 revealTimer.Stop();
@@ -90,6 +100,10 @@ public partial class App : Application
 
             // 首启三问向导（新手且从未建过共享时才弹；判定内部自行吞异常）
             await MaybeShowFirstRunGuideAsync();
+
+            // v2.2.0：启动后台静默检查更新（此前纯手动，用户长期不知道有新版）。
+            // 只查不装；有新版走托盘气泡；失败/无网完全静默——启动链路不打扰优先。
+            _ = CheckUpdateQuietlyAsync();
         });
 
         LogSink.Info("main", $"[startup] 进程位宽 {(Environment.Is64BitProcess ? "64" : "32")}（Windows）→ WPF net10");
@@ -117,18 +131,45 @@ public partial class App : Application
             }
             bool? advancedMode = AppServices.SettingsStore?.Load()?.advancedMode;
             var flagStore = new FirstRun.FirstRunFlagStore();
+            LogSink.Info("firstrun", $"[probe] shares={(shares is null ? "null" : shares.Count.ToString())} advancedMode={advancedMode?.ToString() ?? "null"} flag={(flagStore.Read() ?? "null")}");
             if (!FirstRun.FirstRunLogic.ShouldShowGuide(shares, advancedMode, flagStore.Read())) return;
 
             var guide = new FirstRun.FirstRunGuideWindow(share, Shares.SharesServices.Disk, flagStore)
             {
                 Owner = _window,
             };
-            guide.ShowDialog();
+            if (Shell.UiTestHooks.NoActivate) guide.Show(); // 取证模式：非模态、不抢前台
+            else guide.ShowDialog();
             AppServices.Bus?.Publish(new Events.RefreshRequested());
         }
         catch (Exception e)
         {
             LogSink.Warn("firstrun", "首启向导判定/显示失败：" + e.Message);
+        }
+    }
+
+    /// <summary>v2.2.0：启动静默检查更新（只查不装；有新版托盘气泡；失败完全静默）。</summary>
+    async Task CheckUpdateQuietlyAsync()
+    {
+        try
+        {
+            WinShare.Core.Contracts.IUpdateService? update = Settings.SettingsServiceSlots.UpdateService;
+            if (update is null) return;
+            string current = typeof(App).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+            WinShare.Core.Contracts.UpdateCheckResult r = await update.CheckForUpdateAsync(current);
+            if (!r.unavailable && r.hasUpdate)
+            {
+                AppShell.OnAlertRaised?.Invoke(new AlertRaised
+                {
+                    kind = "update",
+                    level = "info",
+                    text = $"有新版本 {r.latest} 可用：请在「应用设置 → 检查更新」获取（本应用不会自动安装更新）",
+                });
+            }
+        }
+        catch
+        {
+            // 静默：启动检查失败不打扰（用户仍可手动「检查更新」）
         }
     }
 
@@ -150,13 +191,16 @@ public partial class App : Application
         {
             if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
             if (!_window.IsVisible) _window.Show();
-            _window.Activate();
-            _window.Focus();
+            if (!Shell.UiTestHooks.NoActivate)
+            {
+                _window.Activate();
+                _window.Focus();
+            }
         }
         else
         {
             _window.Show();
-            _window.Activate();
+            if (!Shell.UiTestHooks.NoActivate) _window.Activate();
         }
     }
 

@@ -291,7 +291,7 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "启用用户"));
             return false;
         }
     }
@@ -309,7 +309,7 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "删除用户"));
             return false;
         }
     }
@@ -334,7 +334,8 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         if (!GuardUser()) return new BatchResult(0, 0);
 
         // [Source: src/pages/Users.tsx handleBatchEnable/Disable/Delete]
-        var failed = new List<string>();
+        // v2.2.0：批量失败收集原因（此前 catch { failed.Add(name) } 吞掉为何失败）
+        var failed = new List<(string name, string reason)>();
         foreach (var name in targets)
         {
             try
@@ -346,15 +347,24 @@ public sealed class UsersViewModel : INotifyPropertyChanged
                     default: await _user!.DeleteUserAsync(name); break;
                 }
             }
-            catch { failed.Add(name); }
+            catch (Exception e) { failed.Add((name, Common.ErrorText.Brief(e))); }
         }
         var ok = targets.Count - failed.Count;
-        // 文案逐字对齐 TS：`已启用 ${ok} 个用户${failed.length ? `，${failed.length} 个失败` : ''}`
-        Tell("success", $"已{verb} {ok} 个用户{(failed.Count > 0 ? $"，{failed.Count} 个失败" : "")}");
+        if (failed.Count > 0)
+        {
+            // v2.2.0：部分失败走 warn（此前混在 success 文案里）+ 逐条原因（前 3 条）
+            string details = string.Join("；", failed.Take(3).Select(f => $"{f.name}：{f.reason}"));
+            string more = failed.Count > 3 ? $" 等 {failed.Count} 项" : "";
+            Tell("warn", $"已{verb} {ok} 个用户，{failed.Count} 个失败：{details}{more}");
+        }
+        else
+        {
+            Tell("success", $"已{verb} {ok} 个用户");
+        }
         _selected.Clear();
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedUsers)));
         await RefreshAsync();
-        return new BatchResult(ok, failed.Count, failed);
+        return new BatchResult(ok, failed.Count, failed.Select(f => f.name).ToList());
     }
 
     /// <summary>批量结果（成功数/失败数/失败名单）。</summary>
@@ -369,18 +379,27 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         if (string.IsNullOrEmpty(groupName) || _selected.Count == 0) return new BatchResult(0, 0);
         if (!GuardUser()) return new BatchResult(0, 0);
         var targets = _selected.ToList();
-        var failed = new List<string>();
+        var failed = new List<(string name, string reason)>();
         foreach (var name in targets)
         {
             try { await _user!.AddGroupMemberAsync(groupName, name); }
-            catch { failed.Add(name); }
+            catch (Exception e) { failed.Add((name, Common.ErrorText.Brief(e))); }
         }
         var ok = targets.Count - failed.Count;
-        Tell("success", $"已分配 {ok} 个用户到组「{groupName}」{(failed.Count > 0 ? $"，{failed.Count} 个失败" : "")}");
+        if (failed.Count > 0)
+        {
+            string details = string.Join("；", failed.Take(3).Select(f => $"{f.name}：{f.reason}"));
+            string more = failed.Count > 3 ? $" 等 {failed.Count} 项" : "";
+            Tell("warn", $"已分配 {ok} 个用户到组「{groupName}」，{failed.Count} 个失败：{details}{more}");
+        }
+        else
+        {
+            Tell("success", $"已分配 {ok} 个用户到组「{groupName}」");
+        }
         _selected.Clear();
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedUsers)));
         await RefreshAsync();
-        return new BatchResult(ok, failed.Count, failed);
+        return new BatchResult(ok, failed.Count, failed.Select(f => f.name).ToList());
     }
 
     /// <summary>
@@ -396,8 +415,8 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
-            return (false, e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "创建用户"));
+            return (false, Common.ErrorText.Describe(e, "创建用户"));
         }
 
         // [Source: src/components/UserCreateModal.tsx 创建后分配到所选组]
@@ -443,8 +462,8 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
-            return (false, e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "创建用户"));
+            return (false, Common.ErrorText.Describe(e, "创建用户"));
         }
     }
 
@@ -461,8 +480,8 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
-            return (false, e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "创建用户"));
+            return (false, Common.ErrorText.Describe(e, "创建用户"));
         }
     }
 
@@ -498,8 +517,8 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
-            return (false, e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "创建用户"));
+            return (false, Common.ErrorText.Describe(e, "创建用户"));
         }
     }
 
@@ -518,8 +537,8 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
-            return (false, e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "创建用户"));
+            return (false, Common.ErrorText.Describe(e, "创建用户"));
         }
     }
 
@@ -542,8 +561,8 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
-            return (false, e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "创建用户"));
+            return (false, Common.ErrorText.Describe(e, "创建用户"));
         }
     }
 
@@ -562,8 +581,8 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
-            return (false, e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "创建用户"));
+            return (false, Common.ErrorText.Describe(e, "创建用户"));
         }
     }
 
@@ -596,8 +615,8 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
-            return (false, e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "创建用户"));
+            return (false, Common.ErrorText.Describe(e, "创建用户"));
         }
     }
 
@@ -632,7 +651,7 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "读取用户共享权限"));
             _userPermRows = Array.Empty<UserPermRow>();
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(UserPermRows)));
             return _userPermRows;
@@ -706,7 +725,7 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "构建权限矩阵"));
         }
         finally
         {
@@ -756,7 +775,7 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "读取 NTFS 权限"));
         }
     }
 
@@ -779,7 +798,7 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "添加授权"));
         }
     }
 
@@ -796,7 +815,7 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "移除授权"));
         }
     }
 
@@ -813,7 +832,7 @@ public sealed class UsersViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "调整继承"));
         }
     }
 

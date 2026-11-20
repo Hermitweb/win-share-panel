@@ -73,7 +73,7 @@ public sealed class FirewallCardViewModel : SettingsCardBase
             }
             catch (Exception e)
             {
-                Error = $"读取组内规则失败：{e.Message}";
+                Error = Common.ErrorText.Describe(e, "读取防火墙规则");
             }
             finally
             {
@@ -82,12 +82,17 @@ public sealed class FirewallCardViewModel : SettingsCardBase
         });
     }
 
-    /// <summary>添加当前预设（对齐 TS add；成功返回 null，失败返回原因）。</summary>
+    /// <summary>添加当前预设（对齐 TS add；成功返回 null，失败返回原因）。v2.2.0：端口非法不再静默无反馈。</summary>
     public Task<string?> AddAsync()
     {
         if (_svc is null) return Task.FromResult<string?>("防火墙服务未注册，无法添加规则");
         if (Busy) return Task.FromResult<string?>(null);
-        if (NeedRange && !RangeOk) return Task.FromResult<string?>(null);
+        if (NeedRange && !RangeOk)
+        {
+            // v2.2.0：此前直接 return null——按钮点了什么都没发生，用户不知道哪里错了
+            Error = "请输入 1-65535 的端口范围（起始 ≤ 结束）";
+            return Task.FromResult<string?>(Error);
+        }
         Busy = true;
         return Task.Run(async () =>
         {
@@ -112,10 +117,10 @@ public sealed class FirewallCardViewModel : SettingsCardBase
             catch (Exception e)
             {
                 // 失败后重载（可能部分写入，以读回为准）；重载成功会清 Error → 失败文案须重设（对齐 TS message.error + 重载）
-                var msg = $"添加防火墙规则失败：{e.Message}";
+                var msg = Common.ErrorText.Describe(e, "添加防火墙规则");
                 await ReloadAsync();
                 Error = msg;
-                return e.Message;
+                return msg;
             }
             finally
             {
@@ -142,9 +147,9 @@ public sealed class FirewallCardViewModel : SettingsCardBase
             }
             catch (Exception e)
             {
-                Error = $"删除防火墙规则失败：{e.Message}";
+                Error = Common.ErrorText.Describe(e, "删除防火墙规则");
                 await ReloadAsync();
-                return e.Message;
+                return Error;
             }
             finally
             {

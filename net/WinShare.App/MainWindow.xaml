@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="WinShare Panel"
         Width="1240" Height="820"
-        MinWidth="1000" MinHeight="660"
+        MinWidth="900" MinHeight="660"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanResize"
@@ -43,9 +43,9 @@
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <Image Width="26" Height="26" Source="Resources/logo.png" Stretch="Uniform"
                                RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="WinShare Panel" Margin="10,0,0,0" FontSize="14" FontWeight="SemiBold"
+                        <TextBlock Text="WinShare Panel" Margin="10,0,0,0" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold"
                                    VerticalAlignment="Center" Foreground="{DynamicResource BrushText}" />
-                        <TextBlock x:Name="TitleStatus" Margin="12,0,0,0" FontSize="11.5" VerticalAlignment="Center"
+                        <TextBlock x:Name="TitleStatus" Margin="12,0,0,0" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource BrushFog}" />
                     </StackPanel>
 
@@ -60,8 +60,13 @@
                                     <MenuItem Header="显示主窗口" Click="OnMenuShowWindow" />
                                     <MenuItem Header="打开日志文件夹" Click="OnMenuOpenLogDir" />
                                     <Separator />
-                                    <MenuItem Header="浅色主题" Click="OnMenuThemeLight" />
-                                    <MenuItem Header="深色主题" Click="OnMenuThemeDark" />
+                                    <!-- v2.2.0 第五批：主题/模式为状态型设置 → 可勾选并显示当前值
+                                         （此前是无状态的两条命令，用户看不出当前处于哪种主题/模式） -->
+                                    <MenuItem x:Name="MenuThemeLight" Header="浅色主题" IsCheckable="True" Click="OnMenuThemeLight" />
+                                    <MenuItem x:Name="MenuThemeDark" Header="深色主题" IsCheckable="True" Click="OnMenuThemeDark" />
+                                    <Separator />
+                                    <MenuItem x:Name="MenuModeNovice" Header="新手模式" IsCheckable="True" Click="OnMenuModeNovice" />
+                                    <MenuItem x:Name="MenuModeExpert" Header="专家模式" IsCheckable="True" Click="OnMenuModeExpert" />
                                     <Separator />
                                     <MenuItem Header="关于" Click="OnMenuAbout" />
                                     <Separator />
@@ -73,15 +78,34 @@
 
                     <!-- 窗口控制 -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="BtnMin" Width="34" Height="30" Content="—" Style="{DynamicResource CaptionButton}" Click="OnMinimize" />
-                        <Button x:Name="BtnMax" Width="34" Height="30" Content="□" Style="{DynamicResource CaptionButton}" Click="OnMaximizeRestore" />
-                        <Button x:Name="BtnClose" Width="34" Height="30" Content="✕" Style="{DynamicResource CaptionButtonDanger}" Click="OnCloseClick" />
+                        <Button x:Name="BtnMin" Width="34" Height="30" Content="—" Style="{DynamicResource CaptionButton}" Click="OnMinimize" Focusable="False" />
+                        <Button x:Name="BtnMax" Width="34" Height="30" Content="□" Style="{DynamicResource CaptionButton}" Click="OnMaximizeRestore" Focusable="False" />
+                        <Button x:Name="BtnClose" Width="34" Height="30" Content="✕" Style="{DynamicResource CaptionButtonDanger}" Click="OnCloseClick" Focusable="False" />
                     </StackPanel>
                 </Grid>
             </Border>
 
+            <!-- 非管理员提示条（v2.2.0：启动期检测；管理员身份下 Collapsed。提权入口与设置页共用 Elevation） -->
+            <Border x:Name="AdminBanner" DockPanel.Dock="Top" Padding="18,7,10,7" Visibility="Collapsed"
+                    Background="{DynamicResource BrushWarnBg}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="⚠" FontSize="{DynamicResource FontSizeSubtitle}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushWarnDot}" Margin="0,0,9,0" />
+                        <TextBlock Text="当前未以管理员身份运行：共享管理、协议配置、防火墙等操作将会失败。"
+                                   FontSize="{DynamicResource FontSizeSecondary}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushWarnFg}" />
+                        <Button Content="以管理员身份重启" Style="{DynamicResource DashButton}" Padding="10,5"
+                                Margin="14,0,0,0" VerticalAlignment="Center" Click="OnRelaunchAsAdmin" />
+                    </StackPanel>
+                    <Button Content="✕" Style="{DynamicResource DashButton}" Padding="6,2" FontSize="{DynamicResource FontSizeCaption}"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Click="OnDismissAdminBanner" ToolTip="不再显示本次提醒" />
+                </Grid>
+            </Border>
+
             <!-- ===== 侧栏导航（通透磨砂；活跃项渐变 + 左侧指示条） ===== -->
-            <Border DockPanel.Dock="Left" Width="216" CornerRadius="0,0,0,16"
+            <Border x:Name="NavRail" DockPanel.Dock="Left" Width="216" CornerRadius="0,0,0,16"
                     Background="{DynamicResource BrushGlass}"
                     BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0">
                 <DockPanel Margin="14,18,14,14">
@@ -90,7 +114,7 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⚡" Margin="0,0,8,0" />
                             <TextBlock Text="{DynamicResource Nav.CommandPalette}" Foreground="{DynamicResource BrushFog}" />
-                            <TextBlock Text="Ctrl+K" FontSize="11" Foreground="{DynamicResource BrushFog}"
+                            <TextBlock Text="Ctrl+K" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource BrushFog}"
                                        Margin="16,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -104,6 +128,8 @@
                                 <Setter Property="Padding" Value="0" />
                                 <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <!-- v2.2.0 第五批：窄屏图标态下悬停必须给出页面名（否则图标不自解释） -->
+                                <Setter Property="ToolTip" Value="{Binding Title}" />
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListViewItem">
@@ -142,7 +168,18 @@
                                                Margin="0,0,12,0" Width="18"
                                                Foreground="{DynamicResource BrushPrimary}"
                                                VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding Title}" FontSize="13" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSizeBody}" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="compact">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </StackPanel>
                             </DataTemplate>
                         </ListView.ItemTemplate>
@@ -154,6 +191,10 @@
             <Grid>
                 <ContentControl x:Name="PageHost" Focusable="False" Background="Transparent"
                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+
+                <!-- Toast 浮层（右下角；全局反馈通道 ToastHost） -->
+                <StackPanel x:Name="ToastLayer" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                            Margin="0,0,18,18" Visibility="Collapsed" />
 
                 <!-- 全屏加载遮罩（首次进入页面时的数据拉取：2-3s 的 PowerShell 5.1 调用不可避免，用动效承接） -->
                 <Border x:Name="LoadingOverlay" Background="{DynamicResource BrushGlassStrong}" Visibility="Collapsed">
@@ -168,10 +209,10 @@
                             </Path>
                         </Grid>
                         <TextBlock x:Name="LoadingText" Text="正在读取本机共享信息…" Margin="0,18,0,0"
-                                   FontSize="13" HorizontalAlignment="Center"
+                                   FontSize="{DynamicResource FontSizeBody}" HorizontalAlignment="Center"
                                    Foreground="{DynamicResource BrushFog}" />
-                        <TextBlock Text="首次读取需要启动 Windows PowerShell，通常 2–3 秒" Margin="0,6,0,0"
-                                   FontSize="11.5" HorizontalAlignment="Center"
+                        <TextBlock Text="首次读取需要调用 Windows PowerShell，通常数秒" Margin="0,6,0,0"
+                                   FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center"
                                    Foreground="{DynamicResource BrushFog}" Opacity="0.8" />
                     </StackPanel>
                 </Border>

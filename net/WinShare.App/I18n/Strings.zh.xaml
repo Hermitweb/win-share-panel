@@ -30,7 +30,7 @@
     <sys:String x:Key="Dash.Trend">连接数 24h 趋势</sys:String>
     <sys:String x:Key="Dash.TrendHint">每 5 分钟采样 · 最多 288 点</sys:String>
     <sys:String x:Key="Dash.Disk">磁盘水位</sys:String>
-    <sys:String x:Key="Dash.DiskEmpty">磁盘探测失败（Get-PSDrive 不可用）或未发现本地磁盘卷</sys:String>
+    <sys:String x:Key="Dash.DiskEmpty">未发现可监测的本地磁盘卷</sys:String>
     <sys:String x:Key="Dash.Protocols">协议分布</sys:String>
     <sys:String x:Key="Dash.TopShares">热门共享连接数</sys:String>
     <sys:String x:Key="Dash.ShareCount">共享总数</sys:String>
@@ -39,7 +39,7 @@
     <sys:String x:Key="Dash.ServiceStatus">服务状态</sys:String>
     <sys:String x:Key="Dash.NoData">暂无共享连接数据</sys:String>
     <sys:String x:Key="Dash.TrendAllEmpty">采样每 5 分钟记录一个点，趋势曲线需要服务运行一段时间；当前还没有任何采样点（应用刚启动），这里不画 0 线冒充数据</sys:String>
-    <sys:String x:Key="Dash.AttentionEmpty">暂无需要关注项（已按当前告警规则检查 SMB1 / 访客策略 / 账户口令 / 磁盘水位）</sys:String>
+    <sys:String x:Key="Dash.AttentionEmpty">暂无需要关注项</sys:String>
     <sys:String x:Key="Dash.Danger">高风险</sys:String>
     <sys:String x:Key="Dash.Warn">注意</sys:String>
     <sys:String x:Key="Dash.Both">并列</sys:String>

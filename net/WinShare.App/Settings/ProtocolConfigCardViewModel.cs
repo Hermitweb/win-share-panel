@@ -29,6 +29,9 @@ public abstract class ProtocolConfigCardViewModel<TConfig> : SettingsCardBase
     public TConfig? Config { get; protected set; }
     public bool Loading { get; private set; }
 
+    /// <summary>v2.2.0：读取中 or 执行中都要显示进度行（一轮配置拉取实测 16-21s，静默得像卡死）。</summary>
+    public override bool BusyVisible => Busy || Loading;
+
     /// <summary>服务缺席降级说明（视图占位文案）。</summary>
     public string? DegradedNote { get; private set; }
 
@@ -65,6 +68,7 @@ public abstract class ProtocolConfigCardViewModel<TConfig> : SettingsCardBase
             return;
         }
         Loading = true;
+        BusyText = "正在读取本机配置与服务状态…首次可达 20 秒";
         try
         {
             var cfgTask = adapter.GetConfigAsync();
@@ -78,11 +82,12 @@ public abstract class ProtocolConfigCardViewModel<TConfig> : SettingsCardBase
         }
         catch (Exception e)
         {
-            Error = e.Message;
+            Error = Common.ErrorText.Describe(e, "读取协议配置");
         }
         finally
         {
             Loading = false;
+            BusyText = null;
         }
     }
 
@@ -112,7 +117,7 @@ public abstract class ProtocolConfigCardViewModel<TConfig> : SettingsCardBase
         }
         catch (Exception e)
         {
-            Error = e.Message;
+            Error = Common.ErrorText.Describe(e, "恢复默认配置");
         }
         finally
         {
@@ -141,7 +146,7 @@ public abstract class ProtocolConfigCardViewModel<TConfig> : SettingsCardBase
         }
         catch (Exception e)
         {
-            Error = e.Message;
+            Error = Common.ErrorText.Describe(e, "保存协议配置");
         }
         finally
         {
@@ -379,16 +384,16 @@ public sealed class SmbConfigCardViewModel : ProtocolConfigCardViewModel<SmbServ
             ["announceServer"] = c.announceServer,
             ["multipleSessionsPerConnection"] = c.multipleSessionsPerConnection,
         };
-        if (AdvancedMode)
-        {
-            patch["unauthenticatedUsersTimeLimit"] = c.unauthenticatedUsersTimeLimit;
-            patch["sessionTimeoutSeconds"] = c.sessionTimeoutSeconds;
-            patch["maxSessionPerConnection"] = c.maxSessionPerConnection;
-            patch["maxMpxCount"] = c.maxMpxCount;
-            patch["maxWorkItems"] = c.maxWorkItems;
-            patch["maxThreadsPerQueue"] = c.maxThreadsPerQueue;
-            patch["requestCompression"] = c.requestCompression.ToString();
-        }
+        // v2.2.0 第二轮：高级键不再按模式门控——新手模式折叠区展开后可编辑并提交（所见即所存，
+        // 与 NFS/FTP/WebDAV 一致）；收起时镜像值=服务器现值，提交即无操作。此前「新手不提交」
+        // 会让用户展开编辑后保存却静默丢弃，比多写现值更糟。
+        patch["unauthenticatedUsersTimeLimit"] = c.unauthenticatedUsersTimeLimit;
+        patch["sessionTimeoutSeconds"] = c.sessionTimeoutSeconds;
+        patch["maxSessionPerConnection"] = c.maxSessionPerConnection;
+        patch["maxMpxCount"] = c.maxMpxCount;
+        patch["maxWorkItems"] = c.maxWorkItems;
+        patch["maxThreadsPerQueue"] = c.maxThreadsPerQueue;
+        patch["requestCompression"] = c.requestCompression.ToString();
         return patch;
     }
 }

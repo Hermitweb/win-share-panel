@@ -213,8 +213,9 @@ $r = [IntPtr]::Zero
         string keyPath = $"HKCU:{HkcuRunKey}";
         if (enabled)
         {
-            // TS: const cmd = `"${dir}\\WinShare Panel.exe" --silent`（字面单反斜杠）
-            string cmd = "\"" + dir + @"\" + "WinShare Panel.exe" + "\" --silent";
+            // v2.2.0 修复：exe 名此前写成 "WinShare Panel.exe"（实际产物为 WinShare.App.exe），
+            // 登录自启指向不存在的文件——开机自启静默失效。
+            string cmd = "\"" + dir + @"\" + "WinShare.App.exe" + "\" --silent";
             await _ps.RunVoidAsync(
                 $"Set-ItemProperty -Path '{keyPath}' -Name WinSharePanel -Value {PsArgs.PsQuote(cmd)} -Type String",
                 10000, 0);

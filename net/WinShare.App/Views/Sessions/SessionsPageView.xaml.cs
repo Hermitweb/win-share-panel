@@ -49,7 +49,7 @@ public partial class SessionsPageView : UserControl
             if (_wired) return;
             _wired = true;
             _vm = SessionsModule.CreateViewModel();
-            _vm.Notify = (_, text) => ShowNotice(text);
+            _vm.Notify = (kind, text) => ShowNotice(kind, text);
             // BalloonRequested 从轮询定时器线程触发：NotifyIcon 有句柄亲和性，直接调用
             // 会偶发抛异常被 TrayController 吞掉（气泡丢失）——封送回 UI 线程。
             _vm.BalloonRequested += (title, body) =>
@@ -95,6 +95,12 @@ public partial class SessionsPageView : UserControl
         SessionGrid.ItemsSource = _vm.SessionRows;
         NfsSessionGrid.ItemsSource = _vm.SessionRows;
         FileGrid.ItemsSource = _vm.Files;
+        // v2.2.0 第二轮：空表格空态（随 SMB 子页签显隐——此前两个空态文案叠印在同一位置）
+        var showSessions = SmbSessionsTab.IsChecked == true;
+        SessionsEmpty.Visibility = _vm.Sessions.Count == 0 && !_vm.Spinning && showSessions
+            ? Visibility.Visible : Visibility.Collapsed;
+        FilesEmpty.Visibility = _vm.Files.Count == 0 && !_vm.Spinning && !showSessions
+            ? Visibility.Visible : Visibility.Collapsed;
         SessionGrid.IsEnabled = !_vm.Spinning;
         FileGrid.IsEnabled = !_vm.Spinning;
 
@@ -107,14 +113,52 @@ public partial class SessionsPageView : UserControl
         BtnPause.Content = _vm.Paused ? "恢复" : "暂停";
         CountdownTag.Visibility = _vm.Paused ? Visibility.Collapsed : Visibility.Visible;
         CountdownText.Text = $"{_vm.Countdown}s";
+        // v2.2.0 第二轮：轮询失败保留旧数据 → 新鲜度提示（成功刷新自动消失）
+        StaleNote.Visibility = _vm.IsStale ? Visibility.Visible : Visibility.Collapsed;
 
         // 刷新间隔下拉同步
         SyncIntervalCombo();
 
-        // 首轮失败提示
+        // 首轮失败提示（v2.2.0：不再无条件覆盖通知条——此前动作反馈「已断开」在下一次 ApplyVm 被清空，
+        // 等于操作完没有任何反馈；现在动作反馈与首轮错误各占其位）
         var err = _vm.ErrorText;
-        NoticeBar.Text = err;
-        NoticeBar.Visibility = err.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (err.Length > 0)
+        {
+            _noticeIsFirstRound = true;
+            NoticeBar.Text = err;
+            NoticeBar.Foreground = TryFindResource("BrushDanger") as System.Windows.Media.Brush ?? NoticeBar.Foreground;
+            NoticeBar.Visibility = Visibility.Visible;
+        }
+        else if (_noticeIsFirstRound)
+        {
+            _noticeIsFirstRound = false;
+            _actionNotice = "";
+            NoticeBar.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    string _actionNotice = "";
+    bool _noticeIsFirstRound;
+
+    /// <summary>
+    /// v2.2.0：通知分级——success 走绿色 toast（此前成功/失败同落红条）；error/warn 保留页内条。
+    /// </summary>
+    void ShowNotice(string kind, string text)
+    {
+        _noticeIsFirstRound = false;
+        if (kind == "success")
+        {
+            _actionNotice = "";
+            NoticeBar.Visibility = Visibility.Collapsed;
+            Shell.ToastHost.Show(Shell.ToastLevel.Success, text);
+            return;
+        }
+        _actionNotice = text;
+        NoticeBar.Text = text;
+        NoticeBar.Foreground = kind == "warn"
+            ? TryFindResource("BrushWarnFg") as System.Windows.Media.Brush ?? NoticeBar.Foreground
+            : TryFindResource("BrushDanger") as System.Windows.Media.Brush ?? NoticeBar.Foreground;
+        NoticeBar.Visibility = Visibility.Visible;
     }
 
     void SyncIntervalCombo()
@@ -165,6 +209,13 @@ public partial class SessionsPageView : UserControl
         var showSessions = SmbSessionsTab.IsChecked == true;
         SessionGrid.Visibility = showSessions ? Visibility.Visible : Visibility.Collapsed;
         FileGrid.Visibility = showSessions ? Visibility.Collapsed : Visibility.Visible;
+        if (_vm is not null)
+        {
+            SessionsEmpty.Visibility = _vm.Sessions.Count == 0 && !_vm.Spinning && showSessions
+                ? Visibility.Visible : Visibility.Collapsed;
+            FilesEmpty.Visibility = _vm.Files.Count == 0 && !_vm.Spinning && !showSessions
+                ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     void OnSessionSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -193,9 +244,14 @@ public partial class SessionsPageView : UserControl
     async void OnCloseSession(object sender, RoutedEventArgs e)
     {
         if (_vm is null || GetTag(sender) is not SessionsViewModel.SessionRow row) return;
-        // 对齐 Popconfirm title="断开该会话？"
-        var r = MessageBox.Show("断开该会话？", "确认断开",
-            MessageBoxButton.YesNo, MessageBoxImage.Question);
+        // v2.2.0：确认带上下文（此前只有「断开该会话？」——用户无法确认断的是谁）
+        var sess = row.session;
+        string who = string.IsNullOrEmpty(sess.clientComputerName)
+            ? sess.clientUserName
+            : $"{sess.clientUserName}（{sess.clientComputerName}）";
+        var r = MessageBox.Show(
+            $"断开 {who} 的会话？其打开的 {sess.clientOpenFiles} 个文件将被强制关闭。",
+            "确认断开", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (r != MessageBoxResult.Yes) return;
         await _vm.CloseOneAsync(row.session.sessionId);
         ApplyVm();
@@ -204,9 +260,10 @@ public partial class SessionsPageView : UserControl
     async void OnCloseFile(object sender, RoutedEventArgs e)
     {
         if (_vm is null || GetTag(sender) is not SmbOpenFile file) return;
-        // 对齐 Popconfirm title="关闭该文件？"
-        var r = MessageBox.Show("关闭该文件？", "确认关闭",
-            MessageBoxButton.YesNo, MessageBoxImage.Question);
+        // v2.2.0：确认带上下文（文件路径 + 属主）
+        var r = MessageBox.Show(
+            $"关闭 {file.clientUserName} 打开的文件？\n{file.path}\n\n可能导致客户端数据丢失",
+            "确认关闭", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (r != MessageBoxResult.Yes) return;
         await _vm.CloseFileAsync(file.fileId);
         ApplyVm();
@@ -217,8 +274,14 @@ public partial class SessionsPageView : UserControl
         if (_vm is null) return;
         var ids = _vm.SelectedSessions.ToList();
         if (ids.Count == 0) return;
-        // 对齐 modal.confirm：批量断开会话 / 将对 N 个会话执行强制断开。
-        var r = MessageBox.Show($"将对 {ids.Count} 个会话执行强制断开。", "批量断开会话",
+        // v2.2.0：批量确认列出涉及用户（此前只有数量，无法核对断的是哪些人）
+        var names = _vm.Sessions
+            .Where(x => ids.Contains(x.sessionId) && !string.IsNullOrEmpty(x.clientUserName))
+            .Select(x => x.clientUserName).Take(5).ToList();
+        string who = names.Count > 0
+            ? $"（{string.Join("、", names)}{(names.Count == 5 ? " 等" : "")}）"
+            : "";
+        var r = MessageBox.Show($"将对 {ids.Count} 个会话执行强制断开{who}。", "批量断开会话",
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (r != MessageBoxResult.Yes) return;
         await _vm.BatchCloseAsync(ids);

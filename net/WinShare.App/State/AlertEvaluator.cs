@@ -28,6 +28,12 @@ public static class AlertEvaluator
         public string actionLabel { get; init; } = "";
         public string route { get; init; } = "/settings";
         public string? attention { get; init; }
+
+        /// <summary>
+        /// v2.2.0：可自动修复项的修复种类（"smb1"=关 SMB1、"guest"=关访客两项；null=仅跳转）。
+        /// 此前 actionLabel 只会跳设置页，让用户自己找开关——傻瓜式口径下能自动修的就一键修。
+        /// </summary>
+        public string? fixKind { get; init; }
     }
 
     /// <summary>逐条对齐 Dashboard.tsx buildAttentionItems。</summary>
@@ -47,6 +53,7 @@ public static class AlertEvaluator
                 actionLabel = "关闭 SMB1",
                 route = "/settings",
                 attention = "smb1",
+                fixKind = "smb1",
             });
         }
 
@@ -63,9 +70,10 @@ public static class AlertEvaluator
                     key = "guest",
                     level = cfg.enableInsecureGuestLogons ? "danger" : "warn",
                     text = $"已开启{string.Join("与", flags)}，匿名客户端无需有效凭据即可探测共享",
-                    actionLabel = "调整访客策略",
+                    actionLabel = "关闭访客访问",
                     route = "/settings",
                     attention = "guest",
+                    fixKind = "guest",
                 });
             }
         }

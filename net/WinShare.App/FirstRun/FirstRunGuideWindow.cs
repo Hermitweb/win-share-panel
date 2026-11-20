@@ -8,7 +8,9 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using WinShare.App.Common;
 using WinShare.App.Settings;
+using WinShare.App.Shell;
 using WinShare.App.Views.Settings;
 using WinShare.Core.Contracts;
 
@@ -48,6 +50,16 @@ public sealed class FirstRunGuideWindow : Window
         _share = share;
         _disk = disk;
         _flagStore = flagStore;
+        Shell.UiTestHooks.Prepare(this);
+        // v2.2.1：Esc 关闭 = 放弃本次（不写完成标记，下次仍会弹；评审 G-K3）
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == System.Windows.Input.Key.Escape)
+            {
+                Close();
+                e.Handled = true;
+            }
+        };
 
         Title = "欢迎用 WinShare，三步建好第一个共享";
         Width = 560;
@@ -86,7 +98,13 @@ public sealed class FirstRunGuideWindow : Window
         };
         _back = SettingsUi.Button("上一步", (_, _) => SetStep(_step - 1));
         _next = SettingsUi.Button("下一步", (_, _) => SetStep(_step + 1), primary: true);
-        _later = SettingsUi.Button("以后再说", (_, _) => Close());
+        // v2.2.0：「以后再说」写一次性完成标记（此前只关窗，下次启动空共享还会再弹——重复打扰）
+        _later = SettingsUi.Button("以后再说", (_, _) =>
+        {
+            _flagStore.MarkComplete();
+            LogSink.Info("firstrun", "首启向导被推迟（已写完成标记，不再自动弹出）");
+            Close();
+        });
         actions.Children.Add(_later);
         actions.Children.Add(_back);
         actions.Children.Add(_next);
@@ -288,6 +306,8 @@ public sealed class FirstRunGuideWindow : Window
         _back.Visibility = _step == 0 ? Visibility.Collapsed : Visibility.Visible;
         bool last = _step == FirstRunLogic.GuideSteps.Count - 1;
         _next.Content = last ? "创建共享" : "下一步";
+        // v2.2.1：非末步 Enter 前进（IsDefault）；末步不设默认——防 Enter 误触真实建共享（评审 G-K3）
+        _next.IsDefault = !last;
         _next.Click -= OnNextClick;
         _next.Click += OnNextClick;
     }
@@ -331,14 +351,20 @@ public sealed class FirstRunGuideWindow : Window
                 _advancedToggle.IsChecked == true ? new FirstRunLogic.AdvancedOpts(limit) : null);
             await _share.CreateShareAsync(input);
             _flagStore.MarkComplete();
-            MessageBox.Show("第一个共享建好了，打开资源管理器就能用", "创建成功");
+            // v2.2.0 傻瓜式闭环：成功反馈带可访问的 UNC 路径并复制到剪贴板，
+            // 替代过去只有一句「建好了」的 MessageBox（用户下一步该干嘛没有答案）
+            string accessPath = $"\\\\{Environment.MachineName}\\{input.name}";
+            try { Clipboard.SetText(accessPath); }
+            catch { /* 剪贴板被占用等：不阻断成功路径 */ }
+            Shell.ToastHost.Show(Shell.ToastLevel.Success,
+                $"第一个共享建好了：局域网访问 {accessPath}（已复制，可直接粘贴发给同事）");
             DialogResult = true;
             Close();
         }
         catch (Exception ex)
         {
-            // 只提示、不清空：改改就能重试，重填是最差的失败体验
-            ShowError(ex.Message);
+            // 只提示、不清空：改改就能重试，重填是最差的失败体验；文案经 ErrorText 人话化
+            ShowError(ErrorText.Describe(ex, "创建共享"));
         }
         finally
         {

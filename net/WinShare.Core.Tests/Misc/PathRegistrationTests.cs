@@ -246,6 +246,9 @@ public class PathRegistrationTests
         Assert.Contains("Set-ItemProperty", ps.VoidCommands[0]);
         Assert.Contains("Run", ps.VoidCommands[0]);
         Assert.Contains("WinSharePanel", ps.VoidCommands[0]);
+        // v2.2.0 修复回归：自启命令必须指向真实 exe（此前误写 "WinShare Panel.exe"——开机自启静默失效）
+        Assert.Contains("WinShare.App.exe", ps.VoidCommands[0]);
+        Assert.Contains("--silent", ps.VoidCommands[0]);
     }
 
     // [Source: pathRegistration.test.ts#setLoginShortcut > enabled=false：删 HKCU Run 键]

@@ -73,8 +73,8 @@ public sealed class AutoStartCardViewModel : SettingsCardBase
             }
             catch (Exception e)
             {
-                Error = $"读取开机自启状态失败：{e.Message}";
-                return e.Message;
+                Error = $"读取开机自启状态失败：{Common.ErrorText.Brief(e)}";
+                return Common.ErrorText.Brief(e);
             }
             finally
             {
@@ -125,7 +125,7 @@ public sealed class AutoStartCardViewModel : SettingsCardBase
                 }
                 catch (Exception e)
                 {
-                    Error = $"开机自启已生效，但偏好保存失败（下次启动可能回到系统状态）：{e.Message}";
+                    Error = $"开机自启已生效，但偏好保存失败（下次启动可能回到系统状态）：{Common.ErrorText.Brief(e)}";
                 }
                 Raise();
                 return null;
@@ -133,9 +133,9 @@ public sealed class AutoStartCardViewModel : SettingsCardBase
             catch (Exception e)
             {
                 Pending = null;
-                Error = $"开机自启设置失败：{e.Message}";
+                Error = $"开机自启设置失败：{Common.ErrorText.Brief(e)}";
                 Raise();
-                return e.Message;
+                return Common.ErrorText.Brief(e);
             }
         });
         return t;

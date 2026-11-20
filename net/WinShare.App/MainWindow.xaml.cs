@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     {
         _nav = nav;
         InitializeComponent();
+        Shell.UiTestHooks.Prepare(this);
 
         // 滚轮跟随鼠标：WPF 把 MouseWheel 路由给键盘焦点元素——启动后焦点在侧栏导航
         // ListView（仅横向滚动），滚轮从它向上冒泡永远不经过页面内容区的 ScrollViewer
@@ -40,6 +41,32 @@ public partial class MainWindow : Window
         _nav.Navigate("/");
         PageHost.Content = _nav.CurrentView;
         _nav.RouteChanged += OnRouteChanged;
+
+        // v2.2.0 第四轮：窗口尺寸 → 共享页断点（窄窗隐藏次要列，避免「全部」页签横向滚动 6.9 倍）
+        SizeChanged += OnWindowSizeChanged;
+        OnWindowSizeChanged(this, null!);
+
+        // Toast 浮层（右下角；全局反馈通道，见 ToastHost）
+        ToastHost.Attach(ToastLayer);
+
+        // 非管理员启动期检测（纯 C# WindowsPrincipal，瞬时）：提示条常驻可关，提权入口与设置页共用
+        if (!Elevation.IsAdmin())
+        {
+            AdminBanner.Visibility = Visibility.Visible;
+            LogSink.Warn("main", "[elevation] 非管理员身份运行：需管理员的操作将失败（提示条已展示）");
+        }
+
+        // v2.2.0 第二轮：顶栏使用模式徽标（常驻提示当前模式——新手用户能看见「为什么高级字段收起」）
+        AppShell.OnModeChanged += OnModeChangedForBadge;
+        UpdateModeBadge(AppServices.SettingsStore.Load().advancedMode);
+        UpdateThemeMenuState();
+        // 主题在设置页切换时也要同步「更多」菜单的勾选态
+        AppServices.Bus.Subscribe<Events.ThemeChanged>(_ => Dispatcher.BeginInvoke(UpdateThemeMenuState));
+
+        // v2.2.0 安装与运行配置：任务栏显示控制 + 关闭按钮行为（启动初始化 + 设置卡变更跟随）
+        var winState = AppServices.SettingsStore.Load();
+        AppShell.ApplyWindowBehavior(winState.showInTaskbar, winState.closeToTray);
+        AppShell.OnWindowBehaviorChanged += OnWindowBehaviorChangedForApp;
 
         // Win11 亚克力背景（对齐 main.ts：win11 → acrylic；失败静默回退系统外观）
         if (Win11Detector.IsWin11())
@@ -57,13 +84,22 @@ public partial class MainWindow : Window
         }
 
         // 关闭 = 最小化到托盘（对齐 main.ts close → hide）
+        // 关闭行为（v2.2.0 安装与运行配置）：closeToTray=true 最小化到托盘驻留；false 直接退出
+        bool closeTipShown = false;
         Closing += (_, e) =>
         {
-            if (!AppShell.IsQuitting)
+            if (!AppShell.IsQuitting && AppShell.CloseToTrayEnabled)
             {
                 e.Cancel = true;
                 Hide();
+                // 首次关闭提示一次（新手常误以为应用「没关掉」——托盘语义要说破）
+                if (!closeTipShown)
+                {
+                    closeTipShown = true;
+                    AppShell.ShowBalloon("WinShare Panel", "已最小化到系统托盘，共享服务保持运行；右键托盘图标可完全退出。");
+                }
             }
+            // closeToTray=false → 不取消关闭：正常退出（托盘 Quit 清理由 OnExit 兜底）
         };
 
         // F5 全局刷新 / Ctrl+K 命令面板（对齐 TS hotkey 面）
@@ -80,6 +116,52 @@ public partial class MainWindow : Window
                 e.Handled = true;
             }
         };
+    }
+
+    void OnModeChangedForBadge(bool advanced) => Dispatcher.BeginInvoke(() => UpdateModeBadge(advanced));
+
+    /// <summary>窗口行为变更跟随（任务栏图标显隐即时生效）。</summary>
+    void OnWindowBehaviorChangedForApp(bool showTaskbar, bool closeToTray)
+        => Dispatcher.BeginInvoke(() => ShowInTaskbar = showTaskbar);
+
+    /// <summary>顶栏模式徽标 + 「更多」菜单文案随模式翻转。</summary>
+    void UpdateModeBadge(bool advanced)
+    {
+        SetStatusHint(advanced ? "专家模式" : "新手模式");
+        TitleStatus.ToolTip = advanced
+            ? "当前为专家模式：高级参数已展开（可在「应用设置」或本菜单切换）"
+            : "当前为新手模式：只显示常用项，高级参数已收起（可在「应用设置」或本菜单切换）";
+        // v2.2.0 第五批：模式以两枚可勾选项呈现当前值（替代"切换到…"把状态藏在动词里）
+        if (MenuModeNovice is not null) MenuModeNovice.IsChecked = !advanced;
+        if (MenuModeExpert is not null) MenuModeExpert.IsChecked = advanced;
+    }
+
+    /// <summary>「更多」菜单主题项勾选态跟随当前主题。</summary>
+    void UpdateThemeMenuState()
+    {
+        bool dark = AppServices.SettingsStore.Load().theme == WinShare.Core.Contracts.ThemeMode.Dark;
+        if (MenuThemeLight is not null) MenuThemeLight.IsChecked = !dark;
+        if (MenuThemeDark is not null) MenuThemeDark.IsChecked = dark;
+    }
+
+    /// <summary>直接切到新手模式（可勾选项）。</summary>
+    async void OnMenuModeNovice(object sender, RoutedEventArgs e) => await ApplyUsageMode(false);
+
+    /// <summary>直接切到专家模式（可勾选项）。</summary>
+    async void OnMenuModeExpert(object sender, RoutedEventArgs e) => await ApplyUsageMode(true);
+
+    async Task ApplyUsageMode(bool advanced)
+    {
+        var vm = new Settings.UsageModeCardViewModel(AppServices.SettingsStore);
+        string? err = await vm.ApplyModeAsync(advanced);
+        if (err is not null)
+        {
+            Shell.ToastHost.Show(Shell.ToastLevel.Danger, err);
+            return;
+        }
+        Shell.ToastHost.Show(Shell.ToastLevel.Success,
+            advanced ? "已切换到专家模式：高级参数已展开" : "已切换到新手模式：高级参数已收起（各页重新进入后生效）");
+        UpdateModeBadge(advanced);
     }
 
     void BuildNavDisplays()
@@ -126,6 +208,7 @@ public partial class MainWindow : Window
     void OnRouteChanged(string route)
     {
         PageHost.Content = _nav.CurrentView;
+        OnWindowSizeChanged(this, null!); // 新页面按当前宽度重算断点
         var items = NavList.ItemsSource as System.Collections.IList;
         var idx = 0;
         if (items is not null)
@@ -143,6 +226,28 @@ public partial class MainWindow : Window
     }
 
     bool _navSyncing;
+
+    /// <summary>
+    /// v2.2.0 第四轮：窗口尺寸 → 共享页断点状态（窄窗隐藏次要列）。
+    /// 宽度经侧栏 216 + 页面边距 40 折算为页面区可用宽；VM 属性驱动列 Visibility。
+    /// </summary>
+    void OnWindowSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // v2.2.0 第四轮：平板断点——窗口 <1280 侧栏收窄为图标栏（72px），标题隐藏
+        // v2.2.0 第五批：阈值取 Breakpoints 单一来源（此前此处 1100、表格处 1280/1024 三套并存）
+        var compact = WinShare.App.Shell.Breakpoints.IsCompactNav(ActualWidth);
+        NavRail.Width = compact ? 72 : 216;
+        // 标题显隐走 ItemContainerStyle 的 Tag 触发器（DataTemplate 内控件不在 code-behind 作用域）
+        foreach (var item in NavList.Items)
+        {
+            if (NavList.ItemContainerGenerator.ContainerFromItem(item) is System.Windows.Controls.ListViewItem li)
+                li.Tag = compact ? compact : null;
+        }
+        var pageWidth = ActualWidth - NavRail.Width - 40; // 侧栏 + 页面左右边距
+        Shares.SharesServices.AvailableWidth = pageWidth;
+        var vm = (PageHost.Content as Views.Shares.SharesPageView)?.Vm;
+        vm?.RefreshBreakpoint();
+    }
 
     void OnNavSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -268,8 +373,17 @@ public partial class MainWindow : Window
 
     void OnMenuRefresh(object sender, RoutedEventArgs e) => AppServices.Bus.Publish(new RefreshRequested());
 
-    void OnMenuThemeLight(object sender, RoutedEventArgs e) => AppServices.Theme.Apply(ThemeModeOf(false));
-    void OnMenuThemeDark(object sender, RoutedEventArgs e) => AppServices.Theme.Apply(ThemeModeOf(true));
+    void OnMenuThemeLight(object sender, RoutedEventArgs e)
+    {
+        AppServices.Theme.Apply(ThemeModeOf(false));
+        UpdateThemeMenuState();
+    }
+
+    void OnMenuThemeDark(object sender, RoutedEventArgs e)
+    {
+        AppServices.Theme.Apply(ThemeModeOf(true));
+        UpdateThemeMenuState();
+    }
 
     static WinShare.Core.Contracts.ThemeMode ThemeModeOf(bool dark)
         => dark ? WinShare.Core.Contracts.ThemeMode.Dark : WinShare.Core.Contracts.ThemeMode.Light;
@@ -284,4 +398,16 @@ public partial class MainWindow : Window
         var palette = new Shell.CommandPaletteWindow { Owner = this };
         palette.ShowDialog();
     }
+
+    // ===== 非管理员提示条（v2.2.0） =====
+
+    /// <summary>提权重启（与「应用设置 → 关于」按钮共用 Elevation.RelaunchAndExitAsync）。</summary>
+    async void OnRelaunchAsAdmin(object sender, RoutedEventArgs e)
+    {
+        string? err = await Shell.Elevation.RelaunchAndExitAsync();
+        if (err is not null) Shell.ToastHost.Show(Shell.ToastLevel.Danger, err);
+    }
+
+    void OnDismissAdminBanner(object sender, RoutedEventArgs e)
+        => AdminBanner.Visibility = Visibility.Collapsed;
 }

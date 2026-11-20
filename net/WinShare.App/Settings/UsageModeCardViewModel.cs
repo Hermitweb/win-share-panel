@@ -13,15 +13,18 @@ public sealed class UsageModeCardViewModel : SettingsCardBase
     readonly AppSettingsStore _store;
     readonly Action<ThemeMode>? _applyTheme;
     readonly Action? _onThemeChanged;
+    readonly Action<bool>? _onModeChanged;
 
     public UsageModeCardViewModel(
         AppSettingsStore store,
         Action<ThemeMode>? applyTheme = null,
-        Action? onThemeChanged = null)
+        Action? onThemeChanged = null,
+        Action<bool>? onModeChanged = null)
     {
         _store = store;
         _applyTheme = applyTheme;
         _onThemeChanged = onThemeChanged;
+        _onModeChanged = onModeChanged;
         var s = store.Load();
         AdvancedMode = s.advancedMode;
         Theme = s.theme;
@@ -31,7 +34,8 @@ public sealed class UsageModeCardViewModel : SettingsCardBase
     public bool AdvancedMode { get; private set; }
     public ThemeMode Theme { get; private set; }
 
-    /// <summary>应用新手/专家模式（patch advancedMode；成功文案与 TS 逐字对齐）。</summary>
+    /// <summary>应用新手/专家模式（patch advancedMode；成功文案与 TS 逐字对齐）。
+    /// v2.2.0 第二轮：成功后经 onModeChanged 回调通知宿主（顶栏徽标/菜单文案跟随）。</summary>
     public Task<string?> ApplyModeAsync(bool advanced)
     {
         if (Busy) return Task.FromResult<string?>(null);
@@ -44,6 +48,7 @@ public sealed class UsageModeCardViewModel : SettingsCardBase
                 AdvancedMode = advanced;
                 Success = advanced ? "已切换到专家模式：高级参数已展开" : "已切换到新手模式：高级参数已收起";
                 Raise();
+                _onModeChanged?.Invoke(advanced);
                 return null;
             }
             catch (Exception e)

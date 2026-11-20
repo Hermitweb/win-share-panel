@@ -31,7 +31,7 @@ public static class SettingsModule
         {
             route = AppSettingsRoute,
             titleKey = "Nav.AppSettings",
-            glyph = "\uE115",
+            glyph = "\uE7F4", // v2.2.0 第四轮：原 E115 与服务器配置 E713 同为齿轮 → 换 Info 图标
             factory = new PageFactory(() => new AppSettingsPageView()),
         });
     }

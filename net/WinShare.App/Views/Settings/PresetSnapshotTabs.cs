@@ -17,15 +17,14 @@ public sealed class PresetTabView : UserControl
 
     public PresetTabView()
     {
-        var root = new StackPanel { Margin = new Thickness(16) };
-        root.Children.Add(SettingsUi.HeaderRow("权限模板",
+        var root = new StackPanel(); // v2.2.0：外层 Card 已有 padding，去掉双层缩进
+        // v2.2.0 第二轮：去掉与外层 CardTitle 重复的「权限模板」标题，仅保留按钮行
+        root.Children.Add(SettingsUi.HeaderRow("", 
             SettingsUi.Button("刷新", (_, _) => Reload()),
             SettingsUi.Button("新建空白模板", (_, _) => _ = NewBlankAsync()),
             SettingsUi.Button("导出", async (_, _) => await ExportAsync()),
             SettingsUi.Button("导入", async (_, _) => await ImportAsync(), primary: true)));
-        root.Children.Add(SettingsUi.FogText(
-            "内置模板不可删除（可复制或「复制并编辑」为自定义副本）。自定义模板可直接编辑。" +
-            "应用到共享时按「覆盖」写入全部授权，失败自动回滚到改前权限。"));
+        root.Children.Add(SettingsUi.FogText("内置模板不可删除；应用时覆盖全部授权，失败自动回滚。"));
         root.Children.Add(_list);
         root.Children.Add(SettingsUi.HeaderRow("条目预览"));
         root.Children.Add(_entriesBox);
@@ -98,40 +97,45 @@ public sealed class PresetTabView : UserControl
 
         foreach (PermissionPreset preset in presets)
         {
-            // 纵向单列：名称/说明/类型/条目数各占一行，操作按钮逐个上下排列（handler 语义不变）
+            // v2.2.0 第二轮：名称/类型/条目数一行、说明一行、操作按钮一行（此前全部纵排，宽屏挤成左窄柱）
             var row = new StackPanel { Margin = new Thickness(0, 3, 0, 6) };
-            row.Children.Add(new TextBlock
+
+            var meta = new StackPanel { Orientation = Orientation.Horizontal };
+            meta.Children.Add(new TextBlock
             {
                 Text = preset.name,
                 FontSize = 12,
                 FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0),
             }.Live(TextBlock.ForegroundProperty, "BrushText"));
+            meta.Children.Add(new TextBlock
+            {
+                Text = preset.builtIn ? "内置" : "自定义",
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0),
+            }.Live(TextBlock.ForegroundProperty, "BrushPrimary"));
+            meta.Children.Add(new TextBlock
+            {
+                Text = $"{preset.entries?.Count ?? 0} 条",
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+            }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+            row.Children.Add(meta);
 
             row.Children.Add(new TextBlock
             {
                 Text = preset.description,
                 FontSize = 12,
+                Margin = new Thickness(0, 2, 0, 4),
             }.Live(TextBlock.ForegroundProperty, "BrushFog"));
 
-            row.Children.Add(new TextBlock
-            {
-                Text = preset.builtIn ? "内置" : "自定义",
-                FontSize = 12,
-            }.Live(TextBlock.ForegroundProperty, "BrushPrimary"));
-
-            row.Children.Add(new TextBlock
-            {
-                Text = $"{preset.entries?.Count ?? 0} 条",
-                FontSize = 12,
-            }.Live(TextBlock.ForegroundProperty, "BrushFog"));
-
-
+            var btns = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
             PermissionPreset captured = preset;
-            var viewBtn = SettingsUi.Button("查看", (_, _) => ShowEntries(captured));
-            viewBtn.HorizontalAlignment = HorizontalAlignment.Left;
-            row.Children.Add(viewBtn);
+            btns.Children.Add(SettingsUi.Button("查看", (_, _) => ShowEntries(captured)));
             // v2.1：编辑入口（自定义直接编辑；内置自动复制为自定义副本后编辑）
-            var editBtn = SettingsUi.Button(preset.builtIn ? "复制并编辑" : "编辑", async (_, _) =>
+            btns.Children.Add(SettingsUi.Button(preset.builtIn ? "复制并编辑" : "编辑", async (_, _) =>
             {
                 try
                 {
@@ -141,10 +145,8 @@ public sealed class PresetTabView : UserControl
                 {
                     MessageBox.Show(ex.Message, "编辑失败");
                 }
-            });
-            editBtn.HorizontalAlignment = HorizontalAlignment.Left;
-            row.Children.Add(editBtn);
-            var copyBtn = SettingsUi.Button("复制", async (_, _) =>
+            }));
+            btns.Children.Add(SettingsUi.Button("复制", async (_, _) =>
             {
                 try
                 {
@@ -156,9 +158,7 @@ public sealed class PresetTabView : UserControl
                 {
                     MessageBox.Show(ex.Message, "复制失败");
                 }
-            });
-            copyBtn.HorizontalAlignment = HorizontalAlignment.Left;
-            row.Children.Add(copyBtn);
+            }));
             var del = SettingsUi.Button("删除", async (_, _) =>
             {
                 MessageBoxResult ok = MessageBox.Show($"删除模板「{captured.name}」？", "删除确认", MessageBoxButton.YesNo);
@@ -173,10 +173,10 @@ public sealed class PresetTabView : UserControl
                     MessageBox.Show(ex.Message, "删除失败");
                 }
             });
-            del.HorizontalAlignment = HorizontalAlignment.Left;
             del.IsEnabled = !preset.builtIn;
             del.ToolTip = preset.builtIn ? "内置模板不可删除（可复制为自定义）" : null;
-            row.Children.Add(del);
+            btns.Children.Add(del);
+            row.Children.Add(btns);
             _list.Children.Add(row);
         }
     }
@@ -242,12 +242,12 @@ public sealed class SnapshotTabView : UserControl
 
     public SnapshotTabView()
     {
-        var root = new StackPanel { Margin = new Thickness(16) };
-        root.Children.Add(SettingsUi.HeaderRow("快照历史",
+        var root = new StackPanel(); // v2.2.0：外层 Card 已有 padding，去掉双层缩进
+        // v2.2.0 第二轮：去掉与外层 CardTitle 重复的「快照历史」标题
+        root.Children.Add(SettingsUi.HeaderRow("",
             SettingsUi.Button("刷新", (_, _) => Reload()),
             SettingsUi.Button("立即快照", async (_, _) => await SnapshotNowAsync(), primary: true)));
-        root.Children.Add(SettingsUi.FogText(
-            "每次保存 SMB 服务器配置前自动留档；回滚会把当时的配置整体写回（含全部开关与高级参数）。"));
+        root.Children.Add(SettingsUi.FogText("保存 SMB 配置前自动留档，可整体回滚。"));
         root.Children.Add(_list);
         Content = new ScrollViewer { Content = root };
         Loaded += (_, _) => Reload();
@@ -274,22 +274,24 @@ public sealed class SnapshotTabView : UserControl
         }
         if (snaps.Count == 0)
         {
-            _list.Children.Add(SettingsUi.FogText("暂无快照（保存配置后会自动生成）"));
+            _list.Children.Add(SettingsUi.FogText("暂无快照"));
             return;
         }
 
         foreach (SmbSnapshotMeta snap in snaps)
         {
-            // 纵向单列：快照时间一行、回滚按钮独立一行（handler 语义不变）
-            var row = new StackPanel { Margin = new Thickness(0, 3, 0, 6) };
+            // v2.2.0 第二轮：时间与回滚按钮一行（此前纵排两行）
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 6) };
             row.Children.Add(new TextBlock
             {
                 Text = snap.ts,
                 FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 12, 0),
             }.Live(TextBlock.ForegroundProperty, "BrushText"));
 
             SmbSnapshotMeta captured = snap;
-            var rollBtn = SettingsUi.Button("回滚到此快照", async (_, _) =>
+            row.Children.Add(SettingsUi.Button("回滚到此快照", async (_, _) =>
             {
                 MessageBoxResult ok = MessageBox.Show(
                     $"回滚到 {captured.ts} 的配置？当前配置会被覆盖。", "回滚确认", MessageBoxButton.YesNo);
@@ -304,9 +306,7 @@ public sealed class SnapshotTabView : UserControl
                 {
                     MessageBox.Show(ex.Message, "回滚失败");
                 }
-            });
-            rollBtn.HorizontalAlignment = HorizontalAlignment.Left;
-            row.Children.Add(rollBtn);
+            }));
             _list.Children.Add(row);
         }
     }

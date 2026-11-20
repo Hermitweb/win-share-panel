@@ -64,27 +64,43 @@ public class ShareDrawerWiringTests
 
     [Source("[Source: src/pages/Shares.tsx#977 快捷键提示文案]")]
     [Fact]
-    public void 页面提示文案_含全部四个快捷键()
+    public void 页面提示文案_不常驻说明_四个快捷键收进悬停提示()
     {
-        string? tip = null;
+        // v2.2.0 第五批（反说明书原则）：拖拽提示改为「悬停即显」的浮层反馈，
+        // 标题下不再常驻任何说明小字；四个快捷键收进标题的 ToolTip。
+        string? shortcutTip = null;
+        bool hasStaticDragHint = false;
+        bool hasDropHint = false;
         Exception? failure = null;
         RunOnSta(() =>
         {
             try
             {
                 var page = new SharesPageView();
-                tip = AllLogical<TextBlock>(page)
-                    .Select(t => t.Text)
-                    .FirstOrDefault(t => t is not null && t.StartsWith("提示：拖拽文件夹到本页可快速创建共享", StringComparison.Ordinal));
+                var blocks = AllLogical<TextBlock>(page).ToList();
+                // 标题（Nav.Share 资源标题）承载快捷键 ToolTip
+                shortcutTip = blocks.FirstOrDefault(t => t.ToolTip is string s && s.Contains("Ctrl+N"))?.ToolTip as string;
+                // 页面内不得再有常驻的拖拽说明句
+                hasStaticDragHint = blocks.Any(t => t.Text is not null && t.Text.Contains("拖拽文件夹到本页"));
+                // 拖拽浮层存在（悬停时才出现的那一层）
+                hasDropHint = AllLogical<System.Windows.Controls.Border>(page)
+                    .Any(b => b.Visibility == System.Windows.Visibility.Collapsed
+                              && AllLogical<System.Windows.Controls.TextBlock>(b)
+                                    .Any(t => t.Text is not null && t.Text.Contains("松开以创建共享")));
             }
             catch (Exception e) { failure = e; }
         });
         Assert.Null(failure);
-        Assert.NotNull(tip);
-        Assert.Contains("Ctrl+N", tip);
-        Assert.Contains("Del", tip);
-        Assert.Contains("Space", tip);
-        Assert.Contains("F5", tip);
+        // 常驻说明句已移除
+        Assert.False(hasStaticDragHint);
+        // 拖拽能力改为浮层反馈
+        Assert.True(hasDropHint);
+        // 快捷键在悬停提示里
+        Assert.NotNull(shortcutTip);
+        Assert.Contains("Ctrl+N", shortcutTip);
+        Assert.Contains("Del", shortcutTip);
+        Assert.Contains("Space", shortcutTip);
+        Assert.Contains("F5", shortcutTip);
     }
 
     [Source("[Source: src/pages/Shares.tsx#useTickEffect(shareDeleteTick/shareToggleTick) + shareCreateOpen]")]

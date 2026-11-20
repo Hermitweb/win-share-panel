@@ -52,31 +52,24 @@ public sealed class ContractSessionsDataFeed : ISessionsDataFeed
             case Protocol.Smb:
                 var svc = _smb();
                 if (svc is null) return new SessionsData();
-                try
+                // v2.2.0 第二轮：异常上抛（此前 catch 返回空数据 → VM 当成功把列表清空，
+                // 「失败保留旧数据」语义实际落空）。VM 侧 catch 保留旧数据 + stale 标记。
+                var sTask = svc.ListSessionsAsync();
+                var fTask = svc.ListOpenFilesAsync();
+                await Task.WhenAll(sTask, fTask);
+                var sessions = await sTask;
+                var files = await fTask;
+                return new SessionsData
                 {
-                    // 并行启动（对齐 TS Promise.all）
-                    var sTask = svc.ListSessionsAsync();
-                    var fTask = svc.ListOpenFilesAsync();
-                    await Task.WhenAll(sTask, fTask);
-                    var sessions = await sTask;
-                    var files = await fTask;
-                    return new SessionsData
-                    {
-                        Sessions = sessions.Select(SmbToSession).ToList(),
-                        Files = files,
-                    };
-                }
-                catch { return new SessionsData(); } // 取数失败 → 空馈送（页面保留旧数据语义由 VM 承载）
+                    Sessions = sessions.Select(SmbToSession).ToList(),
+                    Files = files,
+                };
 
             case Protocol.Nfs:
                 var adapter = _adapters()?.TryGetValue(Protocol.Nfs, out var nfs) == true ? nfs : null;
                 if (adapter is null) return new SessionsData();
-                try
-                {
-                    var sessions = await adapter.ListSessionsAsync();
-                    return new SessionsData { Sessions = sessions };
-                }
-                catch { return new SessionsData(); }
+                var sessionsNfs = await adapter.ListSessionsAsync();
+                return new SessionsData { Sessions = sessionsNfs };
 
             default:
                 // FTP/WebDAV 无原生会话 API（对齐 TS：返回 { sessions: [], files: [] }）
@@ -261,6 +254,9 @@ public sealed class SessionsViewModel : INotifyPropertyChanged
     public IReadOnlyList<SmbOpenFile> Files { get => _files; private set => Set(ref _files, value); }
     /// <summary>首轮加载失败提示（有数据后轮询失败静默，TS 同款语义）。</summary>
     public string ErrorText { get => _errorText; private set => Set(ref _errorText, value); }
+
+    /// <summary>v2.2.0 第二轮：最近一次轮询失败后为 true（保留旧数据但提示可能过期），成功刷新后复位。</summary>
+    public bool IsStale { get; private set; }
     /// <summary>首个请求加载态（对齐 spinning = isFetching && !data）。</summary>
     public bool Spinning { get => _spinning; private set => Set(ref _spinning, value); }
 
@@ -333,17 +329,22 @@ public sealed class SessionsViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            // 首轮失败提示（TS: error && !data → message.error）；后续轮询失败静默保留旧数据
+            // 首轮失败提示（TS: error && !data → message.error）；后续轮询失败静默保留旧数据，
+            // 但 stale 标记置位（视图显示「数据可能不是最新」——v2.2.0 第二轮此前完全静默）
+            IsStale = true;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsStale)));
             if (!_hasData)
             {
                 _errorText = e.Message;
                 Set(ref _errorText, e.Message);
-                Tell("error", e.Message);
+                Tell("error", Common.ErrorText.Describe(e, "读取会话"));
             }
             Spinning = false;
             return;
         }
 
+        IsStale = false;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsStale)));
         _sessions = data.Sessions;
         _files = data.Files;
         Sessions = _sessions;
@@ -411,7 +412,7 @@ public sealed class SessionsViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "断开会话"));
             return false;
         }
     }
@@ -428,27 +429,33 @@ public sealed class SessionsViewModel : INotifyPropertyChanged
         }
         catch (Exception e)
         {
-            Tell("error", e.Message);
+            Tell("error", Common.ErrorText.Describe(e, "关闭文件"));
             return false;
         }
     }
 
     /// <summary>
     /// 批量强断（对齐 doBatchClose：allSettled 语义 → 逐个 try/catch 收集失败；
-    /// 有失败 message.error "N 个成功，M 个失败"，全成 message.success "已断开 N 个会话"；清选 + 刷新）。
+    /// 有失败 message.error "N 个成功，M 个失败：{前 3 条原因}"，全成 message.success "已断开 N 个会话"；清选 + 刷新）。
     /// 确认框（"将对 N 个会话执行强制断开"）在视图层。
     /// </summary>
     public async Task<(int ok, int failed)> BatchCloseAsync(IReadOnlyList<string> ids)
     {
         if (ids.Count == 0) return (0, 0);
-        var failed = new List<string>();
+        var failed = new List<(string id, string reason)>();
         foreach (var id in ids)
         {
             try { await _feed.CloseSessionAsync(_activeProto, id); }
-            catch { failed.Add(id); }
+            catch (Exception e) { failed.Add((id, Common.ErrorText.Brief(e))); }
         }
         var ok = ids.Count - failed.Count;
-        if (failed.Count > 0) Tell("error", $"{ok} 个成功，{failed.Count} 个失败");
+        if (failed.Count > 0)
+        {
+            // v2.2.0：批量失败不再吞原因——逐条「会话：原因」列前 3 条
+            string details = string.Join("；", failed.Take(3).Select(f => $"{f.id}：{f.reason}"));
+            string more = failed.Count > 3 ? $" 等 {failed.Count} 项" : "";
+            Tell("error", $"{ok} 个成功，{failed.Count} 个失败：{details}{more}");
+        }
         else Tell("success", $"已断开 {ids.Count} 个会话");
         _selected.Clear();
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedSessions)));

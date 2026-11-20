@@ -18,7 +18,17 @@ public partial class ShareEditWindow : Window
         _vm = vm;
         _form = form;
         InitializeComponent();
+        Shell.UiTestHooks.Prepare(this);
         Title = $"编辑共享：{form.Name}";
+        // v2.2.1：Esc 关闭（非模态窗 IsCancel 不生效，对齐新建共享向导；评审 G-K2）
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == System.Windows.Input.Key.Escape)
+            {
+                OnCancel(this, new RoutedEventArgs());
+                e.Handled = true;
+            }
+        };
         LoadFromForm();
     }
 

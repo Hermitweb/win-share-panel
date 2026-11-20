@@ -7,6 +7,7 @@ using System.Windows.Input;
 using WinShare.App.Common;
 using WinShare.App.Dashboard;
 using WinShare.App.Events;
+using WinShare.App.Shell;
 using WinShare.App.State;
 using WinShare.Core.Contracts;
 
@@ -133,6 +134,7 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
     readonly ISystemService? _system;
     readonly IUserService? _user;
     readonly IDiskService? _disk;
+    readonly IFirewallService? _firewall;
     readonly Func<string, byte[], Task> _fileSaver;
     readonly Func<Task<string?>> _importPicker;
     readonly Func<long> _nowMs;
@@ -149,7 +151,8 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         IDiskService? diskService,
         Func<string, byte[], Task> fileSaver,
         Func<Task<string?>> importPicker,
-        Func<long>? nowMs = null)
+        Func<long>? nowMs = null,
+        IFirewallService? firewallService = null)
     {
         _feed = feed;
         _store = store;
@@ -160,6 +163,7 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         _system = systemService;
         _user = userService;
         _disk = diskService;
+        _firewall = firewallService;
         _fileSaver = fileSaver;
         _importPicker = importPicker;
         _nowMs = nowMs ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
@@ -240,9 +244,9 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         AnonymousEnabled = s.anonymousEnabled ?? false,
     };
 
-    /// <summary>详情抽屉子 VM 工厂（视图消费）。</summary>
+    /// <summary>详情抽屉子 VM 工厂（视图消费）。v2.2.0 第二轮：透传使用模式驱动高级参数折叠。</summary>
     public ShareDetailViewModel MakeDetailVm(Share share) =>
-        new(share, _share, _protocol, _system);
+        new(share, _share, _protocol, _system, advancedMode: _store.Load().advancedMode);
 
     /// <summary>权限抽屉子 VM 工厂（视图消费）。</summary>
     public SharePermissionsViewModel MakePermissionVm(Share share) =>
@@ -300,6 +304,26 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
 
     // ===== 列显隐（TS columns 展开条件逐条） =====
     public bool ShowProtocolColumn => _activeProtocol == "all";
+
+    // ===== 窄窗断点（v2.2.0 第五批：阈值统一到 Breakpoints 单一来源，区间互斥且连续） =====
+    // 名称/协议/状态/操作 四列永不隐藏；其余按「长文本列 → 派生列」顺序退场。
+    public bool CompactColumns => SharesServices.AvailableWidth > 0
+        && WinShare.App.Shell.Breakpoints.HideLongColumns(SharesServices.AvailableWidth);
+    public bool VeryCompactColumns => SharesServices.AvailableWidth > 0
+        && WinShare.App.Shell.Breakpoints.HideDerivedColumns(SharesServices.AvailableWidth);
+    public bool ShowDescriptionColumn => !CompactColumns;
+    public bool ShowAuthoringColumn => !CompactColumns;
+    public bool ShowWebdavPortColumn => !VeryCompactColumns;
+
+    /// <summary>窗口尺寸变化后重算断点（MainWindow 调用；触发列显隐属性通知）。</summary>
+    public void RefreshBreakpoint()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CompactColumns)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(VeryCompactColumns)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowDescriptionColumn)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowAuthoringColumn)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowWebdavPortColumn)));
+    }
     public bool ShowFtpColumns => _activeProtocol == "ftp";
     public bool ShowNfsColumns => _activeProtocol is "all" or "nfs";
     public bool ShowWebdavColumns => _activeProtocol == "webdav";
@@ -321,6 +345,14 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
     public bool CurrentProtoUninstalled =>
         _activeProtocol != "all" &&
         CapOf(ProtocolExtForm.Parse(_activeProtocol)) is { installed: false };
+
+    /// <summary>
+    /// v2.2.0 第二轮：零共享空态（引导新建）——全部页签 + 无关键字 + 无「只看有人连接」 +
+    /// 非「未安装」空态。纯属性，视图层据此显隐 EmptyNoShares。
+    /// </summary>
+    public bool ShowEmptyNoShares =>
+        Hydrated && !Loading && Rows.Count == 0 && !CurrentProtoUninstalled &&
+        ActiveProtocol == "all" && Keyword.Trim().Length == 0 && !OnlyConnected;
 
     public string InstallHint =>
         _activeProtocol == "all" ? "" :
@@ -388,8 +420,8 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (Exception e)
         {
-            StatusMsg = e.Message;
-            return e.Message;
+            StatusMsg = ErrorText.Describe(e, "安装功能");
+            return StatusMsg;
         }
         finally
         {
@@ -461,6 +493,7 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
             ProtocolCapabilitiesMap = capMap ?? _bundle?.ProtocolCapabilitiesMap,
             OsInfo = os ?? _bundle?.OsInfo,
         };
+        _accountOptionsCache = null; // bundle 更新 → 候选账号缓存失效
 
         // 置顶（appstate pinned；复合 key）
         _pinnedSet = new HashSet<string>(_store.Load().pinned ?? Array.Empty<string>());
@@ -572,14 +605,27 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         var keys = _selected.OrderBy(k => k).ToList();
         var results = await Task.WhenAll(keys.Select(k => DeleteOneAsync(k)));
         var failed = results.Count(r => !r.ok);
+        // v2.2.0：批量失败不再吞原因——逐条「名称：原因」列前 3 条（此前只有「N 个失败」）
         var msg = failed > 0
-            ? $"{keys.Count - failed} 个成功，{failed} 个失败"
+            ? $"{keys.Count - failed} 个成功，{failed} 个失败：{SummarizeFailures(keys, results)}"
             : $"已删除 {keys.Count} 个共享";
         if (failed > 0) StatusIsWarning = true;
         StatusMsg = msg;
         ClearSelection();
         await LoadAsync();
         return msg;
+    }
+
+    /// <summary>批量失败摘要：列出前 3 条「名称：原因」（原因经 ErrorText.Brief 收敛），余量提示见日志。</summary>
+    string SummarizeFailures(IReadOnlyList<string> keys, IReadOnlyList<(bool ok, string error)> results)
+    {
+        var fails = new List<string>();
+        for (int i = 0; i < keys.Count && fails.Count < 3; i++)
+        {
+            if (!results[i].ok) fails.Add($"{keys[i]}：{ErrorText.Brief(new Exception(results[i].error))}");
+        }
+        string more = results.Count(r => !r.ok) > 3 ? $" 等 {results.Count(r => !r.ok)} 项" : "";
+        return string.Join("；", fails) + more;
     }
 
     /// <summary>单共享删除路由：协议走 IProtocolService；SMB 回退 IShareService。返回 (成功, 原因)。</summary>
@@ -637,8 +683,14 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
             }
         }));
         var failed = results.Count(r => !r.Item1);
+        // v2.2.0：批量失败逐条带原因（前 3 条），不再只有「N 个失败」
+        var failLines = new List<string>();
+        for (int i = 0; i < keys.Count && failLines.Count < 3; i++)
+        {
+            if (!results[i].Item1) failLines.Add($"{keys[i]}：{ErrorText.Brief(new Exception(results[i].Item2))}");
+        }
         var msg = failed > 0
-            ? $"{keys.Count - failed} 个成功，{failed} 个失败"
+            ? $"{keys.Count - failed} 个成功，{failed} 个失败：{string.Join("；", failLines)}{(failed > 3 ? $" 等 {failed} 项" : "")}"
             : $"已切换 {keys.Count} 个共享";
         if (failed > 0) StatusIsWarning = true;
         StatusMsg = msg;
@@ -654,7 +706,8 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         if (!ok)
         {
             StatusIsWarning = true;
-            return err;
+            StatusMsg = ErrorText.Describe(new Exception(err), "删除共享");
+            return StatusMsg;
         }
         StatusMsg = "已删除";
         return "已删除";
@@ -671,7 +724,12 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
             }
             else
             {
-                if (_protocol is null) { StatusIsWarning = true; return "契约服务未接入"; }
+                if (_protocol is null)
+                {
+                    StatusIsWarning = true;
+                    StatusMsg = "功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志";
+                    return StatusMsg;
+                }
                 await _protocol.AdapterToggleAsync(row.Share.protocol, row.Share.name, enabled);
             }
             StatusMsg = row.Share.status == ShareStatus.Enabled ? "已禁用" : "已启用";
@@ -680,7 +738,8 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception e)
         {
             StatusIsWarning = true;
-            return e.Message;
+            StatusMsg = ErrorText.Describe(e, enabled ? "启用共享" : "禁用共享");
+            return StatusMsg;
         }
     }
 
@@ -698,16 +757,26 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
             else if (form.Protocol == Protocol.Smb && _share is not null)
             {
                 // SMB 回退通道：UpdateShareOpts（仅 SMB 可改子集）
+                // v2.2.0：该通道不支持改名/改路径——用户改了就必须明说「未生效」，不能确认弹窗点了却静默丢弃
+                bool renamed = !string.IsNullOrWhiteSpace(form.NewName) && form.NewName.Trim() != form.Name;
+                bool moved = !string.IsNullOrWhiteSpace(form.NewPath) && form.NewPath.Trim() != form.Path;
                 await _share.UpdateShareAsync(form.Name, new UpdateShareOpts
                 {
                     description = form.Description,
                     hidden = null,
                 });
+                if (renamed || moved)
+                {
+                    StatusIsWarning = true;
+                    StatusMsg = "已保存描述；当前环境不支持修改名称/路径，这两项未生效";
+                    return StatusMsg;
+                }
             }
             else
             {
                 StatusIsWarning = true;
-                return "编辑保存需要契约服务（未接入）";
+                StatusMsg = "功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志";
+                return StatusMsg;
             }
             StatusMsg = "已保存";
             await LoadAsync();
@@ -716,7 +785,8 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception e)
         {
             StatusIsWarning = true;
-            return e.Message;
+            StatusMsg = ErrorText.Describe(e, "保存共享");
+            return StatusMsg;
         }
     }
 
@@ -727,16 +797,19 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
     public IReadOnlyList<WinShare.Core.Contracts.PermissionPreset> CreatePresets =>
         _bundle?.Presets ?? System.Array.Empty<WinShare.Core.Contracts.PermissionPreset>();
 
-    /// <summary>访问控制候选账号（TS accountOptions：本地用户 + 组（组带「组」标记））。</summary>
+    /// <summary>访问控制候选账号（TS accountOptions：本地用户 + 组（组带「组」标记））。按 bundle 缓存（向导下拉以引用相等判断是否重置）。</summary>
     public IReadOnlyList<string> CreateAccountOptions
     {
         get
         {
+            if (_accountOptionsCache is not null) return _accountOptionsCache;
             var users = _bundle?.Users ?? System.Array.Empty<WinShare.Core.Contracts.LocalUser>();
             var groups = _bundle?.Groups ?? System.Array.Empty<WinShare.Core.Contracts.LocalGroup>();
-            return users.Select(u => u.name).Concat(groups.Select(g => $"{g.name}（组）")).ToList();
+            _accountOptionsCache = users.Select(u => u.name).Concat(groups.Select(g => $"{g.name}（组）")).ToList();
+            return _accountOptionsCache;
         }
     }
+    IReadOnlyList<string>? _accountOptionsCache;
 
     bool _createWizardOpen;
     public bool CreateWizardOpen { get => _createWizardOpen; private set => SetField(ref _createWizardOpen, value, nameof(CreateWizardOpen)); }
@@ -757,7 +830,12 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
             }
             catch
             {
-                // 建议路径拿不到不该挡住新建：保持空表单，用户自己填
+                // 建议路径拿不到不该挡住新建：路径留空由用户选/拖；
+                // v2.2.0：共享名给兜底默认（此前建议失败连名字都空白，用户面对全空表单）
+                if (CreateForm.Name.Length == 0 && !CreateForm.NameTouched)
+                {
+                    CreateForm.Name = "SharedDocs";
+                }
             }
         }
         OpenCreateWizard();
@@ -795,7 +873,7 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
     public IReadOnlyList<ScenarioPreset> CreateScenarios =>
         CreateScenarioPresets.ForProtocol(CreateForm.Protocol, AdvancedMode);
 
-    /// <summary>TS handleCreate（含创建后 preset 应用 + 表单复位）。</summary>
+    /// <summary>TS handleCreate（含创建后 preset 应用 + 表单复位）。v2.2.0：成功后自动放行防火墙 + 反馈带访问路径。</summary>
     public async Task<string> CreateShareAsync()
     {
         if (!CreateForm.Validate(out var err))
@@ -804,6 +882,7 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
             return StatusMsg;
         }
         var protocol = ProtocolExtForm.Parse(CreateForm.Protocol);
+        string createdName = CreateForm.Name.Trim();
         try
         {
             if (_protocol is { } ps)
@@ -817,16 +896,20 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
             else
             {
                 StatusIsWarning = true;
-                return "创建共享需要契约服务（未接入）";
+                return "功能所需的后台服务未就绪：请重启应用后重试；若持续出现请查看应用日志";
             }
 
             // TS：if (v.presetId && protocol === 'smb') → getShare + applyPreset(overwrite)
             if (CreateForm.PresetId is { Length: > 0 } presetId && protocol == Protocol.Smb)
             {
-                await ApplyPresetToCreatedAsync(CreateForm.Name, presetId);
+                await ApplyPresetToCreatedAsync(createdName, presetId);
             }
 
-            StatusMsg = "创建成功";
+            // v2.2.0 傻瓜式闭环：自动放行对应协议防火墙（幂等、组隔离，失败不影响创建结果）——
+            // 「共享建好了别人却访问不到」的头号原因就是没放行防火墙
+            string fwNote = await EnsureFirewallAsync(protocol);
+            LastCreatedAccessHint = BuildAccessHint(protocol, createdName);
+            StatusMsg = "创建成功" + fwNote;
             CreateForm.Reset();
             await LoadAsync();
             CloseCreateWizard();
@@ -835,8 +918,49 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception e)
         {
             StatusIsWarning = true;
-            StatusMsg = e.Message;
-            return e.Message;
+            StatusMsg = ErrorText.Describe(e, "创建共享");
+            return StatusMsg;
+        }
+    }
+
+    /// <summary>最近一次创建成功的访问提示（视图层 toast 消费；SMB=UNC，FTP/WebDAV=URL，NFS=挂载说明）。</summary>
+    public string LastCreatedAccessHint { get; private set; } = "";
+
+    /// <summary>创建成功后按协议拼「别人怎么访问」提示（傻瓜式闭环的下半句）。</summary>
+    string BuildAccessHint(Protocol protocol, string name) => protocol switch
+    {
+        Protocol.Smb => $"局域网访问 \\\\{Environment.MachineName}\\{name}",
+        Protocol.Ftp => $"ftp://{Environment.MachineName}:{CreateForm.Port}",
+        Protocol.Webdav => $"http://{Environment.MachineName}:{CreateForm.Port}",
+        Protocol.Nfs => $"NFS 客户端挂载 {Environment.MachineName}:{name}",
+        _ => "",
+    };
+
+    /// <summary>
+    /// 创建成功后自动放行防火墙（PresetRules 幂等 Ensure，只动「WinShare Panel」组）。
+    /// 任何失败都不影响创建结果：记日志 + 提示手动路径。NFS 无组内预设 → 跳过（不臆造规则）。
+    /// </summary>
+    async Task<string> EnsureFirewallAsync(Protocol protocol)
+    {
+        string? kind = protocol switch
+        {
+            Protocol.Smb => "smb",
+            Protocol.Ftp => "ftp",
+            Protocol.Webdav => "webdav",
+            _ => null,
+        };
+        if (kind is null || _firewall is null) return "";
+        try
+        {
+            var desired = _firewall.PresetRules(kind, null);
+            if (desired.Count == 0) return "";
+            await _firewall.EnsureRulesAsync(desired);
+            return "，已自动放行防火墙（WinShare Panel 组）";
+        }
+        catch (Exception e)
+        {
+            LogSink.Warn("shares", $"创建后自动放行防火墙失败：{e.Message}");
+            return "，防火墙未自动放行：可在「应用设置 → 偏好与运维 → 防火墙」添加";
         }
     }
 
@@ -844,7 +968,7 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
     {
         if (_preset is null)
         {
-            StatusMsg = "创建成功（权限模板未应用：预设契约服务未接入）";
+            StatusMsg = "创建成功（权限模板未应用：后台服务未就绪，可稍后在共享「权限」里手动设置）";
             return;
         }
         try
@@ -854,7 +978,7 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (Exception e)
         {
-            StatusMsg = $"创建成功（权限模板应用失败：{e.Message}）";
+            StatusMsg = $"创建成功（权限模板应用失败：{ErrorText.Brief(e)}，可在共享「权限」里手动设置）";
         }
     }
 
@@ -863,7 +987,7 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
     {
         if (_share is null)
         {
-            StatusMsg = "导出配置需要共享契约服务（未接入）";
+            StatusMsg = "导出配置需要共享服务：请重启应用后重试（若持续出现请查看应用日志）";
             return StatusMsg;
         }
         try
@@ -876,8 +1000,8 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception e)
         {
             StatusIsWarning = true;
-            StatusMsg = e.Message;
-            return e.Message;
+            StatusMsg = ErrorText.Describe(e, "导出配置");
+            return StatusMsg;
         }
     }
 
@@ -891,13 +1015,13 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception e)
         {
             StatusIsWarning = true;
-            StatusMsg = e.Message;
-            return e.Message;
+            StatusMsg = ErrorText.Describe(e, "导入配置");
+            return StatusMsg;
         }
         if (text is null) return ""; // 用户取消选择
         if (_share is null)
         {
-            StatusMsg = "导入配置需要共享契约服务（未接入）";
+            StatusMsg = "导入配置需要共享服务：请重启应用后重试（若持续出现请查看应用日志）";
             return StatusMsg;
         }
         try
@@ -912,8 +1036,8 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception e)
         {
             StatusIsWarning = true;
-            StatusMsg = e.Message;
-            return e.Message;
+            StatusMsg = ErrorText.Describe(e, "导入配置");
+            return StatusMsg;
         }
     }
 
@@ -942,11 +1066,14 @@ public sealed class SharesViewModel : INotifyPropertyChanged, IDisposable
         {
             nameof(Rows), nameof(Loading), nameof(Hydrated), nameof(LoadError),
             nameof(ShowProtocolColumn), nameof(ShowFtpColumns), nameof(ShowNfsColumns),
+            nameof(CompactColumns), nameof(VeryCompactColumns),
+            nameof(ShowDescriptionColumn), nameof(ShowAuthoringColumn), nameof(ShowWebdavPortColumn),
             nameof(ShowWebdavColumns), nameof(ShowEncryptedColumn),
             nameof(NfsBlocked), nameof(IisBlocked), nameof(CurrentProtoUninstalled),
             nameof(InstallHint), nameof(UninstalledBannerItems),
             nameof(Installing), nameof(InstallingProto),
             nameof(HasSelection), nameof(SelectedCount),
+            nameof(ShowEmptyNoShares),
             nameof(StatusMsg), nameof(StatusIsWarning),
             nameof(CreateWizardOpen), nameof(CreateScenarios),
             nameof(EditForm),
