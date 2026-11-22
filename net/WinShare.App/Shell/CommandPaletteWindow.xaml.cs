@@ -51,6 +51,13 @@ public partial class CommandPaletteWindow : Window
 
         Loaded += (_, _) =>
         {
+            // v2.3：窗口铺满工作区（全屏透明遮罩承载"点击空白关闭"；面板居中）
+            var wa = System.Windows.SystemParameters.WorkArea;
+            Left = wa.Left;
+            Top = wa.Top;
+            Width = wa.Width;
+            Height = wa.Height;
+
             TxtQuery.Focus();
             TxtQuery.SelectAll();
             // v2.2.0 第五批：键位提示只首次出现（常驻键位说明属说明书式小字）
@@ -70,9 +77,18 @@ public partial class CommandPaletteWindow : Window
             }
         };
 
-        // v2.2.0 第二轮：动态实体一次性预载（窗口生命周期短，无 per-keystroke IPC）
+        // v2.3：动态实体一次性预载（窗口生命周期短，无 per-keystroke IPC）
         _ = LoadEntitiesAsync();
     }
+
+    /// <summary>v2.3：点击面板外的空白遮罩关闭。</summary>
+    void OnOverlayClick(object sender, MouseButtonEventArgs e) => Close();
+
+    /// <summary>v2.3：面板自身的点击不冒泡到遮罩（否则点面板任何位置都会关闭）。</summary>
+    void OnPanelClick(object sender, MouseButtonEventArgs e) => e.Handled = true;
+
+    /// <summary>v2.3：右上角关闭按钮。</summary>
+    void OnCloseClick(object sender, RoutedEventArgs e) => Close();
 
     static List<Command> BuildCommands()
     {
