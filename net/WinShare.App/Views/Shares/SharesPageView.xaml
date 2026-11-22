@@ -1,4 +1,4 @@
-<UserControl x:Class="WinShare.App.Views.Shares.SharesPageView"
+﻿<UserControl x:Class="WinShare.App.Views.Shares.SharesPageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:WinShare.App.Views.Shares">
@@ -31,6 +31,9 @@
                     <Button Content="导入" Style="{DynamicResource DashButton}" Click="OnImport" Margin="8,0,0,0" />
                     <Button Content="新建共享" Style="{DynamicResource DashButton}" Click="OnCreate" Margin="8,0,0,0" />
                 </StackPanel>
+                <!-- v2.3：探测进度条（协议探测/首轮取数期间扫动；Loading 结束即隐） -->
+                <ProgressBar DockPanel.Dock="Bottom" Style="{DynamicResource ProbeBar}"
+                             Margin="0,10,0,0" Visibility="{Binding Loading, Converter={StaticResource BoolVis}}" />
             </DockPanel>
 
             <!-- 协议未安装引导（TS ProtocolCapabilityBanner；内容在代码后置构建） -->

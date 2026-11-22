@@ -70,11 +70,12 @@ public static class SettingsUi
 
     public static Border Card(System.Windows.UIElement content, double padding = 16)
     {
-        // 优先套 App.xaml 的 CardStyle（磨砂玻璃 + 大圆角 + 柔光阴影）；缺资源时回退到手绘边框。
+        // 优先套 App.xaml 的 CardStyle（磨砂玻璃 + 大圆角）；缺资源时回退到手绘边框。
         // 之前这里硬编码了 #FFFFFF 底 + 6px 圆角，在浅色页面上几乎看不出卡片边界 → 整页像裸控件堆砌。
         // 手绘卡片（不用 CardStyle）：CardStyle 的 DropShadowEffect 在这两页 14 张卡上反复离屏渲染，
         // 且实测套上后应用设置页整页未测量（控件 BoundingRectangle=Empty、文字节点消失）。
         // 用玻璃底 + 大圆角 + 边框达到同样的层次感，零 Effect 开销。
+        // v2.3：卡面与仪表盘对齐——BrushCardGradient（顶部提亮的纵向微渐变）替代 BrushBgMist 平涂。
         var border = new Border
         {
             Child = content,
@@ -83,7 +84,7 @@ public static class SettingsUi
             Padding = new Thickness(padding),
             Margin = new Thickness(0, 0, 0, 16),
         };
-        return border.Live(Border.BackgroundProperty, "BrushBgMist")
+        return border.Live(Border.BackgroundProperty, "BrushCardGradient")
                      .Live(Border.BorderBrushProperty, "BrushBorder");
     }
 

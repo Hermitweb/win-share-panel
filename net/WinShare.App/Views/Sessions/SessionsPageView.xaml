@@ -1,4 +1,4 @@
-<UserControl x:Class="WinShare.App.Views.Sessions.SessionsPageView"
+﻿<UserControl x:Class="WinShare.App.Views.Sessions.SessionsPageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--
@@ -43,6 +43,9 @@
                            Foreground="{DynamicResource BrushWarnFg}" VerticalAlignment="Center"
                            Margin="10,0,0,0" Visibility="Collapsed" />
             </StackPanel>
+            <!-- v2.3：取数进度条（Spinning 期间扫动） -->
+            <ProgressBar x:Name="SessionProbeBar" DockPanel.Dock="Bottom" Style="{DynamicResource ProbeBar}"
+                         Margin="0,10,0,0" Visibility="Collapsed" />
         </DockPanel>
 
         <!-- 协议 Tab（对齐 Electron antd Tabs：横向；SMB/NFS 有会话，FTP/WebDAV 走空态引导） -->

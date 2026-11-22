@@ -1,0 +1,80 @@
+<UserControl x:Class="WinShare.App.Views.Controls.HeroOrbit"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+      v2.3 Hero 矢量插画（参考稿"3D 地球+轨道环"的纯 XAML 近似，无图片资源、随主题玻璃底融合）：
+      底部光晕 + 两道交叉轨道环（整体缓慢公转）+ 卫星光点 + 中央渐变球体（含高光/描边/共享字形）。
+      球体/光点用固定插画色（双主题同一视觉身份）；描边细节走主题 token。
+    -->
+    <UserControl.Triggers>
+        <EventTrigger RoutedEvent="UserControl.Loaded">
+            <BeginStoryboard>
+                <Storyboard RepeatBehavior="Forever">
+                    <DoubleAnimation Storyboard.TargetName="OrbitRotate" Storyboard.TargetProperty="Angle"
+                                     From="0" To="360" Duration="0:0:46" />
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </UserControl.Triggers>
+    <Viewbox Stretch="Uniform">
+        <Grid Width="240" Height="180">
+            <!-- 底部光晕 -->
+            <Ellipse Width="196" Height="42" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,4">
+                <Ellipse.Fill>
+                    <RadialGradientBrush>
+                        <GradientStop Color="#9CC6FF" Offset="0" />
+                        <GradientStop Color="#009CC6FF" Offset="1" />
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+
+            <!-- 轨道层：两道交叉椭圆环 + 卫星光点（46s 一圈匀速公转） -->
+            <Canvas x:Name="OrbitLayer" Width="240" Height="180">
+                <Canvas.RenderTransform>
+                    <RotateTransform x:Name="OrbitRotate" CenterX="120" CenterY="88" />
+                </Canvas.RenderTransform>
+                <Ellipse Canvas.Left="18" Canvas.Top="50" Width="204" Height="76"
+                         Stroke="#6FA3F0" StrokeThickness="1.3" Opacity="0.55"
+                         RenderTransformOrigin="0.5,0.5">
+                    <Ellipse.RenderTransform>
+                        <RotateTransform Angle="-16" />
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+                <Ellipse Canvas.Left="18" Canvas.Top="50" Width="204" Height="76"
+                         Stroke="#A78BFA" StrokeThickness="1.3" Opacity="0.45"
+                         RenderTransformOrigin="0.5,0.5">
+                    <Ellipse.RenderTransform>
+                        <RotateTransform Angle="14" />
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+                <!-- 卫星光点（随层公转） -->
+                <Ellipse Canvas.Left="28" Canvas.Top="86" Width="8" Height="8" Fill="#F08C1A" Opacity="0.95" />
+                <Ellipse Canvas.Left="196" Canvas.Top="52" Width="7" Height="7" Fill="#8B5CF6" Opacity="0.9" />
+                <Ellipse Canvas.Left="202" Canvas.Top="112" Width="6" Height="6" Fill="#3584EC" Opacity="0.9" />
+                <Ellipse Canvas.Left="98" Canvas.Top="34" Width="5" Height="5" Fill="#6FA3F0" Opacity="0.85" />
+            </Canvas>
+
+            <!-- 中央球体 -->
+            <Ellipse Width="106" Height="106" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,10"
+                     Stroke="#80FFFFFF" StrokeThickness="1.4">
+                <Ellipse.Fill>
+                    <RadialGradientBrush GradientOrigin="0.35,0.28" Center="0.45,0.4">
+                        <GradientStop Color="#8FC1FF" Offset="0" />
+                        <GradientStop Color="#3B7BE8" Offset="0.55" />
+                        <GradientStop Color="#1E4FB8" Offset="1" />
+                    </RadialGradientBrush>
+                </Ellipse.Fill>
+            </Ellipse>
+            <!-- 高光 -->
+            <Ellipse Width="34" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-52,-38,0"
+                     Fill="#FFFFFF" Opacity="0.35">
+                <Ellipse.RenderTransform>
+                    <RotateTransform Angle="-24" />
+                </Ellipse.RenderTransform>
+            </Ellipse>
+            <!-- 球体字形：共享（Segoe MDL2） -->
+            <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="30" Foreground="#FFFFFF"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,10" />
+        </Grid>
+    </Viewbox>
+</UserControl>

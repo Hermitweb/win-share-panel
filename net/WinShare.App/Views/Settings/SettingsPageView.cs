@@ -68,11 +68,10 @@ public sealed class SettingsPageView : UserControl
         content.Children.Add(diagCard);
         content.Children.Add(sections);
         outer.Children.Add(content);
-        // v2.2.0 第二轮：页面级内容列限宽（1920 宽屏下表单不再无限拉伸，全部卡在同一居中列内等宽）
+        // v2.3：内容列改为撑满页面区（原 MaxWidth=920 居中列两侧留白过大——用户实测反馈）
         return new System.Windows.Controls.Grid
         {
-            MaxWidth = 920,
-            HorizontalAlignment = HorizontalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Children = { outer },
         };
     }

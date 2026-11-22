@@ -7,7 +7,7 @@
     <!-- 命令面板：分组标题 + 行图标 + 行尾上下文；不再逐行常驻解释性副标题
          （反说明书原则：语义靠分组与图标传达，数据上下文靠行尾灰字）。 -->
     <Border Background="{DynamicResource BrushCard}" BorderBrush="{DynamicResource BrushBorder}"
-            BorderThickness="1" CornerRadius="{DynamicResource RadiusInput}">
+            BorderThickness="1" CornerRadius="{DynamicResource RadiusBtn}">
         <Border.Effect>
             <DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.25" />
         </Border.Effect>
@@ -22,6 +22,7 @@
                 <!-- 占位提示必须后声明（画在输入框之上） -->
                 <TextBox x:Name="TxtQuery" FontSize="{DynamicResource FontSizeSubtitle}" Padding="12,10"
                          BorderThickness="0,0,0,1" Background="Transparent"
+                         Foreground="{DynamicResource BrushText}" CaretBrush="{DynamicResource BrushPrimary}"
                          TextChanged="OnQueryChanged" PreviewKeyDown="OnInputKeyDown" />
                 <TextBlock x:Name="QueryHint" Text="搜索共享、用户、会话，或输入命令…" FontSize="{DynamicResource FontSizeSubtitle}"
                            Margin="14,10,0,10" VerticalAlignment="Center"

@@ -1,7 +1,8 @@
-<UserControl x:Class="WinShare.App.Views.DashboardPageView"
+﻿<UserControl x:Class="WinShare.App.Views.DashboardPageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:charts="clr-namespace:WinShare.App.Views.Charts"
+             xmlns:ctl="clr-namespace:WinShare.App.Views.Controls"
              xmlns:state="clr-namespace:WinShare.App.State"
              xmlns:v="clr-namespace:WinShare.App.Views">
     <UserControl.Resources>
@@ -63,46 +64,104 @@
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
 
-                <!-- 项 1：统计卡 ×4（对齐 antd Row gutter 16 + Statistic） -->
+                <!-- 项 0：Hero 横幅（v2.3：对齐参考稿主视觉——标语 + 矢量轨道插画） -->
+                <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16"
+                        Background="{DynamicResource BrushHeroGradient}">
+                    <Grid MinHeight="104">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left">
+                            <TextBlock Text="{DynamicResource Dash.HeroTitle}" FontSize="24" FontWeight="Bold"
+                                       HorizontalAlignment="Left" TextAlignment="Left"
+                                       Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" MaxWidth="560" />
+                            <TextBlock Text="{DynamicResource Dash.HeroSub}" FontSize="13" FontWeight="SemiBold"
+                                       HorizontalAlignment="Left" TextAlignment="Left"
+                                       Margin="0,8,0,0" Foreground="{DynamicResource BrushPrimary}" />
+                        </StackPanel>
+                        <ctl:HeroOrbit Grid.Column="1" Width="208" Height="112" VerticalAlignment="Center"
+                                       Margin="10,-4,0,-8" />
+                    </Grid>
+                </Border>
+
+                <!-- 项 1：统计卡 ×4（v2.3：34×3 渐变条→40×40 彩色渐变徽章，蓝/紫/绿/橙，对齐参考稿数据总览） -->
                 <UniformGrid Columns="4" Margin="0,0,0,16">
                     <Border Style="{DynamicResource CardStyle}" Margin="0,0,10,0" Cursor="Hand"
                             MouseLeftButtonUp="OnStatShares" ToolTip="查看共享列表（点击跳转）">
-                        <StackPanel>
-                            <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
-                                    Background="{DynamicResource BrushBrandGradient}" />
-                            <TextBlock Text="{DynamicResource Dash.ShareCount}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
-                            <TextBlock x:Name="TxtShareCount" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="40" Height="40" CornerRadius="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                    Background="{DynamicResource BrushHueBlueGradient}">
+                                <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource Dash.ShareCount}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                                <TextBlock x:Name="TxtShareCount" Text="0" Style="{DynamicResource StatNumber}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
                     </Border>
                     <Border Style="{DynamicResource CardStyle}" Margin="8,0" Cursor="Hand"
                             MouseLeftButtonUp="OnStatSessions" ToolTip="查看活动会话（点击跳转）">
-                        <StackPanel>
-                            <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
-                                    Background="{DynamicResource BrushBrandGradient}" />
-                            <TextBlock Text="{DynamicResource Dash.ActiveSessions}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
-                            <TextBlock x:Name="TxtSessions" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="40" Height="40" CornerRadius="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                    Background="{DynamicResource BrushHuePurpleGradient}">
+                                <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource Dash.ActiveSessions}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                                <TextBlock x:Name="TxtSessions" Text="0" Style="{DynamicResource StatNumber}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
                     </Border>
                     <Border Style="{DynamicResource CardStyle}" Margin="8,0" Cursor="Hand"
                             MouseLeftButtonUp="OnStatFiles" ToolTip="查看打开的文件（点击跳转）">
-                        <StackPanel>
-                            <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10" Background="{DynamicResource BrushBrandGradient}" />
-                            <TextBlock Text="{DynamicResource Dash.OpenFiles}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
-                            <TextBlock x:Name="TxtOpenFiles" Text="0" Style="{DynamicResource StatNumber}" Margin="0,4,0,0" />
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="40" Height="40" CornerRadius="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                    Background="{DynamicResource BrushHueGreenGradient}">
+                                <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource Dash.OpenFiles}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                                <TextBlock x:Name="TxtOpenFiles" Text="0" Style="{DynamicResource StatNumber}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
                     </Border>
                     <Border Style="{DynamicResource CardStyle}" Margin="8,0,0,0" Cursor="Hand"
                             MouseLeftButtonUp="OnStatService" ToolTip="查看服务配置（点击跳转）">
-                        <StackPanel>
-                            <Border Width="34" Height="3" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,10"
-                                    Background="{DynamicResource BrushBrandGradient}" />
-                            <TextBlock Text="{DynamicResource Dash.ServiceStatus}" FontSize="12" Foreground="{DynamicResource BrushFog}" Margin="0,0,0,4" />
-                            <Border x:Name="SvcTag" CornerRadius="{DynamicResource RadiusTag}" Padding="10,2" Height="24"
-                                    Background="{DynamicResource BrushInfoBg}" HorizontalAlignment="Left">
-                                <TextBlock x:Name="TxtService" Text="未知" FontSize="13" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource BrushInfoFg}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="40" Height="40" CornerRadius="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                    Background="{DynamicResource BrushHueOrangeGradient}">
+                                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
-                        </StackPanel>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource Dash.ServiceStatus}" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                                <Border x:Name="SvcTag" CornerRadius="{DynamicResource RadiusTag}" Padding="10,2" Height="24"
+                                        Background="{DynamicResource BrushInfoBg}" HorizontalAlignment="Left" Margin="0,4,0,0">
+                                    <TextBlock x:Name="TxtService" Text="未知" FontSize="13" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource BrushInfoFg}" />
+                                </Border>
+                            </StackPanel>
+                        </Grid>
                     </Border>
                 </UniformGrid>
 
@@ -209,7 +268,7 @@
                                                        FontSize="11" VerticalAlignment="Center" />
                                         </DockPanel>
                                         <ProgressBar Height="6" Minimum="0" Maximum="100"
-                                                     Value="{Binding UsedPct}"
+                                                     Value="{Binding UsedPct, Mode=OneWay}"
                                                      Foreground="{Binding Level, Converter={StaticResource DiskLevelBrush}}" />
                                         <TextBlock FontSize="11" Foreground="{DynamicResource BrushFog}" Margin="0,3,0,0">
                                             <Run Text="剩余 " /><Run Text="{Binding FreeGB}" /><Run Text=" GB / 共 " />

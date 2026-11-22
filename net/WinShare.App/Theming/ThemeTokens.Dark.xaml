@@ -2,38 +2,46 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <!--
-      主题 token（深色）——与 Light 同键名同结构（规范 2.1 的深色同族变体）。
-      保持浅蓝调气质：不是纯黑，而是雾蓝夜色（#141B23 与原版导出图背景同值）。
+      主题 token（深色）——v2.3 视觉重制：与 Light 同键名同结构。
+      雾蓝夜色升级为深海军蓝玻璃：夜空蓝渐变底 + 低透白玻璃卡 + 同套四色 hue 徽章（提亮适配暗底）。
     -->
-    <Color x:Key="ColorPrimary">#8FD3F4</Color>
-    <Color x:Key="ColorPrimaryLight">#A8DCF5</Color>
-    <Color x:Key="ColorSecondary">#C8B6E2</Color>
-    <Color x:Key="ColorSecondaryLight">#D9CCEC</Color>
-    <Color x:Key="ColorAccent">#F5C6C6</Color>
-    <Color x:Key="ColorAccentLight">#FAD9D9</Color>
+    <!-- ===== 主色板（暗底提亮保对比） ===== -->
+    <Color x:Key="ColorPrimary">#6FA8FF</Color> <!-- 深蓝底上 5:1+ -->
+    <Color x:Key="ColorPrimaryLight">#9CC2FF</Color>
+    <Color x:Key="ColorSecondary">#A79BF5</Color>
+    <Color x:Key="ColorSecondaryLight">#C3B9FA</Color>
+    <Color x:Key="ColorAccent">#F27E93</Color>
+    <Color x:Key="ColorAccentLight">#F8A3B1</Color>
 
-    <Color x:Key="ColorBg">#141B23</Color>
-    <Color x:Key="ColorBgMist">#1B2530</Color>
-    <Color x:Key="ColorInputBg">#121A23</Color> <!-- v2.2.0 第三轮：输入框底（比卡底深一档，对话框内可辨） -->
-    <Color x:Key="ColorCard">#1B2530</Color>
+    <!-- ===== 背景 / 文字（深海军蓝） ===== -->
+    <Color x:Key="ColorBg">#0E1729</Color>
+    <Color x:Key="ColorBgMist">#16223B</Color>
+    <Color x:Key="ColorInputBg">#101B30</Color> <!-- 输入框底（比卡底深一档，对话框内可辨） -->
+    <Color x:Key="ColorCard">#14203A</Color>
     <Color x:Key="ColorText">#E8EDF4</Color>
-    <Color x:Key="ColorFog">#9FB2C4</Color> <!-- v2.2.0：微提亮（暗底小字 AA） -->
-    <Color x:Key="ColorBorder">#2C3A48</Color>
-    <Color x:Key="ColorCheckBoxBorder">#44566A</Color> <!-- v2.2.1：未勾选框可辨（与浅色新增 token 同名对齐） -->
-    <Color x:Key="ColorChartBg">#141B23</Color>
+    <Color x:Key="ColorFog">#9FB2C4</Color> <!-- 暗底小字 AA -->
+    <Color x:Key="ColorBorder">#263852</Color>
+    <Color x:Key="ColorCheckBoxBorder">#4A6284</Color> <!-- 未勾选框可辨 -->
+    <Color x:Key="ColorChartBg">#101B30</Color>
 
     <Color x:Key="ColorSuccess">#7BC8A4</Color>
     <Color x:Key="ColorWarning">#F0C27B</Color>
     <Color x:Key="ColorDanger">#F0A8A8</Color>
 
     <!-- 语义扩展（与 Light 同键；深色下标签底/前景用夜色系可读值） -->
-    <Color x:Key="ColorInfoBg">#173047</Color>
-    <Color x:Key="ColorInfoFg">#8FD3F4</Color>
+    <Color x:Key="ColorInfoBg">#16294A</Color>
+    <Color x:Key="ColorInfoFg">#6FA8FF</Color>
     <Color x:Key="ColorWarnBg">#332B14</Color>
     <Color x:Key="ColorWarnFg">#F0C27B</Color>
     <Color x:Key="ColorWarnDot">#FAAD14</Color>
     <Color x:Key="ColorDangerStrong">#F58B8B</Color>
     <Color x:Key="ColorDangerDeep">#F0A8A8</Color>
+
+    <!-- ===== hue 四色体系（暗底提亮变体） ===== -->
+    <Color x:Key="ColorHueBlue">#5B9CFF</Color>
+    <Color x:Key="ColorHuePurple">#A78BFA</Color>
+    <Color x:Key="ColorHueGreen">#34C08D</Color>
+    <Color x:Key="ColorHueOrange">#FFA940</Color>
 
     <SolidColorBrush x:Key="BrushBg" Color="{StaticResource ColorBg}" />
     <SolidColorBrush x:Key="BrushBgMist" Color="{StaticResource ColorBgMist}" />
@@ -50,7 +58,7 @@
     <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
     <SolidColorBrush x:Key="BrushBorder" Color="{StaticResource ColorBorder}" />
     <SolidColorBrush x:Key="BrushCheckBoxBorder" Color="{StaticResource ColorCheckBoxBorder}" />
-    <!-- v2.2.0 第五批：输入框边框对比 2.12:1 → 3.69:1（WCAG 1.4.11 非文本对比 ≥3:1） -->
+    <!-- v2.2.0 第五批：输入框边框对比 3.69:1（取证值，勿回退） -->
     <SolidColorBrush x:Key="BrushInputBorder" Color="#687E93" />
     <SolidColorBrush x:Key="BrushChartBg" Color="{StaticResource ColorChartBg}" />
     <SolidColorBrush x:Key="BrushInfoBg" Color="{StaticResource ColorInfoBg}" />
@@ -60,37 +68,89 @@
     <SolidColorBrush x:Key="BrushWarnDot" Color="{StaticResource ColorWarnDot}" />
     <SolidColorBrush x:Key="BrushDangerStrong" Color="{StaticResource ColorDangerStrong}" />
     <SolidColorBrush x:Key="BrushDangerDeep" Color="{StaticResource ColorDangerDeep}" />
+
+    <!-- hue 实色 / 柔和衬底（深色夜色变体） -->
+    <SolidColorBrush x:Key="BrushHueBlue" Color="{StaticResource ColorHueBlue}" />
+    <SolidColorBrush x:Key="BrushHuePurple" Color="{StaticResource ColorHuePurple}" />
+    <SolidColorBrush x:Key="BrushHueGreen" Color="{StaticResource ColorHueGreen}" />
+    <SolidColorBrush x:Key="BrushHueOrange" Color="{StaticResource ColorHueOrange}" />
+    <SolidColorBrush x:Key="BrushHueBlueSoft" Color="#16294A" />
+    <SolidColorBrush x:Key="BrushHuePurpleSoft" Color="#241F45" />
+    <SolidColorBrush x:Key="BrushHueGreenSoft" Color="#0F2C26" />
+    <SolidColorBrush x:Key="BrushHueOrangeSoft" Color="#33240E" />
+
     <!-- 遮罩（弹层/抽屉底衬；主题间同值） -->
     <SolidColorBrush x:Key="BrushOverlayScrim" Color="#000000" Opacity="0.25" />
 
-    <SolidColorBrush x:Key="BrushGlass" Color="#FFFFFF" Opacity="0.07" />
-    <SolidColorBrush x:Key="BrushGlassStrong" Color="#FFFFFF" Opacity="0.11" />
-    <SolidColorBrush x:Key="BrushGlassStroke" Color="#FFFFFF" Opacity="0.12" />
+    <!-- ===== 磨砂玻璃 / 渐变 ===== -->
+    <SolidColorBrush x:Key="BrushGlass" Color="#FFFFFF" Opacity="0.08" />
+    <SolidColorBrush x:Key="BrushGlassStrong" Color="#FFFFFF" Opacity="0.13" />
+    <SolidColorBrush x:Key="BrushGlassStroke" Color="#FFFFFF" Opacity="0.14" />
     <LinearGradientBrush x:Key="BrushBrandGradient" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#6AAFD4" Offset="0" />
-        <GradientStop Color="#9B87C4" Offset="0.55" />
-        <GradientStop Color="#D89A9A" Offset="1" />
+        <GradientStop Color="#3E82EE" Offset="0" />
+        <GradientStop Color="#2757C8" Offset="1" />
     </LinearGradientBrush>
     <LinearGradientBrush x:Key="BrushSoftGradient" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#1B2530" Offset="0" />
-        <GradientStop Color="#221C2B" Offset="1" />
+        <GradientStop Color="#1C2B4A" Offset="0" />
+        <GradientStop Color="#232A50" Offset="1" />
     </LinearGradientBrush>
+    <!-- 卡面纵向微渐变（夜色玻璃纸） -->
+    <LinearGradientBrush x:Key="BrushCardGradient" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#17243F" Offset="0" />
+        <GradientStop Color="#111A2E" Offset="1" />
+    </LinearGradientBrush>
+    <!-- 页面氛围背景：深海军蓝渐变 -->
     <LinearGradientBrush x:Key="BrushAppBackdrop" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#141B23" Offset="0" />
-        <GradientStop Color="#18222C" Offset="0.5" />
-        <GradientStop Color="#1E1A28" Offset="1" />
+        <GradientStop Color="#0B1220" Offset="0" />
+        <GradientStop Color="#0F1C33" Offset="0.5" />
+        <GradientStop Color="#0E1526" Offset="1" />
     </LinearGradientBrush>
+    <!-- 导航选中胶囊（与浅色同值：深底上同样以白字 4.5:1 取值） -->
+    <LinearGradientBrush x:Key="BrushNavActiveGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#306EE8" Offset="0" />
+        <GradientStop Color="#2350C8" Offset="1" />
+    </LinearGradientBrush>
+    <!-- Hero 横幅底（夜色蓝→紫玻璃） -->
+    <LinearGradientBrush x:Key="BrushHeroGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#13233F" Offset="0" />
+        <GradientStop Color="#1C2148" Offset="1" />
+    </LinearGradientBrush>
+    <!-- hue 渐变磁贴（白色字形） -->
+    <LinearGradientBrush x:Key="BrushHueBlueGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#5B9CFF" Offset="0" />
+        <GradientStop Color="#2E6FE0" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="BrushHuePurpleGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#A78BFA" Offset="0" />
+        <GradientStop Color="#7C4DE8" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="BrushHueGreenGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#34C08D" Offset="0" />
+        <GradientStop Color="#0E9E6E" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="BrushHueOrangeGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FFB25C" Offset="0" />
+        <GradientStop Color="#EF8412" Offset="1" />
+    </LinearGradientBrush>
+    <!-- 背景装饰光斑（深色低透） -->
+    <SolidColorBrush x:Key="BrushDecorBlobA" Color="#2E7CE6" Opacity="0.20" />
+    <SolidColorBrush x:Key="BrushDecorBlobB" Color="#8B5CF6" Opacity="0.16" />
+    <!-- 危险按钮渐变 -->
     <LinearGradientBrush x:Key="BrushDangerGradient" StartPoint="0,0" EndPoint="1,0">
         <GradientStop Color="#8E4A4A" Offset="0" />
         <GradientStop Color="#A85B5B" Offset="1" />
     </LinearGradientBrush>
 
+    <!-- ===== 柔光弥散阴影 ===== -->
     <DropShadowEffect x:Key="ShadowCard" Color="#000000" Opacity="0.35" BlurRadius="18" ShadowDepth="4" Direction="270" />
     <DropShadowEffect x:Key="ShadowHover" Color="#000000" Opacity="0.45" BlurRadius="30" ShadowDepth="8" Direction="270" />
     <DropShadowEffect x:Key="ShadowSoft" Color="#000000" Opacity="0.25" BlurRadius="4" ShadowDepth="1" Direction="270" />
-    <!-- 无边框主窗口外辉光（深色=夜色投影，与浅色同键） -->
+    <!-- 主按钮辉光（与浅色同键） -->
+    <DropShadowEffect x:Key="ShadowPrimaryGlow" Color="#2E6FDE" Opacity="0.45" BlurRadius="16" ShadowDepth="2" Direction="270" />
+    <!-- 无边框主窗口外辉光（深色=夜色投影） -->
     <DropShadowEffect x:Key="ShadowWindowGlow" Color="#000000" Opacity="0.5" BlurRadius="24" ShadowDepth="0" />
 
+    <!-- ===== 间距 / 字号 ===== -->
     <sys:Double x:Key="SpacingSm">12</sys:Double>
     <sys:Double x:Key="SpacingMd">16</sys:Double>
     <sys:Double x:Key="SpacingLg">24</sys:Double>
@@ -101,6 +161,7 @@
     <sys:Double x:Key="FontSizePageTitle">22</sys:Double>
     <sys:Double x:Key="FontSizeStat">30</sys:Double>
 
+    <!-- ===== 圆角 ===== -->
     <CornerRadius x:Key="RadiusCard">16</CornerRadius>
     <CornerRadius x:Key="RadiusBtn">12</CornerRadius>
     <CornerRadius x:Key="RadiusInput">10</CornerRadius>

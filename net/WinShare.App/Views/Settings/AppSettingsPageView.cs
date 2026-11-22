@@ -149,11 +149,11 @@ public sealed class AppSettingsPageView : UserControl
             BuildAlertRulesCard(), BuildFirewallCard(), BuildSecurityCard(), BuildAdvancedSettingsCard()));
         tabs.Items.Add(MakeTab("日志与回收站", BuildJournalCard(), BuildAuditCard(), BuildAppLogCard()));
         outer.Children.Add(tabHost); // 最后一个子元素填满剩余空间（内含 Star 行约束 TabControl）
-        // v2.2.0 第二轮：页面级内容列限宽（同服务配置页口径）
+        // v2.3：内容列改为撑满页面区（原 MaxWidth=920 居中列在 1240 窗口只有 ~465px 内容宽，
+        // 两侧留白过大——用户实测反馈）。与 XAML 各页一致全宽铺满，卡片随宽度拉伸。
         return new System.Windows.Controls.Grid
         {
-            MaxWidth = 920,
-            HorizontalAlignment = HorizontalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Children = { outer },
         };
     }

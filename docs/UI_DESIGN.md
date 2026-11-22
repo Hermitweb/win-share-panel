@@ -84,37 +84,45 @@ AI 生成界面最常见的通病：给每个功能按钮配一行辅助小字�
 
 ---
 
-## 二、色彩体系（浅蓝调）
+## 二、色彩体系（浅蓝调 · v2.3 饱和科技蓝玻璃拟态）
+
+> v2.3 视觉重制：参考"全平台总控"风格稿——饱和科技蓝主色 + 玻璃拟态卡面 + 蓝/紫/绿/橙四色 hue 徽章体系。
+> 下表为 `Theming/ThemeTokens.Light.xaml`（深色字典同名镜像，深海军蓝玻璃变体）。
 
 ### 2.1 主色板
 
 | 角色 | 色值 | 用途 |
 |------|------|------|
-| 主色 · 浅天蓝 | `#7EC8F0` / `#A8DCF5` | 主操作、导航高亮、品牌色 |
-| 辅色 · 淡薰衣草紫 | `#C8B6E2` / `#D9CCEC` | 次级强调、图表渐变 |
-| 点缀 · 蜜桃粉 | `#F5C6C6` / `#FAD9D9` | 提示、徽标、暖色点缀 |
-| 背景 · 纯净白 | `#FFFFFF` | 主背景 |
-| 背景 · 极浅蓝雾 | `#F4FAFD` | 卡片底、分区底 |
-| 文字 · 深岩蓝灰 | `#3A4A5C` | 主文字 |
-| 文字 · 雾灰 | `#8AA0B0` | 次级文字 |
+| 主色 · 科技蓝 | `#2E6FDE` / `#6FA3F0` | 主操作、导航高亮、品牌色（白底 4.7:1） |
+| 辅色 · 紫罗兰 | `#8B7CE8` / `#B0A6F2` | 次级强调、图表渐变 |
+| 点缀 · 玫粉 | `#E85D75` / `#F597A8` | 提示、徽标、暖色点缀 |
+| hue·蓝 | `#3584EC` | 统计徽章/协议磁贴（SMB） |
+| hue·紫 | `#8B5CF6` | 统计徽章/协议磁贴（NFS） |
+| hue·绿 | `#1FA97C` | 统计徽章/协议磁贴（FTP） |
+| hue·橙 | `#F08C1A` | 统计徽章/协议磁贴（WebDAV） |
+| 背景 · 纯净白 | `#FFFFFF` | 主背景、卡面 |
+| 背景 · 浅蓝雾 | `#EDF4FC` | 分区底、输入衬底 |
+| 文字 · 深海军蓝 | `#2F4159` | 主文字 |
+| 文字 · 雾灰 | `#5E7488` | 次级文字（AA 4.5:1+） |
 
-### 2.2 渐变方案（马卡龙通透渐变）
+### 2.2 渐变方案（饱和蓝通透渐变）
 
-主渐变（按钮、品牌、活跃态）：
+主渐变（主按钮、品牌）：
 ```
-linear-gradient(135deg, #A8DCF5 0%, #C8B6E2 55%, #F5C6C6 100%)
+linear-gradient(135deg, #3584EC 0%, #2456D6 100%)
 ```
-浅天蓝 → 淡薰衣草紫 → 蜜桃粉，冷暖柔色过渡，低饱和度高明度。
+导航选中胶囊：`#306EE8 → #2350C8`（对白字 ≥4.5:1）。
 
 辅助渐变（卡片光晕、背景氛围）：
 ```
-linear-gradient(135deg, #E8F4FB 0%, #F0EAF8 100%)
+linear-gradient(135deg, #E3F0FD 0%, #EDEBFB 100%)
 ```
+页面背板：`#E9F2FC → #F3F8FE → #EDEFFB`；Hero 横幅：`#DCEBFC → #EFE9FC`。
 
 ### 2.3 色彩质感
-- 半透明叠透：图层相交处自然混色
-- 无强烈明暗阴影，色调统一和谐
-- 透明度建议：磨砂层 65%–80%，高光层 40%–55%
+- 半透明叠透：图层相交处自然混色；窗口装饰光斑层透过玻璃半透衬底隐现
+- 无强烈明暗阴影，色调统一和谐（卡片禁用 DropShadowEffect，层次由边框+渐变卡面承担）
+- 透明度建议：磨砂层 72%–88%，装饰光斑 40%–50%（深色 16%–20%）
 
 ---
 
@@ -294,24 +302,33 @@ UI背景，浅蓝淡紫极柔渐变，磨砂玻璃质感，半透明叠透，
 
 ```css
 :root {
-  /* 主色 */
-  --color-primary: #7EC8F0;
-  --color-primary-light: #A8DCF5;
-  --color-secondary: #C8B6E2;
-  --color-accent: #F5C6C6;
+  /* 主色（v2.3 饱和科技蓝） */
+  --color-primary: #2E6FDE;
+  --color-primary-light: #6FA3F0;
+  --color-secondary: #8B7CE8;
+  --color-accent: #E85D75;
+
+  /* hue 四色徽章体系 */
+  --hue-blue: #3584EC;
+  --hue-purple: #8B5CF6;
+  --hue-green: #1FA97C;
+  --hue-orange: #F08C1A;
 
   /* 背景 */
   --color-bg: #FFFFFF;
-  --color-bg-mist: #F4FAFD;
-  --color-bg-glass: rgba(255, 255, 255, 0.65);
+  --color-bg-mist: #EDF4FC;
+  --color-bg-glass: rgba(255, 255, 255, 0.72);
 
   /* 文字 */
-  --color-text: #3A4A5C;
-  --color-text-muted: #8AA0B0;
+  --color-text: #2F4159;
+  --color-text-muted: #5E7488;
 
   /* 渐变 */
-  --gradient-brand: linear-gradient(135deg, #A8DCF5 0%, #C8B6E2 55%, #F5C6C6 100%);
-  --gradient-soft: linear-gradient(135deg, #E8F4FB 0%, #F0EAF8 100%);
+  --gradient-brand: linear-gradient(135deg, #3584EC 0%, #2456D6 100%);
+  --gradient-nav-active: linear-gradient(135deg, #306EE8 0%, #2350C8 100%);
+  --gradient-soft: linear-gradient(135deg, #E3F0FD 0%, #EDEBFB 100%);
+  --gradient-backdrop: linear-gradient(135deg, #E9F2FC 0%, #F3F8FE 45%, #EDEFFB 100%);
+  --gradient-hero: linear-gradient(135deg, #DCEBFC 0%, #EFE9FC 100%);
 
   /* 圆角 */
   --radius-card: 16px;
@@ -319,8 +336,8 @@ UI背景，浅蓝淡紫极柔渐变，磨砂玻璃质感，半透明叠透，
   --radius-tag: 8px;
 
   /* 阴影 */
-  --shadow-card: 0 4px 16px rgba(126, 200, 240, 0.12), 0 1px 3px rgba(58, 74, 92, 0.04);
-  --shadow-hover: 0 8px 28px rgba(126, 200, 240, 0.20), 0 2px 6px rgba(58, 74, 92, 0.06);
+  --shadow-card: 0 4px 16px rgba(46, 111, 222, 0.12), 0 1px 3px rgba(47, 65, 89, 0.04);
+  --shadow-hover: 0 8px 28px rgba(46, 111, 222, 0.20), 0 2px 6px rgba(47, 65, 89, 0.06);
 
   /* 磨砂 */
   --blur-glass: blur(16px) saturate(140%);

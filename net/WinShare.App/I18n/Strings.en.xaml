@@ -46,6 +46,10 @@
     <sys:String x:Key="Dash.SessionsOnly">Sessions only</sys:String>
     <sys:String x:Key="Dash.OpenFilesOnly">Open files only</sys:String>
     <sys:String x:Key="Dash.RefreshInterval">Refresh interval</sys:String>
+    <sys:String x:Key="Dash.HeroTitle">Every share, under control</sys:String>
+    <sys:String x:Key="Dash.HeroSub">Multi-protocol · Real-time · Secure</sys:String>
+
+    <sys:String x:Key="Footer.Slogan">Multi-protocol · Real-time · Secure</sys:String>
 
     <sys:String x:Key="Placeholder.Title">Page under construction</sys:String>
     <sys:String x:Key="Placeholder.Todo">TODO (T3b/c/d): this module will be replaced by follow-up tasks via the navigation registration API in DOCS.md. Route reserved; sidebar navigation works.</sys:String>

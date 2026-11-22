@@ -46,6 +46,10 @@
     <sys:String x:Key="Dash.SessionsOnly">仅连接数</sys:String>
     <sys:String x:Key="Dash.OpenFilesOnly">仅打开文件</sys:String>
     <sys:String x:Key="Dash.RefreshInterval">刷新间隔</sys:String>
+    <sys:String x:Key="Dash.HeroTitle">让每一份共享，尽在掌握</sys:String>
+    <sys:String x:Key="Dash.HeroSub">多协议 · 实时 · 安全</sys:String>
+
+    <sys:String x:Key="Footer.Slogan">多协议共享 · 实时监控 · 安全可控</sys:String>
 
     <sys:String x:Key="Placeholder.Title">页面建设中</sys:String>
     <sys:String x:Key="Placeholder.Todo">TODO（T3b/c/d）：本模块将由后续任务按 DOCS.md 的导航注册 API 替换此占位页。路由已预留，侧栏导航可正常切换。</sys:String>
