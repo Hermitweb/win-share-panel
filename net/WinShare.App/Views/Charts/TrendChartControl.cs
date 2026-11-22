@@ -62,6 +62,20 @@ public class TrendChartControl : System.Windows.Controls.Control
         set => SetValue(PointsProperty, value);
     }
 
+    /// <summary>
+    /// 无采样点时是否由本控件自绘空态文案（默认 true）。
+    /// v2.3：仪表盘在外层（XAML TextBlock）显示空态时置 false——两者都画会叠印。
+    /// </summary>
+    public static readonly DependencyProperty DrawEmptyTextProperty =
+        DependencyProperty.Register(nameof(DrawEmptyText), typeof(bool), typeof(TrendChartControl),
+            new PropertyMetadata(true, OnVisualChanged));
+
+    public bool DrawEmptyText
+    {
+        get => (bool)GetValue(DrawEmptyTextProperty);
+        set => SetValue(DrawEmptyTextProperty, value);
+    }
+
     public static readonly DependencyProperty ModeProperty =
         DependencyProperty.Register(nameof(Mode), typeof(string), typeof(TrendChartControl),
             new PropertyMetadata("both", OnVisualChanged));
@@ -100,7 +114,8 @@ public class TrendChartControl : System.Windows.Controls.Control
         var pts = Points;
         if (pts is null || pts.Count == 0)
         {
-            DrawEmpty(dc);
+            // v2.3：外层（XAML）空态文案显示时不再自绘，避免两行叠印（用户截图实证）
+            if (DrawEmptyText) DrawEmpty(dc);
             return;
         }
 

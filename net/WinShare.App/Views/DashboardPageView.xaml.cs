@@ -144,6 +144,8 @@ public partial class DashboardPageView : UserControl
         // v2.3：两个空态互斥——都命中时（无任何采样点）只显示「暂无采样点」，
         // 否则两行居中提示叠印在一起（用户截图实证）
         TrendEmptyAll.Visibility = (_vm.TrendAllEmpty && !_vm.TrendWindowEmpty) ? Visibility.Visible : Visibility.Collapsed;
+        // v2.3：图表控件不再自绘空态——外层显示任一空态时关闭，避免与 XAML 文案叠印
+        TrendChart.DrawEmptyText = !(_vm.TrendAllEmpty || _vm.TrendWindowEmpty);
         if (_vm.TrendWindowEmpty)
         {
             TrendEmptyWindow.Text = "最近 24 小时没有采样点（更早的历史点已超出显示窗口）";
