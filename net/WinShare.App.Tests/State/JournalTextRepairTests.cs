@@ -1,4 +1,4 @@
-using WinShare.App.State;
+using WinShare.Core.Lib;
 using Xunit;
 
 namespace WinShare.App.Tests.State;

@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using WinShare.Core.Contracts;
+using WinShare.Core.Lib;
 
 namespace WinShare.App.State;
 

@@ -29,6 +29,15 @@ public sealed class JournalService : IJournalService
     {
         List<JournalEntry> journal = _store.LoadState().journal?.ToList() ?? new List<JournalEntry>();
         journal.Reverse();
+        // v2.3：历史乱码修复（旧版 Electron 时期 GBK 误读）——UI 与撤销共用此出口，修在源头
+        for (int i = 0; i < journal.Count; i++)
+        {
+            var e = journal[i];
+            string name = JournalTextRepair.Repair(e.name) ?? e.name;
+            string? detail = e.detail is null ? null : JournalTextRepair.Repair(e.detail);
+            if (!ReferenceEquals(name, e.name) || !ReferenceEquals(detail, e.detail))
+                journal[i] = e with { name = name, detail = detail };
+        }
         return journal;
     }
 
