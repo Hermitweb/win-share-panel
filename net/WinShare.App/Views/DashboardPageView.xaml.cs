@@ -1,9 +1,10 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using WinShare.App.Dashboard;
 using WinShare.App.State;
 using WinShare.App.Views.Charts;
+using WinShare.Core.Contracts;
 
 namespace WinShare.App.Views;
 
@@ -140,7 +141,9 @@ public partial class DashboardPageView : UserControl
         // 趋势（当前 WPF 自绘；LiveCharts2(SkiaSharpWPF) 渲染器接入点见 DOCS.md）
         TrendChart.Points = _vm.TrendRecent;
         TrendChart.Mode = _vm.TrendMode;
-        TrendEmptyAll.Visibility = _vm.TrendAllEmpty ? Visibility.Visible : Visibility.Collapsed;
+        // v2.3：两个空态互斥——都命中时（无任何采样点）只显示「暂无采样点」，
+        // 否则两行居中提示叠印在一起（用户截图实证）
+        TrendEmptyAll.Visibility = (_vm.TrendAllEmpty && !_vm.TrendWindowEmpty) ? Visibility.Visible : Visibility.Collapsed;
         if (_vm.TrendWindowEmpty)
         {
             TrendEmptyWindow.Text = "最近 24 小时没有采样点（更早的历史点已超出显示窗口）";
@@ -178,6 +181,17 @@ public partial class DashboardPageView : UserControl
         DiskEmpty.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    // v2.3 协议磁贴 hue 配色（对齐参考稿品牌色卡；顺序与 ProtocolPalette.TagColor 一致：
+    // SMB=蓝 / NFS=紫 / FTP=绿 / WebDAV=橙）。标签文字色仍走 ProtocolPalette（与 Electron 对齐）。
+    static readonly string[] HueGradientKeys = { "BrushHueBlueGradient", "BrushHuePurpleGradient", "BrushHueGreenGradient", "BrushHueOrangeGradient" };
+    static readonly string[] HueSolidKeys = { "BrushHueBlue", "BrushHuePurple", "BrushHueGreen", "BrushHueOrange" };
+    static readonly string[] HueSoftKeys = { "BrushHueBlueSoft", "BrushHuePurpleSoft", "BrushHueGreenSoft", "BrushHueOrangeSoft" };
+
+    static int HueIndexOf(Protocol p) => ProtocolPalette.TagColor(p) switch
+    {
+        "blue" => 0, "purple" => 1, "green" => 2, "orange" => 3, _ => 0,
+    };
+
     void BuildProtocolGrid()
     {
         if (_vm is null) return;
@@ -199,57 +213,75 @@ public partial class DashboardPageView : UserControl
         int idx = 0;
         foreach (var row in _vm.ProtocolRows)
         {
-            var p = new StackPanel { Margin = new Thickness(0, 0, 12, 10) };
-            var color = WpfColors.ToBrush(ProtocolPalette.Color(row.Protocol));
+            // 磁贴 = 柔和 hue 底 + 渐变字母芯片（首字母，白色必可辨）+ 协议名 + 共享/会话计数
+            int hue = HueIndexOf(row.Protocol);
+            var hueGradient = TryFindResource(HueGradientKeys[hue]) as Brush ?? new SolidColorBrush(Color.FromRgb(0x35, 0x84, 0xEC));
+            var hueSolid = TryFindResource(HueSolidKeys[hue]) as Brush ?? hueGradient;
+            var hueSoft = TryFindResource(HueSoftKeys[hue]) as Brush ?? new SolidColorBrush(Color.FromRgb(0xE4, 0xF0, 0xFE));
             var fog = TryFindResource("BrushFog") as Brush ?? new SolidColorBrush(Color.FromRgb(0x8A, 0xA0, 0xB0));
-            var tag = new Border
+            var text = TryFindResource("BrushText") as Brush ?? Brushes.Black;
+
+            var tile = new Border
             {
-                CornerRadius = TryFindResource("RadiusTag") is CornerRadius cr ? cr : new CornerRadius(8),
-                Padding = new Thickness(10, 1, 10, 1),
-                Background = color,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 0, 0, 6),
+                CornerRadius = TryFindResource("RadiusCard") is CornerRadius tcr ? tcr : new CornerRadius(12),
+                Padding = new Thickness(12, 10, 10, 10),
+                Background = hueSoft,
+                Margin = new Thickness(0, 0, 14, 12),
             };
-            tag.Child = new TextBlock
+            var tileGrid = new Grid();
+            tileGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            tileGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var chip = new Border
+            {
+                Width = 34, Height = 34, CornerRadius = new CornerRadius(10),
+                Background = hueGradient, VerticalAlignment = VerticalAlignment.Center,
+            };
+            chip.Child = new TextBlock
+            {
+                Text = ProtocolPalette.Label(row.Protocol).Substring(0, 1),
+                FontSize = 15, FontWeight = FontWeights.Bold, Foreground = Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            };
+            tileGrid.Children.Add(chip);
+            var info = new StackPanel { Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            info.Children.Add(new TextBlock
             {
                 Text = ProtocolPalette.Label(row.Protocol),
-                FontSize = 13,
-                Foreground = Brushes.White,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            p.Children.Add(tag);
-            // 计数行：共享数 + 会话（同一行内的成对短文本，允许横向）
-            var counts = new StackPanel { Orientation = Orientation.Horizontal };
+                FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = text,
+            });
+            var counts = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 0) };
             counts.Children.Add(new TextBlock
             {
-                Text = "共享数",
-                FontSize = 12,
+                Text = "共享 ",
+                FontSize = 11,
                 Foreground = fog,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Margin = new Thickness(0, 0, 2, 2),
             });
             counts.Children.Add(new TextBlock
             {
                 Text = row.Shares.ToString(),
                 FontSize = 18,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = color,
+                Foreground = hueSolid,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0),
+                Margin = new Thickness(0, 0, 10, 0),
             });
             counts.Children.Add(new TextBlock
             {
                 Text = $"会话 {row.Sessions}",
-                FontSize = 12,
+                FontSize = 11,
                 Foreground = fog,
                 VerticalAlignment = VerticalAlignment.Center,
             });
-            p.Children.Add(counts);
+            info.Children.Add(counts);
+            Grid.SetColumn(info, 1);
+            tileGrid.Children.Add(info);
+            tile.Child = tileGrid;
             // 4 列栅格：按行优先填充（col = idx % colCount，row = idx / colCount）
-            Grid.SetColumn(p, idx % colCount);
-            Grid.SetRow(p, idx / colCount);
-            p.Margin = new Thickness(0, 0, 24, 12);
-            grid.Children.Add(p);
+            Grid.SetColumn(tile, idx % colCount);
+            Grid.SetRow(tile, idx / colCount);
+            grid.Children.Add(tile);
             idx++;
         }
         ProtocolGrid.Children.Add(grid);

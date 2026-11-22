@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using WinShare.App.Events;
@@ -109,6 +109,7 @@ public partial class UsersPageView : UserControl
         bool loading = _vm.Loading;
         bool noRows = _vm.UserRows.Count == 0;
         UsersLoading.Visibility = loading && noRows ? Visibility.Visible : Visibility.Collapsed;
+        if (UsersProbeBar != null) UsersProbeBar.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
         if (loading && noRows) EnsureUserSkeletonRows();
         UsersEmpty.Visibility = !loading && noRows ? Visibility.Visible : Visibility.Collapsed;
         GroupsGrid.ItemsSource = _vm.GroupRows;

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -37,10 +37,11 @@ public partial class MainWindow : Window
 
         BuildNavDisplays();
 
-        // 初始页：仪表板（TS 默认路由 '/'）
+        // 初始页：仪表板（TS 默认路由 '/'）。订阅必须先于导航：否则首航的 RouteChanged
+        // 没有接收者，NavList 的选中胶囊不会同步（v2.3 实测：初始态导航无高亮）
+        _nav.RouteChanged += OnRouteChanged;
         _nav.Navigate("/");
         PageHost.Content = _nav.CurrentView;
-        _nav.RouteChanged += OnRouteChanged;
 
         // v2.2.0 第四轮：窗口尺寸 → 共享页断点（窄窗隐藏次要列，避免「全部」页签横向滚动 6.9 倍）
         SizeChanged += OnWindowSizeChanged;
@@ -60,6 +61,9 @@ public partial class MainWindow : Window
         AppShell.OnModeChanged += OnModeChangedForBadge;
         UpdateModeBadge(AppServices.SettingsStore.Load().advancedMode);
         UpdateThemeMenuState();
+
+        // v2.3 底部状态栏：版本号取自程序集（三段式，与 csproj Version 一致）
+        FooterVersion.Text = "v" + (GetType().Assembly.GetName().Version?.ToString(3) ?? "?");
         // 主题在设置页切换时也要同步「更多」菜单的勾选态
         AppServices.Bus.Subscribe<Events.ThemeChanged>(_ => Dispatcher.BeginInvoke(UpdateThemeMenuState));
 
@@ -269,6 +273,13 @@ public partial class MainWindow : Window
             OnMaximizeRestore(sender, e);
             return;
         }
+        // 点击标题栏上的交互控件（按钮/输入框等）不进入拖拽：
+        // DragMove 是模态循环（按住直到抬起），会吞掉按钮的 Click（v2.3 实测：
+        // 「更多」菜单点击无反应；焦点环出现=收到按下，Click 从未触发）
+        if (e.Source is Button || e.Source is TextBox || e.Source is ComboBox
+            || e.Source is CheckBox || e.Source is RadioButton || e.Source is ContextMenu
+            || e.Source is ListView || e.Source is ListViewItem)
+            return;
         try { DragMove(); } catch { /* 最大化/拖拽竞态忽略 */ }
     }
 
@@ -350,11 +361,12 @@ public partial class MainWindow : Window
         _spinner = null;
     }
 
-    /// <summary>标题栏右侧状态文案（如「已连接本机 SMB」/「只读」），空串则隐藏。</summary>
+    /// <summary>标题栏状态胶囊 + 底部状态栏文案（如「已连接本机 SMB」/「专家模式」），空串则隐藏。</summary>
     public void SetStatusHint(string? text)
     {
         if (TitleStatus is null) return;
         TitleStatus.Text = text ?? "";
+        if (FooterStatus is not null) FooterStatus.Text = string.IsNullOrWhiteSpace(text) ? "就绪" : text;
     }
 
     // ===== 菜单（对齐 main.ts 主菜单 + 托盘菜单面） =====

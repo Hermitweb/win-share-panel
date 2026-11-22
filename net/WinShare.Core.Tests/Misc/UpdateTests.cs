@@ -99,6 +99,7 @@ public class UpdateTests
     }
 
     // [Source: update.test.ts#checkForUpdate > 比更新源还新（本地预发布）：不算有更新]
+    // v2.3：此时 currentAheadOfRelease 必须为真——UI 据此提示「未发布开发版」而不是「已是最新」
     [Fact]
     public async Task Check_LocalNewerNoUpdate()
     {
@@ -106,6 +107,19 @@ public class UpdateTests
         svc.Fetcher = (url, ct) => Task.FromResult(Res(200, new object[] { new { tag_name = "wpf-v1.0.0" } }));
         UpdateCheckResult r = await svc.CheckForUpdateAsync("1.1.0");
         Assert.False(r.hasUpdate);
+        Assert.True(r.currentAheadOfRelease);
+        Assert.Equal("1.0.0", r.latest);
+    }
+
+    // v2.3：同版本时 currentAheadOfRelease 为假（既是最新，也不算领先）
+    [Fact]
+    public async Task Check_UpToDate_NotAhead()
+    {
+        UpdateService svc = Svc();
+        svc.Fetcher = (url, ct) => Task.FromResult(Res(200, new object[] { new { tag_name = "wpf-v2.1.0" } }));
+        UpdateCheckResult r = await svc.CheckForUpdateAsync("2.1.0");
+        Assert.False(r.hasUpdate);
+        Assert.False(r.currentAheadOfRelease);
     }
 
     // [Source: update.test.ts#checkForUpdate > 网络不可达：给出人话原因 + 仍提供下载页（本机实测的真实场景）]

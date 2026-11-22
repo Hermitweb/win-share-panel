@@ -168,6 +168,7 @@ public sealed class AppSettingsStore
             if (raw is not null)
             {
                 _cache = NormalizeFromJson(raw);
+                RepairJournalIfNeeded(_cache!);
                 return _cache!;
             }
         }
@@ -176,7 +177,35 @@ public sealed class AppSettingsStore
             // 损坏则重建默认
         }
         _cache = NormalizeFromJson(null);
+        RepairJournalIfNeeded(_cache!);
         return _cache!;
+    }
+
+    /// <summary>
+    /// v2.3 一次性历史乱码修复：旧版 Electron 时期的 PowerShell GBK 误读把 journal 的
+    /// name/detail 写成了乱码（当前代码库已无该路径，只修历史数据）。
+    /// 加载时逆向修复并落盘一次；幂等——修过的条目不会再匹配（见 JournalTextRepair）。
+    /// </summary>
+    void RepairJournalIfNeeded(AppState state)
+    {
+        var journal = state.journal;
+        if (journal is null || journal.Count == 0) return;
+        bool changed = false;
+        var list = journal.ToList();
+        for (int i = 0; i < list.Count; i++)
+        {
+            var e = list[i];
+            string name = JournalTextRepair.Repair(e.name) ?? e.name;
+            string? detail = e.detail is null ? null : JournalTextRepair.Repair(e.detail);
+            if (!ReferenceEquals(name, e.name) || !ReferenceEquals(detail, e.detail))
+            {
+                list[i] = e with { name = name, detail = detail };
+                changed = true;
+            }
+        }
+        if (!changed) return;
+        _cache = state with { journal = list };
+        Persist(_cache); // 修好即落盘（调用方持 _gate；lock 可重入）
     }
 
     static int ParseRefreshInterval(string? json)

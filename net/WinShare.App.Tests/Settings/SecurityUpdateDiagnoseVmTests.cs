@@ -89,6 +89,25 @@ public class SecurityUpdateDiagnoseVmTests
         Assert.Equal("发现新版本 1.5.0", vm.StatusText);
     }
 
+    // v2.3：开发版领先于发布（当前 2.2.0 > 已发布 2.1.0）——如实提示，不报「已是最新」
+    [Fact]
+    public async Task 检查更新_当前领先发布_提示未发布开发版()
+    {
+        var svc = new StubUpdateService
+        {
+            Result = new UpdateCheckResult
+            {
+                current = "2.2.0", latest = "2.1.0", hasUpdate = false,
+                currentAheadOfRelease = true,
+            },
+        };
+        var vm = new UpdateCheckerViewModel(svc, "2.2.0");
+        await vm.CheckAsync();
+        Assert.Contains("未发布的开发版", vm.StatusText);
+        Assert.Contains("2.1.0", vm.StatusText);
+        Assert.DoesNotContain("已是最新", vm.StatusText);
+    }
+
     [Fact]
     public async Task 检查更新_通道异常_落卡片错误面()
     {

@@ -173,11 +173,15 @@ public sealed class UpdateService : IUpdateService
             // wpf-v2.0.0 → 2.0.0
             string latest = System.Text.RegularExpressions.Regex.Replace(tag, "^wpf-v", "",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            // v2.3：除了「有新版本」，还要识别「当前领先于发布」（开发版常态）——
+            // 否则开发到 2.2.0 而发布停在 2.1.0 时会误报「已是最新」。
+            int cmp = CompareVersions(latest, currentVersion);
             return new UpdateCheckResult
             {
                 current = currentVersion,
                 latest = latest,
-                hasUpdate = CompareVersions(latest, currentVersion) > 0,
+                hasUpdate = cmp > 0,
+                currentAheadOfRelease = cmp < 0,
                 releaseUrl = obj.TryGetProperty("html_url", out var hu)
                     && hu.ValueKind == JsonValueKind.String
                     && hu.GetString() is { Length: > 0 }
@@ -202,6 +206,7 @@ public sealed class UpdateService : IUpdateService
         current = current,
         latest = "",
         hasUpdate = false,
+        currentAheadOfRelease = false,
         releaseUrl = ReleasesPage,
         publishedAt = null,
         unavailable = true,

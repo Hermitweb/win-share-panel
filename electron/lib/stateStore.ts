@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { homedir, platform } from 'os'
 import { join } from 'path'
 import type { AppState, AppStatePatch, HistoryPoint, JournalEntry } from '../types'
+import { repairJournalText } from './journalTextRepair'
 
 // ===== 应用级持久状态（UI 偏好/告警规则/置顶/连接历史/操作日志）=====
 // 单 JSON 文件原子写；读取带进程内缓存；容量上限防止无限增长。
@@ -91,7 +92,11 @@ export function loadState(): AppState {
   if (cache) return cache
   try {
     if (existsSync(stateFile())) {
-      cache = normalize(JSON.parse(readFileSync(stateFile(), 'utf8')))
+      const state = normalize(JSON.parse(readFileSync(stateFile(), 'utf8')))
+      // v2.3：修复历史乱码台账（旧版 GBK 误读），有变化即落盘一次（幂等）
+      const repaired = repairJournal(state)
+      cache = repaired.state
+      if (repaired.changed) saveState({ journal: repaired.state.journal })
       return cache
     }
   } catch {
@@ -99,6 +104,21 @@ export function loadState(): AppState {
   }
   cache = structuredClone(DEFAULTS)
   return cache
+}
+
+/// v2.3：journal 的 name/detail 历史乱码修复；返回修复后的 state 与是否发生变化
+function repairJournal(state: AppState): { state: AppState; changed: boolean } {
+  if (!Array.isArray(state.journal) || state.journal.length === 0) return { state, changed: false }
+  let changed = false
+  const list = state.journal.map((j) => {
+    // 空字段保持原样（undefined/null 不造出空串，避免既有台账缺字段时形状变化）
+    const name = j.name ? repairJournalText(j.name) : j.name
+    const detail = j.detail ? repairJournalText(j.detail) : j.detail
+    if (name === j.name && detail === j.detail) return j
+    changed = true
+    return { ...j, name, detail }
+  })
+  return changed ? { state: { ...state, journal: list }, changed } : { state, changed }
 }
 
 export function saveState(patch: AppStatePatch): AppState {
@@ -128,8 +148,11 @@ export function saveState(patch: AppStatePatch): AppState {
 let journalSeq = 0
 
 export function addJournal(entry: Omit<JournalEntry, 'id' | 'ts'>): JournalEntry {
+  // v2.3：写入前同样走修复（防御——历史乱码若再被其它端写入可自愈）
   const full: JournalEntry = {
     ...entry,
+    name: repairJournalText(entry.name),
+    detail: repairJournalText(entry.detail),
     id: `j${Date.now()}-${++journalSeq}`,
     ts: Date.now(),
   }

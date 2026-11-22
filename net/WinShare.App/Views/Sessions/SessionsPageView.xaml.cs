@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using WinShare.App.Sessions;
 using WinShare.App.Shell;
@@ -103,6 +103,7 @@ public partial class SessionsPageView : UserControl
             ? Visibility.Visible : Visibility.Collapsed;
         SessionGrid.IsEnabled = !_vm.Spinning;
         FileGrid.IsEnabled = !_vm.Spinning;
+        if (SessionProbeBar != null) SessionProbeBar.Visibility = _vm.Spinning ? Visibility.Visible : Visibility.Collapsed;
 
         // 选中条（对齐 selectionBar）
         var sel = _vm.SelectedSessions.Count;

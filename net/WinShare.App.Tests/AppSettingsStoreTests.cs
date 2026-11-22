@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using WinShare.App.State;
 using WinShare.Core.Contracts;
 using System.Linq;
@@ -38,6 +39,31 @@ public class AppSettingsStoreTests : IDisposable
         Assert.False(s.autoStart);
         Assert.Empty(s.dashboardHistory);
         Assert.Empty(s.journal);
+    }
+
+    /// <summary>
+    /// v2.3：历史乱码台账（旧版 Electron 时期 GBK 误读写入）在加载时自动修复并落盘——
+    /// 内存态与文件态都应为修好的中文（真实样本取自用户环境 2026-10 的 200 条 journal）。
+    /// </summary>
+    [Fact]
+    public void Load_历史乱码Journal_自动修复并落盘()
+    {
+        const string garbled = "鍏变韩宸插垹闄わ紙NFS 鍏变韩鍙参粨涓嶆敮鎸佷竴閿箰鍙€锛岃鎸夌暀妗х顫宸ラ€祤»";
+        var json = "{\"theme\":\"light\",\"journal\":[{\"id\":\"j1\",\"ts\":1,\"action\":\"delete\"," +
+                   "\"protocol\":\"nfs\",\"name\":\"test\",\"detail\":\"" + garbled + "\",\"undoable\":false}]}";
+        File.WriteAllText(Path.Combine(_dir, "appstate.json"), json, new UTF8Encoding(true));
+
+        var store = new AppSettingsStore(_dir);
+        var s = store.Load();
+
+        Assert.NotNull(s.journal);
+        Assert.Contains("共享已删除", s.journal![0].detail);
+        // 落盘验证：System.Text.Json 默认把非 ASCII 转义成 \\uXXXX，需解析 JSON 断言
+        string raw = File.ReadAllText(Path.Combine(_dir, "appstate.json"));
+        using var doc = System.Text.Json.JsonDocument.Parse(raw);
+        string? persisted = doc.RootElement.GetProperty("journal")[0].GetProperty("detail").GetString();
+        Assert.Contains("共享已删除", persisted);
+        Assert.DoesNotContain(garbled, persisted);
     }
 
     [Fact]

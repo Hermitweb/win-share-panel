@@ -25,6 +25,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // v2.3：注册 GBK(936) 编码提供器——历史 journal 乱码修复（JournalTextRepair）需要；
+        // .NET Core 默认不含非 Unicode 代码页，不注册时 GetEncoding(936) 抛异常。
+        try { System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance); } catch { }
+
         var crash = new CrashReporter(msg =>
         {
             // UI 线程崩溃已被 handler 吞掉并落日志；托盘气泡提示

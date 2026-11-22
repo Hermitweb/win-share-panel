@@ -16,7 +16,7 @@ public sealed class UpdateCheckerViewModel : SettingsCardBase
     public UpdateCheckResult? Result { get; private set; }
     public string? ErrorText { get; private set; }
 
-    /// <summary>最近一次结果的可展示文案（三态：失败 / 有新版本 / 已是最新）。</summary>
+    /// <summary>最近一次结果的可展示文案（四态：失败 / 有新版本 / 当前领先（未发布开发版）/ 已是最新）。</summary>
     public string? StatusText
     {
         get
@@ -24,7 +24,11 @@ public sealed class UpdateCheckerViewModel : SettingsCardBase
             if (ErrorText is not null) return null;
             if (Result is not { } r) return null;
             if (r.unavailable) return $"检查更新失败：{r.reason}（可直接打开下载页手动查看；或在能访问 GitHub 的网络/代理下重试）";
-            return r.hasUpdate ? $"发现新版本 {r.latest}" : "当前已是最新版本";
+            if (r.hasUpdate) return $"发现新版本 {r.latest}";
+            // v2.3：开发版领先于发布是常态——如实说明，不报「已是最新」
+            if (r.currentAheadOfRelease)
+                return $"当前版本 {r.current} 高于已发布的最新版本 {r.latest}（本地为未发布的开发版；可打开下载页查看已发布版本）";
+            return "当前已是最新版本";
         }
     }
 

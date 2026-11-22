@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Input;
@@ -309,6 +309,9 @@ public sealed record ProtocolRow(Protocol Protocol, ProtocolStats? Stats)
 /// <summary>磁盘水位行（VM 纯数据；Level 取值 danger|warn|ok|unknown，对齐 TS DISK_LEVEL_META）。</summary>
 public sealed record DiskRow(string Drive, double FreeGB, double TotalGB, double FreePct, string Level)
 {
+    /// <summary>已用百分比（100-剩余百分比，钳到 0-100）。
+    /// 注意：只读属性——模板绑定必须显式 Mode=OneWay（ProgressBar.Value 默认 TwoWay，
+    /// 否则布局期抛「无法对只读属性进行 TwoWay 绑定」异常，磁盘卡一直显示空态）。</summary>
     public double UsedPct => Math.Clamp(100 - FreePct, 0, 100);
 }
 
