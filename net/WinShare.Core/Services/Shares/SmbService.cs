@@ -237,14 +237,17 @@ public sealed class SmbService : ISmbService
         }
         _skipNextSnapshot = false;
 
-        // 版本适配：读取本机 SMB 服务器配置的实际属性集（旧系统缺少 QUIC/SilentAU 等），
-        // 下发前据此过滤；探测失败则 supported=null 回退全量下发（错误照实上抛）
+        // 版本适配：探测 Set-SmbServerConfiguration 实际支持的**参数名**（不是 Get 的属性集——
+        // Win11 26200 上 Get 仍返回 EnableSMB3Protocol 属性，但 Set 已无该写参数，
+        // 按属性过滤会漏 → 保存报"找不到与参数名称匹配的参数"）。
+        // 探测失败则 supported=null 回退全量下发（错误照实上抛）。
         HashSet<string>? supported = null;
         try
         {
-            JsonElement raw = await _ps.RunJsonAsync("Get-SmbServerConfiguration", 15000, 2);
-            supported = new HashSet<string>(raw.ValueKind == JsonValueKind.Object
-                ? raw.EnumerateObject().Select(p => p.Name)
+            JsonElement raw = await _ps.RunJsonAsync(
+                "(Get-Command Set-SmbServerConfiguration -ErrorAction Stop).Parameters.Keys", 15000, 2);
+            supported = new HashSet<string>(raw.ValueKind == JsonValueKind.Array
+                ? raw.EnumerateArray().Select(p => p.GetString() ?? "").Where(s => s.Length > 0)
                 : Enumerable.Empty<string>());
         }
         catch
