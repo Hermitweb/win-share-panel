@@ -47,11 +47,16 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
                 applyStartType: token => Card.SetServiceStartTypeAsync(token)))
                 _svcStrip.Children.Add(c);
         };
-        // 服务器值回填后重置表单绑定（绑定源=镜像属性，DataContext 换绑触发全量重拉）
+        // 服务器值回填后重建表单（v2.3：原「DataContext 重绑」在部分场景不刷新勾选态——
+        // 预设应用/恢复默认后字段毫无变化，用户以为没联动。重建保证显示最新镜像值）
         Card.OnConfigReloaded += () =>
         {
-            _form.DataContext = null;
-            _form.DataContext = Card;
+            int idx = body.Children.IndexOf(_form);
+            if (idx < 0) return;
+            var fresh = BuildForm();
+            fresh.DataContext = Card;
+            body.Children[idx] = fresh;
+            _form = fresh;
         };
     }
 

@@ -112,6 +112,26 @@ public class ProtocolConfigCardViewModelTests
         Assert.Equal(RequestCompression.Require, written.requestCompression);
     }
 
+    // v2.3：选预设后下方字段按预设勾上——预设值进入下发参数（下发成功后重载读回=预设），
+    // 且立即回填镜像（Config=merged + 重绑）保证表单即时响应
+    [Fact]
+    public void 预设应用_预设值进入下发参数且成功提示()
+    {
+        var (svc, adapters) = StubProtocolService.BuildAllInstalled();
+        adapters[Protocol.Smb].ConfigSource = new SmbServerConfig();
+        var vm = new SmbConfigCardViewModel(svc, advancedMode: true);
+        vm.LoadAsync().Wait();
+        var preset = ProtocolPresets.Smb.First(p => p.Id == "smb-sec-hardened");
+        vm.ApplyPresetAsync(preset).Wait();
+        var written = Assert.IsType<SmbServerConfig>(adapters[Protocol.Smb].LastSetConfig);
+        Assert.False(written.enableSMB1Protocol);          // 安全加固：SMB1 关
+        Assert.True(written.enableSMB2Protocol);           // SMB2 开
+        Assert.True(written.requireSecuritySignature);     // 强制签名
+        Assert.True(written.auditSmb1Access);              // SMB1 审计
+        Assert.Equal(30, written.unauthenticatedUsersTimeLimit);
+        Assert.Equal("已应用预设「安全加固（内网服务器）」", vm.Success);
+    }
+
     [Fact]
     public void 服务控制_重启计数且成功文案对齐()
     {

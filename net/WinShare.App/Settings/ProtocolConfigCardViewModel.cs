@@ -164,6 +164,11 @@ public abstract class ProtocolConfigCardViewModel<TConfig> : SettingsCardBase
         try
         {
             var merged = BuildMerged(adapter, preset.Values);
+            // v2.3：先把预设值写进镜像配置并触发表单重绑——用户选预设后下方字段立即按预设勾上
+            // （此前只靠"下发+重载"回填，链路慢/失败时表单毫无变化，用户以为没联动）
+            Config = merged;
+            Raise(nameof(Config));
+            OnConfigReloaded?.Invoke();
             await adapter.SetConfigAsync(merged);
             Success = $"已应用预设「{preset.Name}」";
             await LoadAsync();
