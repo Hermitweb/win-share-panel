@@ -1,4 +1,4 @@
-using WinShare.Core.Contracts;
+﻿using WinShare.Core.Contracts;
 
 namespace WinShare.App.Settings;
 
@@ -23,6 +23,9 @@ public static class SettingsServiceSlots
     public static IPresetService? PresetService { get; set; }
     /// <summary>SMB 服务（ISmbService，快照历史 Tab 数据源）。</summary>
     public static ISmbService? SmbService { get; set; }
+
+    /// <summary>NFS 服务（INfsService，v2.3 能力门控）。</summary>
+    public static WinShare.Core.Contracts.INfsService? NfsService { get; set; }
     /// <summary>WebDAV 服务（IWebdavService，v2.1：服务器级 Authoring 规则管理数据源）。</summary>
     public static IWebdavService? WebdavService { get; set; }
 
@@ -39,6 +42,7 @@ public static class SettingsServiceSlots
         JournalService = null;
         PresetService = null;
         SmbService = null;
+        NfsService = null;
         WebdavService = null;
     }
 }

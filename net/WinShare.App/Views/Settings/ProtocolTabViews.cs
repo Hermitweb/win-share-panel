@@ -58,6 +58,9 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
             body.Children[idx] = fresh;
             _form = fresh;
         };
+        // v2.3：有 Set cmdlet 的协议页做能力门控（禁用本机不支持字段 + 顶部说明）
+        if (SetCmdlet is not null)
+            Loaded += async (_, _) => await ApplySettableGateAsync(_form);
     }
 
     StackPanel _form = null!;
@@ -65,6 +68,61 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
 
     protected abstract string FooterText { get; }
     protected abstract ConfigPreset[] Presets { get; }
+    /// <summary>v2.3：本机 Set cmdlet 名（null=无门控，子类覆写）。</summary>
+    protected virtual string? SetCmdlet => null;
+
+    /// <summary>v2.3：VM 属性名 → PS 参数名映射（null=无门控，子类覆写）。</summary>
+    protected virtual IReadOnlyDictionary<string, string>? VmToPs => null;
+
+    /// <summary>v2.3：取本卡协议的本机 Set 参数集（无 cmdlet 的协议返回 null=不门控）。</summary>
+    protected virtual System.Threading.Tasks.Task<IReadOnlySet<string>?> GetSettableForProtocolAsync()
+        => System.Threading.Tasks.Task.FromResult<IReadOnlySet<string>?>(null);
+
+    /// <summary>给字段控件打 Tag（VM 属性名），供异步能力探测后禁用。</summary>
+    protected static T Tag<T>(T element, string vmPath) where T : FrameworkElement
+    {
+        if (element is StackPanel { Children.Count: > 1 } row && row.Children[1] is FrameworkElement fe)
+            fe.Tag = vmPath;
+        else element.Tag = vmPath;
+        return element;
+    }
+
+    /// <summary>v2.3：异步探测本机 Set 参数集 → 禁用不支持字段 + 顶部说明（保存侧同步跳过，双保险）。</summary>
+    protected async System.Threading.Tasks.Task ApplySettableGateAsync(StackPanel form)
+    {
+        if (SetCmdlet is null || VmToPs is null) return;
+        try
+        {
+            var supported = await GetSettableForProtocolAsync();
+            if (supported is null || supported.Count == 0) return;
+            var disabled = new List<string>();
+            foreach (Control ctl in Descendants(form))
+            {
+                if (ctl.Tag is not string vmPath || !VmToPs.TryGetValue(vmPath, out var ps)) continue;
+                if (supported.Contains(ps)) continue;
+                ctl.IsEnabled = false;
+                ctl.ToolTip = $"本机 {SetCmdlet} 不支持参数 {ps}（保存时将自动跳过）";
+                if (disabled.Count < 4) disabled.Add(ps);
+            }
+            if (disabled.Count == 0) return;
+            form.Children.Insert(0, SettingsUi.FogText(
+                $"以下字段本机不支持，已禁用（保存时自动跳过）：{string.Join("、", disabled)}{(disabled.Count == 4 ? " 等" : "")}", 0, 0));
+        }
+        catch { /* 能力探测失败不影响表单 */ }
+    }
+
+    /// <summary>可视树后代控件（Tag 定位字段控件；Form 树很浅，递归成本可忽略）。</summary>
+    static IEnumerable<Control> Descendants(System.Windows.DependencyObject root)
+    {
+        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is Control c) yield return c;
+            foreach (var d in Descendants(child)) yield return d;
+        }
+    }
+
     protected abstract StackPanel BuildForm();
 
     /// <summary>未安装引导 / 探测占位 / 服务缺席说明（安装成功后视图侧调用 Rebuild 重渲染）。</summary>
@@ -223,11 +281,21 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
 /// <summary>SMB 板块（纵向单列；表单逐字段对齐 Settings.tsx 服务器配置面板；新手模式收起高级参数）。</summary>
 public sealed class SmbTabView : ProtocolSectionView<SmbServerConfig>
 {
-    /// <summary>
-    /// VM 属性名 → Set-SmbServerConfiguration 参数名（v2.3：UI 禁用不支持字段；
-    /// 保存侧过滤见 SmbService.GetSettableFieldsAsync——两处同源于该映射）。
-    /// </summary>
-    internal static readonly Dictionary<string, string> VmToPs = new()
+    /// <summary>本机 Set-SmbServerConfiguration（v2.3 能力门控）。</summary>
+    protected override string? SetCmdlet => "Set-SmbServerConfiguration";
+
+    /// <summary>VM 属性名 → PS 参数名（与保存侧 SmbService 过滤同源）。</summary>
+    protected override IReadOnlyDictionary<string, string>? VmToPs => VmToPsMap;
+
+    protected override System.Threading.Tasks.Task<IReadOnlySet<string>?> GetSettableForProtocolAsync()
+    {
+        var svc = SettingsServiceSlots.SmbService;
+        return svc is null
+            ? System.Threading.Tasks.Task.FromResult<IReadOnlySet<string>?>(null)
+            : svc.GetSettableFieldsAsync();
+    }
+
+    internal static readonly Dictionary<string, string> VmToPsMap = new()
     {
         ["EnableSmb1"] = "EnableSMB1Protocol",
         ["EnableSmb2"] = "EnableSMB2Protocol",
@@ -319,45 +387,7 @@ public sealed class SmbTabView : ProtocolSectionView<SmbServerConfig>
             ["关闭", "允许", "要求"], width: 120), nameof(SmbConfigCardViewModel.RequestCompression)));
         p.Children.Add(SettingsUi.ExpanderField("高级参数（吞吐 / 超时 / 压缩）", smbAdv, c.AdvancedMode));
 
-        // v2.3：异步探测本机 Set 参数集 → 禁用不支持字段 + 顶部说明（保存侧同步跳过，双保险）
-        Loaded += async (_, _) => await ApplySettableAsync(p);
         return p;
-    }
-
-    async System.Threading.Tasks.Task ApplySettableAsync(StackPanel form)
-    {
-        try
-        {
-            var svc = SettingsServiceSlots.SmbService;
-            if (svc is null) return;
-            var supported = await svc.GetSettableFieldsAsync();
-            if (supported is null || supported.Count == 0) return;   // 探测失败/空 → 不禁用（保存侧兜底）
-            var disabled = new List<string>();
-            foreach (Control ctl in Descendants(form))
-            {
-                if (ctl.Tag is not string vmPath || !VmToPs.TryGetValue(vmPath, out var ps)) continue;
-                if (supported.Contains(ps)) continue;
-                ctl.IsEnabled = false;
-                ctl.ToolTip = $"本机 Set-SmbServerConfiguration 不支持参数 {ps}（保存时将自动跳过）";
-                if (disabled.Count < 4) disabled.Add(ps);
-            }
-            if (disabled.Count == 0) return;
-            form.Children.Insert(0, SettingsUi.FogText(
-                $"以下字段本机不支持，已禁用（保存时自动跳过）：{string.Join("、", disabled)}{(disabled.Count == 4 ? " 等" : "")}", 0, 0));
-        }
-        catch { /* 能力探测失败不影响表单 */ }
-    }
-
-    /// <summary>可视树后代控件（Tag 定位字段控件；Form 树很浅，递归成本可忽略）。</summary>
-    static IEnumerable<Control> Descendants(System.Windows.DependencyObject root)
-    {
-        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < n; i++)
-        {
-            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
-            if (child is Control c) yield return c;
-            foreach (var d in Descendants(child)) yield return d;
-        }
     }
 }
 
@@ -371,32 +401,60 @@ public sealed class NfsTabView : ProtocolSectionView<NfsServerConfig>
 
     protected override ConfigPreset[] Presets => [.. ProtocolPresets.Nfs];
 
+    /// <summary>VM 属性名 → Set-NfsServerConfiguration 参数名（v2.3 能力门控 + 保存过滤同源）。</summary>
+    static readonly Dictionary<string, string> NfsVmToPs = new()
+    {
+        ["GracefulUnmount"] = "GracefulUnmount",
+        ["LogActivity"] = "LogActivity",
+        ["UnmappedAccess"] = "EnableUnmappedAccess",
+        ["AuthRenegotiation"] = "EnableAuthenticationRenegotiation",
+        ["EnableNfsV2"] = "EnableNFSV2",
+        ["EnableNfsV3"] = "EnableNFSV3",
+        ["EnableNfsV4"] = "EnableNFSV4",
+        ["TcpTimeout"] = "TcpConnectionTimeout",
+        ["UdpTimeout"] = "UdpConnectionTimeout",
+        ["RestartTimeout"] = "RestartConnectionTimeout",
+        ["MaxConcurrentPerUser"] = "MaxConcurrentConnectionsPerUser",
+        ["DirectoryCacheExpiry"] = "DirectoryCacheExpiry",
+    };
+
+    protected override string? SetCmdlet => "Set-NfsServerConfiguration";
+    protected override IReadOnlyDictionary<string, string>? VmToPs => NfsVmToPs;
+
+    protected override System.Threading.Tasks.Task<IReadOnlySet<string>?> GetSettableForProtocolAsync()
+    {
+        var svc = SettingsServiceSlots.NfsService;
+        return svc is null
+            ? System.Threading.Tasks.Task.FromResult<IReadOnlySet<string>?>(null)
+            : svc.GetSettableFieldsAsync();
+    }
+
     protected override StackPanel BuildForm()
     {
         var p = new StackPanel();
         var c = (NfsConfigCardViewModel)Card;
         p.Children.Add(SettingsUi.FogText("基础配置", 0, 4));
         p.Children.Add(SettingsUi.ToggleGroup(
-            SettingsUi.Toggle("优雅卸载", nameof(NfsConfigCardViewModel.GracefulUnmount), c),
-            SettingsUi.Toggle("记录活动日志", nameof(NfsConfigCardViewModel.LogActivity), c),
-            SettingsUi.Toggle("未映射用户访问", nameof(NfsConfigCardViewModel.UnmappedAccess), c),
-            SettingsUi.Toggle("认证重协商", nameof(NfsConfigCardViewModel.AuthRenegotiation), c)));
+            Tag(SettingsUi.Toggle("优雅卸载", nameof(NfsConfigCardViewModel.GracefulUnmount), c), nameof(NfsConfigCardViewModel.GracefulUnmount)),
+            Tag(SettingsUi.Toggle("记录活动日志", nameof(NfsConfigCardViewModel.LogActivity), c), nameof(NfsConfigCardViewModel.LogActivity)),
+            Tag(SettingsUi.Toggle("未映射用户访问", nameof(NfsConfigCardViewModel.UnmappedAccess), c), nameof(NfsConfigCardViewModel.UnmappedAccess)),
+            Tag(SettingsUi.Toggle("认证重协商", nameof(NfsConfigCardViewModel.AuthRenegotiation), c), nameof(NfsConfigCardViewModel.AuthRenegotiation))));
         p.Children.Add(SettingsUi.FogText($"协议版本：{c.ProtocolVersion}"));
 
         // v2.2.0 第二轮：超时/协议版本/身份映射/网关属专家字段——折叠为「高级参数」
         // （新手默认收起、专家默认展开；展开可正常编辑，合并-回写语义下收起不影响现值）
         var adv = new StackPanel();
         adv.Children.Add(SettingsUi.FogText("连接与超时", 0, 4));
-        adv.Children.Add(SettingsUi.NumberField("TCP 连接超时(秒)", nameof(NfsConfigCardViewModel.TcpTimeout), c));
-        adv.Children.Add(SettingsUi.NumberField("UDP 连接超时(秒)", nameof(NfsConfigCardViewModel.UdpTimeout), c));
-        adv.Children.Add(SettingsUi.NumberField("重启连接超时(秒)", nameof(NfsConfigCardViewModel.RestartTimeout), c));
-        adv.Children.Add(SettingsUi.NumberField("每用户最大并发连接(0=不限)", nameof(NfsConfigCardViewModel.MaxConcurrentPerUser), c));
-        adv.Children.Add(SettingsUi.NumberField("目录缓存过期(秒)", nameof(NfsConfigCardViewModel.DirectoryCacheExpiry), c));
+        adv.Children.Add(Tag(SettingsUi.NumberField("TCP 连接超时(秒)", nameof(NfsConfigCardViewModel.TcpTimeout), c), nameof(NfsConfigCardViewModel.TcpTimeout)));
+        adv.Children.Add(Tag(SettingsUi.NumberField("UDP 连接超时(秒)", nameof(NfsConfigCardViewModel.UdpTimeout), c), nameof(NfsConfigCardViewModel.UdpTimeout)));
+        adv.Children.Add(Tag(SettingsUi.NumberField("重启连接超时(秒)", nameof(NfsConfigCardViewModel.RestartTimeout), c), nameof(NfsConfigCardViewModel.RestartTimeout)));
+        adv.Children.Add(Tag(SettingsUi.NumberField("每用户最大并发连接(0=不限)", nameof(NfsConfigCardViewModel.MaxConcurrentPerUser), c), nameof(NfsConfigCardViewModel.MaxConcurrentPerUser)));
+        adv.Children.Add(Tag(SettingsUi.NumberField("目录缓存过期(秒)", nameof(NfsConfigCardViewModel.DirectoryCacheExpiry), c), nameof(NfsConfigCardViewModel.DirectoryCacheExpiry)));
         adv.Children.Add(SettingsUi.FogText("协议版本", 0, 4));
         adv.Children.Add(SettingsUi.ToggleGroup(
-            SettingsUi.Toggle("启用 NFSv2", nameof(NfsConfigCardViewModel.EnableNfsV2), c),
-            SettingsUi.Toggle("启用 NFSv3", nameof(NfsConfigCardViewModel.EnableNfsV3), c),
-            SettingsUi.Toggle("启用 NFSv4.1", nameof(NfsConfigCardViewModel.EnableNfsV4), c)));
+            Tag(SettingsUi.Toggle("启用 NFSv2", nameof(NfsConfigCardViewModel.EnableNfsV2), c), nameof(NfsConfigCardViewModel.EnableNfsV2)),
+            Tag(SettingsUi.Toggle("启用 NFSv3", nameof(NfsConfigCardViewModel.EnableNfsV3), c), nameof(NfsConfigCardViewModel.EnableNfsV3)),
+            Tag(SettingsUi.Toggle("启用 NFSv4.1", nameof(NfsConfigCardViewModel.EnableNfsV4), c), nameof(NfsConfigCardViewModel.EnableNfsV4))));
         adv.Children.Add(SettingsUi.FogText("身份映射 / 网关", 0, 4));
         var uidField = SettingsUi.NumberField("匿名 UID(-2=未映射)", nameof(NfsConfigCardViewModel.AnonymousUid), c);
         var gidField = SettingsUi.NumberField("匿名 GID(-2=未映射)", nameof(NfsConfigCardViewModel.AnonymousGid), c);

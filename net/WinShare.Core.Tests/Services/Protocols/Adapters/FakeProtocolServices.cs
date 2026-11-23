@@ -1,4 +1,4 @@
-// 假协议服务：适配器的「服务配置类方法」（getServiceStatus/restartService/getConfig/setConfig/
+﻿// 假协议服务：适配器的「服务配置类方法」（getServiceStatus/restartService/getConfig/setConfig/
 // defaultConfig/restoreDefault）必须原样委托到同名服务，绝不在这里重写命令串。
 using WinShare.Core.Contracts;
 
@@ -14,7 +14,8 @@ internal sealed class FakeNfsService : INfsService
 
     public NfsServerConfig DefaultConfig() => Default;
     public Task<NfsServerConfig> GetConfigAsync() => Task.FromResult(Config);
-    public Task SetConfigAsync(NfsServerConfig config) { AppliedConfig = config; return Task.CompletedTask; }
+    public Task<IReadOnlySet<string>?> GetSettableFieldsAsync() => Task.FromResult<IReadOnlySet<string>?>(null);
+        public Task SetConfigAsync(NfsServerConfig config) { AppliedConfig = config; return Task.CompletedTask; }
     public Task<NfsServerConfig> RestoreDefaultAsync() => Task.FromResult(Restored);
     public Task<ServiceStatus> GetServiceStatusAsync() =>
         Task.FromResult(new ServiceStatus { name = "NfsService", status = ServiceState.Running, startType = "Automatic" });

@@ -1,4 +1,4 @@
-// electron/services/nfs.ts 无对应 TS 单测（TS 侧只有协议适配器测试），故按任务书要求
+﻿// electron/services/nfs.ts 无对应 TS 单测（TS 侧只有协议适配器测试），故按任务书要求
 // 以假 IPsInvoker 断言命令串 + 默认值/回读/恒真回落语义；写域（Set-NfsServerConfiguration）全部干跑。
 using WinShare.Core.Contracts;
 using WinShare.Core.Services.ProtocolServices;
@@ -215,10 +215,11 @@ public class NfsServiceTests
     [Fact]
     public async Task SetConfig_IdentityOnlyUnchanged_NoWriteNoThrow()
     {
-        var ps = new PsRecorder();
+        // v2.3：SetConfigAsync 会先探测 Set-NfsServerConfiguration 参数集（空数组=探测失败→不过滤）
+        var ps = new PsRecorder().WhenJson("[]");
         await new NfsService(ps).SetConfigAsync(new NfsConfigPatch { anonymousUid = -2 });
         Assert.Empty(ps.VoidCalls);
-        Assert.Single(ps.JsonCalls);
+        Assert.Equal(2, ps.JsonCalls.Count);   // v2.3：参数集探测 + GetConfig
     }
 
     // 身份映射变化（仅身份字段 → cmdlet 无可写项）→ Set-CimInstance 直写 + 回读校验通过
@@ -227,6 +228,7 @@ public class NfsServiceTests
     public async Task SetConfig_IdentityChanged_WritesViaCimInstanceAndVerifies()
     {
         var ps = new PsRecorder()
+            .WhenJson("[]")   // v2.3：参数集探测（空=不过滤）
             .WhenJson("""{"AnonymousUid":-2,"AnonymousGid":-2,"GatewayCharacterSet":"ANSI"}""")
             .WhenJson("""{"AnonymousUid":-3,"AnonymousGid":-2,"GatewayCharacterSet":"ANSI"}""");
         await new NfsService(ps).SetConfigAsync(new NfsConfigPatch { anonymousUid = -3 });
@@ -255,6 +257,7 @@ public class NfsServiceTests
     public async Task SetConfig_ChangedCharset_BuildsQuotedCimCommand()
     {
         var ps = new PsRecorder()
+            .WhenJson("[]")   // v2.3：参数集探测（空=不过滤）
             .WhenJson("""{"AnonymousUid":-2,"AnonymousGid":-2,"GatewayCharacterSet":"ANSI"}""")
             .WhenJson("""{"AnonymousUid":-2,"AnonymousGid":-2,"GatewayCharacterSet":"UTF-8"}""");
         await new NfsService(ps).SetConfigAsync(new NfsConfigPatch { gatewayCharacterSet = "UTF-8" });

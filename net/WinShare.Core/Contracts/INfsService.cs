@@ -1,4 +1,4 @@
-namespace WinShare.Core.Contracts;
+﻿namespace WinShare.Core.Contracts;
 
 /// <summary>
 /// NFS 服务器配置与服务控制（对应 electron/services/nfs.ts 导出：
@@ -13,6 +13,9 @@ public interface INfsService
     Task<NfsServerConfig> GetConfigAsync();
 
     Task SetConfigAsync(NfsServerConfig config);
+
+    /// <summary>v2.3：本机 Set-NfsServerConfiguration 支持的参数名集（null=探测失败，按全部支持处理）。</summary>
+    Task<IReadOnlySet<string>?> GetSettableFieldsAsync();
 
     Task<NfsServerConfig> RestoreDefaultAsync();
 

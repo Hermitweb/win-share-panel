@@ -1,4 +1,4 @@
-// 移植自 electron/services/smb.ts（SMB 服务器配置与服务控制：
+﻿// 移植自 electron/services/smb.ts（SMB 服务器配置与服务控制：
 // defaultConfig / getConfig / setConfig / restoreDefault / listSnapshots / rollbackSnapshot /
 // getServiceStatus / restartService / startService / stopService）。
 // 命令串从 TS 原文件 1:1 复制；FIELD_MAP 版本适配过滤、setConfig 串行化锁、写前快照、
@@ -144,21 +144,8 @@ public sealed class SmbService : ISmbService
         return _settableCache;
     }
 
-    async Task<IReadOnlySet<string>?> ProbeSettableAsync()
-    {
-        try
-        {
-            JsonElement raw = await _ps.RunJsonAsync(
-                "(Get-Command Set-SmbServerConfiguration -ErrorAction Stop).Parameters.Keys", 15000, 2);
-            if (raw.ValueKind != JsonValueKind.Array) return null;
-            return new HashSet<string>(
-                raw.EnumerateArray().Select(p => p.GetString() ?? "").Where(s => s.Length > 0));
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    Task<IReadOnlySet<string>?> ProbeSettableAsync()
+        => _ps.GetCmdletParametersAsync("Set-SmbServerConfiguration");
 
     public SmbService(IPsInvoker? ps = null) => _ps = ps ?? PsRunner.Default;
 
@@ -275,7 +262,8 @@ public sealed class SmbService : ISmbService
         // 探测失败则 supported=null 回退全量下发（错误照实上抛）。
         HashSet<string>? supported = null;
         IReadOnlySet<string>? probed = await GetSettableFieldsAsync();
-        if (probed is not null)
+        // v2.3：探测返回空集 = 探测失败/无输出 → 按全部支持处理（不过滤，错误照实上抛）
+        if (probed is { Count: > 0 })
             supported = new HashSet<string>(probed);
         string cmd = BuildSetCmd(config, supported);
         if (cmd.Split(' ').Length <= 2)

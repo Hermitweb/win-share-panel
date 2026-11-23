@@ -1,4 +1,4 @@
-// 移植自 electron/services/nfs.ts（NFS 服务器配置 + 服务控制）。
+﻿// 移植自 electron/services/nfs.ts（NFS 服务器配置 + 服务控制）。
 // 命令串逐字复制自 TS：Get-/Set-NfsServerConfiguration、Get-Service、Restart-/Start-/Stop-Service；
 // 执行经 IPsInvoker（默认 PsRunner.Default）：查询 15000ms/2 次重试，
 // 未装 NFS 时必然失败的探测用 retries:0（TS 注释：避免切 Tab 延迟）。
@@ -101,21 +101,23 @@ public sealed class NfsService : INfsService
     /// </summary>
     public async Task SetConfigAsync(NfsConfigPatch config)
     {
+        // v2.3：先探测本机 Set-NfsServerConfiguration 参数集（不同版本有增删），下发前过滤
+        IReadOnlySet<string>? supported = await GetSettableFieldsAsync();
         List<string> parts = new() { "Set-NfsServerConfiguration" };
         // 布尔字段：运行时类型校验（非法值 psBool 返回 null → 跳过，杜绝注入）
-        AddBool(parts, "-GracefulUnmount", config.gracefulUnmount);
-        AddBool(parts, "-LogActivity", config.logActivity);
-        AddBool(parts, "-EnableUnmappedAccess", config.enableUnmappedAccess);
-        AddBool(parts, "-EnableAuthenticationRenegotiation", config.enableAuthenticationRenegotiation);
-        AddBool(parts, "-EnableNFSV2", config.enableNfsV2);
-        AddBool(parts, "-EnableNFSV3", config.enableNfsV3);
-        AddBool(parts, "-EnableNFSV4", config.enableNfsV4);
+        AddBool(parts, "-GracefulUnmount", config.gracefulUnmount, supported);
+        AddBool(parts, "-LogActivity", config.logActivity, supported);
+        AddBool(parts, "-EnableUnmappedAccess", config.enableUnmappedAccess, supported);
+        AddBool(parts, "-EnableAuthenticationRenegotiation", config.enableAuthenticationRenegotiation, supported);
+        AddBool(parts, "-EnableNFSV2", config.enableNfsV2, supported);
+        AddBool(parts, "-EnableNFSV3", config.enableNfsV3, supported);
+        AddBool(parts, "-EnableNFSV4", config.enableNfsV4, supported);
         // 数值字段：同上门禁（TS 侧 '0' 为 truthy，故 0 也会写入）
-        AddNumber(parts, "-TcpConnectionTimeout", config.tcpConnectionTimeout);
-        AddNumber(parts, "-UdpConnectionTimeout", config.udpConnectionTimeout);
-        AddNumber(parts, "-RestartConnectionTimeout", config.restartConnectionTimeout);
-        AddNumber(parts, "-MaxConcurrentConnectionsPerUser", config.maxConcurrentConnectionsPerUser);
-        AddNumber(parts, "-DirectoryCacheExpiry", config.directoryCacheExpiry);
+        AddNumber(parts, "-TcpConnectionTimeout", config.tcpConnectionTimeout, supported);
+        AddNumber(parts, "-UdpConnectionTimeout", config.udpConnectionTimeout, supported);
+        AddNumber(parts, "-RestartConnectionTimeout", config.restartConnectionTimeout, supported);
+        AddNumber(parts, "-MaxConcurrentConnectionsPerUser", config.maxConcurrentConnectionsPerUser, supported);
+        AddNumber(parts, "-DirectoryCacheExpiry", config.directoryCacheExpiry, supported);
         parts.Add("-Confirm:$false");
         bool hasIdentity = config.anonymousUid is not null || config.anonymousGid is not null
             || !string.IsNullOrEmpty(config.gatewayCharacterSet);
@@ -311,14 +313,29 @@ public sealed class NfsService : INfsService
 
     // === 命令拼接助手（TS: parts.push(`-${name} ${pretty}`) 的闸门版）===
 
-    private static void AddBool(List<string> parts, string flag, bool? value)
+    IReadOnlySet<string>? _settableCache;
+    bool _settableProbed;
+
+    /// <summary>v2.3：本机 Set-NfsServerConfiguration 参数集（UI 门控 + 保存过滤共用；null=探测失败按全部支持）。</summary>
+    public async Task<IReadOnlySet<string>?> GetSettableFieldsAsync()
     {
+        if (_settableProbed) return _settableCache;
+        _settableProbed = true;
+        _settableCache = await _ps.GetCmdletParametersAsync("Set-NfsServerConfiguration");
+        return _settableCache;
+    }
+
+    private static void AddBool(List<string> parts, string flag, bool? value, IReadOnlySet<string>? supported)
+    {
+        if (value is null) return;
+        if (supported is { Count: > 0 } && !supported.Contains(flag.TrimStart('-'))) return; // v2.3 版本适配（空集=探测失败→不过滤）
         if (PsGate.PsBool(value) is string ps) parts.Add($"{flag} {ps}");
     }
 
-    private static void AddNumber(List<string> parts, string flag, int? value)
+    private static void AddNumber(List<string> parts, string flag, int? value, IReadOnlySet<string>? supported)
     {
         if (value is null) return;
+        if (supported is { Count: > 0 } && !supported.Contains(flag.TrimStart('-'))) return; // v2.3 版本适配（空集=探测失败→不过滤）
         if (PsGate.PsNumber(value) is string ps) parts.Add($"{flag} {ps}");
     }
 

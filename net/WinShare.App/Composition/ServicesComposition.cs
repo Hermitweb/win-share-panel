@@ -1,4 +1,4 @@
-// 组合根：把 Core 契约服务装配成一套实例，注入 UI 侧静态槽（App 各模块的注入缝）。
+﻿// 组合根：把 Core 契约服务装配成一套实例，注入 UI 侧静态槽（App 各模块的注入缝）。
 // 设计口径（用户确认）：静态槽位注入，不改 AppServices 为 DI 容器。
 // 依赖顺序：ps 通道 → 基础服务 → 跨域服务（Diagnose 依赖 smb/user/firewall）→ 适配器 → registry。
 using System.Windows;
@@ -136,6 +136,7 @@ public static class ServicesComposition
         Settings.SettingsServiceSlots.JournalService = journal;
         Settings.SettingsServiceSlots.PresetService = preset;
         Settings.SettingsServiceSlots.SmbService = smb;
+        Settings.SettingsServiceSlots.NfsService = nfs;
         Settings.SettingsServiceSlots.WebdavService = webdav;
 
         // 仪表板数据源 + 24h 趋势采样器依赖
