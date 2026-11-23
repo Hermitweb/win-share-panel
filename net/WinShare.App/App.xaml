@@ -51,8 +51,9 @@
         </Style>
         <!-- ===== 卡片（规范 5.1） ===== -->
         <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource BrushGlassStrong}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushGlassStroke}" />
+            <!-- v2.3 四轮：玻璃渐变卡面（顶亮底透）+ 玻璃边缘渐变边框（顶高光底暗），伪造玻璃纵深 -->
+            <Setter Property="Background" Value="{DynamicResource BrushCardGradient}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushGlassEdge}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusCard}" />
             <Setter Property="Padding" Value="18,16" />

@@ -85,8 +85,8 @@
     <SolidColorBrush x:Key="BrushOverlayScrim" Color="#000000" Opacity="0.25" />
 
     <!-- ===== 磨砂玻璃 / 渐变 ===== -->
-    <SolidColorBrush x:Key="BrushGlass" Color="#FFFFFF" Opacity="0.55" />
-    <SolidColorBrush x:Key="BrushGlassStrong" Color="#FFFFFF" Opacity="0.76" />
+    <SolidColorBrush x:Key="BrushGlass" Color="#FFFFFF" Opacity="0.50" />
+    <SolidColorBrush x:Key="BrushGlassStrong" Color="#FFFFFF" Opacity="0.66" />
     <SolidColorBrush x:Key="BrushGlassStroke" Color="#FFFFFF" Opacity="0.60" />
     <LinearGradientBrush x:Key="BrushBrandGradient" StartPoint="0,0" EndPoint="1,1">
         <!-- v2.3：马卡龙三色→饱和蓝（全渐变段对白字 ≥3.6:1） -->
@@ -97,11 +97,17 @@
         <GradientStop Color="#E3F0FD" Offset="0" />
         <GradientStop Color="#EDEBFB" Offset="1" />
     </LinearGradientBrush>
-    <!-- 卡面纵向微渐变（顶部提亮的玻璃纸质感；替代平面白） -->
+    <!-- 卡面纵向玻璃渐变（v2.3 四轮：顶部实白高光 → 底部半透，光斑透出，空间感） -->
     <LinearGradientBrush x:Key="BrushCardGradient" StartPoint="0,0" EndPoint="0,1">
-        <!-- v2.3 三轮：卡面再透一档（半透明白，背板/光斑隐约透出，层次更深） -->
-        <GradientStop Color="#F2FFFFFF" Offset="0" />
-        <GradientStop Color="#E8FFFFFF" Offset="1" />
+        <GradientStop Color="#FAFFFFFF" Offset="0" />
+        <GradientStop Color="#E6FFFFFF" Offset="0.55" />
+        <GradientStop Color="#D8FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <!-- 玻璃边缘渐变（顶亮底暗，伪玻璃边——替代 DropShadowEffect 的深度暗示） -->
+    <LinearGradientBrush x:Key="BrushGlassEdge" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#CCFFFFFF" Offset="0" />
+        <GradientStop Color="#59FFFFFF" Offset="0.5" />
+        <GradientStop Color="#3394A3B8" Offset="1" />
     </LinearGradientBrush>
     <!-- 页面氛围背景：亮而不白——中心近白、边缘留柔和蓝调承托光斑与卡片层次
          （v2.3 二轮：纯白版「太亮、空间感被覆盖」，回调至中间调） -->
@@ -138,9 +144,10 @@
         <GradientStop Color="#FFB25C" Offset="0" />
         <GradientStop Color="#EF8412" Offset="1" />
     </LinearGradientBrush>
-    <!-- 背景装饰光斑（v2.3 新增：窗口氛围层用；承托空间深度，存在感回到一版本） -->
-    <SolidColorBrush x:Key="BrushDecorBlobA" Color="#A8D4F8" Opacity="0.55" />
-    <SolidColorBrush x:Key="BrushDecorBlobB" Color="#C9B8F5" Opacity="0.45" />
+    <!-- 背景装饰光斑（v2.3 四轮：更大更透，多层纵深；卡片半透后光斑透出形成玻璃感） -->
+    <SolidColorBrush x:Key="BrushDecorBlobA" Color="#9ECDF9" Opacity="0.5" />
+    <SolidColorBrush x:Key="BrushDecorBlobB" Color="#C3AEF6" Opacity="0.42" />
+    <SolidColorBrush x:Key="BrushDecorBlobC" Color="#8FD8E8" Opacity="0.35" />
     <!-- 危险按钮渐变 -->
     <LinearGradientBrush x:Key="BrushDangerGradient" StartPoint="0,0" EndPoint="1,0">
         <GradientStop Color="#F5C6C6" Offset="0" />

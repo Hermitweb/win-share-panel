@@ -42,6 +42,8 @@
                          Stroke="{DynamicResource BrushPrimaryLight}" StrokeThickness="1.5" Opacity="0.28" />
                 <Ellipse Canvas.Left="240" Canvas.Bottom="64" Width="96" Height="96"
                          Stroke="{DynamicResource BrushSecondary}" StrokeThickness="1.5" Opacity="0.25" />
+                <Ellipse Canvas.Right="330" Canvas.Bottom="190" Width="260" Height="260"
+                         Fill="{DynamicResource BrushDecorBlobC}" />
             </Canvas>
 
             <DockPanel>
