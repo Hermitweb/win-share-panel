@@ -334,6 +334,10 @@ public partial class DashboardPageView : UserControl
     void OnStatService(object sender, System.Windows.Input.MouseButtonEventArgs e)
         => AppServices.Navigation.Navigate("/settings");
 
+    /// <summary>v2.3 四轮：协议入口卡 → 服务配置页（对应协议配置）。</summary>
+    void OnProtoConfig(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        => AppServices.Navigation.Navigate("/settings");
+
     /// <summary>「需要关注」动作按钮：v2.2.0 可自动修复项（SMB1/访客）一键执行——确认后直接写配置并刷新，
     /// 不再让用户自己跳设置页找开关；其余项保持跨页导航（对齐 TS navigate(to, { state: attention })）。</summary>
     async void OnAttentionAction(object sender, RoutedEventArgs e)

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\WinShare.Core\WinShare.Core.csproj" />
@@ -40,6 +40,9 @@
     <Resource Include="..\..\resources\logo.png">
       <Link>Resources\logo.png</Link>
     </Resource>
+    <Content Include="Assets\hero-orbit.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <EmbeddedResource Include="..\..\resources\icon.ico">
       <Link>Resources\icon.ico</Link>
     </EmbeddedResource>

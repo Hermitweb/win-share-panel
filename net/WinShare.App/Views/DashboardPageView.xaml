@@ -66,22 +66,23 @@
 
                 <!-- 项 0：Hero 横幅（v2.3：对齐参考稿主视觉——标语 + 矢量轨道插画） -->
                 <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16"
-                        Background="{DynamicResource BrushHeroGradient}">
-                    <Grid MinHeight="104">
+                        Background="{DynamicResource BrushHeroIllustration}">
+                    <Grid MinHeight="152">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left">
-                            <TextBlock Text="{DynamicResource Dash.HeroTitle}" FontSize="24" FontWeight="Bold"
+                            <TextBlock Text="{DynamicResource Dash.HeroTitle}" FontSize="28" FontWeight="Bold"
                                        HorizontalAlignment="Left" TextAlignment="Left"
                                        Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" MaxWidth="560" />
-                            <TextBlock Text="{DynamicResource Dash.HeroSub}" FontSize="13" FontWeight="SemiBold"
+                            <TextBlock Text="{DynamicResource Dash.HeroSub}" FontSize="14" FontWeight="SemiBold"
                                        HorizontalAlignment="Left" TextAlignment="Left"
                                        Margin="0,8,0,0" Foreground="{DynamicResource BrushPrimary}" />
                         </StackPanel>
-                        <ctl:HeroOrbit Grid.Column="1" Width="208" Height="112" VerticalAlignment="Center"
-                                       Margin="10,-4,0,-8" />
+                        <Image Source="Assets/hero-orbit.png" Width="240" Height="180"
+                               HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,-6"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
                     </Grid>
                 </Border>
 
@@ -162,6 +163,90 @@
                                 </Border>
                             </StackPanel>
                         </Grid>
+                    </Border>
+                </UniformGrid>
+
+                <!-- 项 1.5：协议入口卡（v2.3 四轮：对齐参考稿"平台入口卡"——图标+名称+副标语+彩色按钮） -->
+                <UniformGrid Columns="4" Margin="0,0,0,16">
+                    <Border Style="{DynamicResource CardStyle}" Margin="0,0,10,0" Padding="14,12">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="44" Height="44" CornerRadius="13" HorizontalAlignment="Left"
+                                        Background="{DynamicResource BrushHueBlueGradient}">
+                                    <TextBlock Text="S" FontSize="20" FontWeight="Bold" Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="SMB" FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock Text="安全文件共享" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Border CornerRadius="10" Padding="10,7" Margin="0,12,0,0" HorizontalAlignment="Left"
+                                    Background="{DynamicResource BrushHueBlueGradient}" Cursor="Hand"
+                                    MouseLeftButtonUp="OnProtoConfig" Tag="smb" ToolTip="打开服务配置（SMB）">
+                                <TextBlock Text="进入配置 →" FontSize="12" FontWeight="SemiBold" Foreground="White" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{DynamicResource CardStyle}" Margin="8,0" Padding="14,12">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="44" Height="44" CornerRadius="13" HorizontalAlignment="Left"
+                                        Background="{DynamicResource BrushHuePurpleGradient}">
+                                    <TextBlock Text="N" FontSize="20" FontWeight="Bold" Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="NFS" FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock Text="跨系统文件共享" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Border CornerRadius="10" Padding="10,7" Margin="0,12,0,0" HorizontalAlignment="Left"
+                                    Background="{DynamicResource BrushHuePurpleGradient}" Cursor="Hand"
+                                    MouseLeftButtonUp="OnProtoConfig" Tag="nfs" ToolTip="打开服务配置（NFS）">
+                                <TextBlock Text="进入配置 →" FontSize="12" FontWeight="SemiBold" Foreground="White" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{DynamicResource CardStyle}" Margin="8,0" Padding="14,12">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="44" Height="44" CornerRadius="13" HorizontalAlignment="Left"
+                                        Background="{DynamicResource BrushHueGreenGradient}">
+                                    <TextBlock Text="F" FontSize="20" FontWeight="Bold" Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="FTP" FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock Text="文件传输服务" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Border CornerRadius="10" Padding="10,7" Margin="0,12,0,0" HorizontalAlignment="Left"
+                                    Background="{DynamicResource BrushHueGreenGradient}" Cursor="Hand"
+                                    MouseLeftButtonUp="OnProtoConfig" Tag="ftp" ToolTip="打开服务配置（FTP）">
+                                <TextBlock Text="进入配置 →" FontSize="12" FontWeight="SemiBold" Foreground="White" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{DynamicResource CardStyle}" Margin="8,0,0,0" Padding="14,12">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="44" Height="44" CornerRadius="13" HorizontalAlignment="Left"
+                                        Background="{DynamicResource BrushHueOrangeGradient}">
+                                    <TextBlock Text="W" FontSize="20" FontWeight="Bold" Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="WebDAV" FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock Text="Web 目录发布" FontSize="12" Foreground="{DynamicResource BrushFog}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Border CornerRadius="10" Padding="10,7" Margin="0,12,0,0" HorizontalAlignment="Left"
+                                    Background="{DynamicResource BrushHueOrangeGradient}" Cursor="Hand"
+                                    MouseLeftButtonUp="OnProtoConfig" Tag="webdav" ToolTip="打开服务配置（WebDAV）">
+                                <TextBlock Text="进入配置 →" FontSize="12" FontWeight="SemiBold" Foreground="White" />
+                            </Border>
+                        </StackPanel>
                     </Border>
                 </UniformGrid>
 

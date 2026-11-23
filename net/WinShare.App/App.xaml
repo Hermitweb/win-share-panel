@@ -50,6 +50,70 @@
             </Setter>
         </Style>
         <!-- ===== 卡片（规范 5.1） ===== -->
+        <!-- v2.3 四轮：Hero 插画画刷（球体+轨道+光点，相对坐标 0-1）——
+             DrawingBrush 作为 Hero 卡 Background，绕过 Grid 嵌套子元素不渲染的问题 -->
+        <DrawingBrush x:Key="BrushHeroIllustration" Viewport="0,0,1,1" TileMode="None">
+            <DrawingBrush.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="{DynamicResource BrushHeroGradient}">
+                        <GeometryDrawing.Geometry>
+                            <RectangleGeometry Rect="0,0,1,1" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <!-- 轨道环 1（蓝） -->
+                    <GeometryDrawing>
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="#59 6FA3F0" Thickness="0.008" />
+                        </GeometryDrawing.Pen>
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="0.72,0.52" RadiusX="0.17" RadiusY="0.10" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <!-- 轨道环 2（紫） -->
+                    <GeometryDrawing>
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="#44 A78BFA" Thickness="0.008" />
+                        </GeometryDrawing.Pen>
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="0.72,0.52" RadiusX="0.15" RadiusY="0.09" Transform="Rotate(14,0.72,0.52)" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <!-- 球体（多层圆模拟径向渐变，中心 0.72,0.5 半径 0.14） -->
+                    <GeometryDrawing Brush="#1E4FB8">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="0.72,0.5" RadiusX="0.14" RadiusY="0.14" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="#3B7BE8">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="0.72,0.5" RadiusX="0.115" RadiusY="0.115" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="#8FC1FF">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="0.695,0.47" RadiusX="0.075" RadiusY="0.075" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="#E6FFFFFF">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="0.685,0.455" RadiusX="0.038" RadiusY="0.038" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <!-- 光点 -->
+                    <GeometryDrawing Brush="#F08C1A">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="0.86,0.5" RadiusX="0.012" RadiusY="0.012" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="#8B5CF6">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="0.575,0.475" RadiusX="0.010" RadiusY="0.010" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+
         <Style x:Key="CardStyle" TargetType="Border">
             <!-- v2.3 四轮：玻璃渐变卡面（顶亮底透）+ 玻璃边缘渐变边框（顶高光底暗），伪造玻璃纵深 -->
             <Setter Property="Background" Value="{DynamicResource BrushCardGradient}" />
