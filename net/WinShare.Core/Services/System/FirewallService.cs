@@ -61,8 +61,12 @@ public sealed class FirewallService : IFirewallService
         //   `$rules = @(); try { $rules = @(Get-NetFirewallRule -DisplayGroup ${psQuote(FW_GROUP)} -ErrorAction Stop) } catch { return @() }`
         //   `; $rules | ForEach-Object { $p = $_ | Get-NetFirewallPortFilter -ErrorAction SilentlyContinue; `
         //   `[PSCustomObject]@{ DisplayName=$_.DisplayName; Enabled=($_.Enabled -eq 'True'); Ports=(($p.LocalPort) -join ',') } }`
+        // 注意：TS 的 `catch { return @() }` 在 C# 侧不能照抄——PsRunner 会在整条命令后再拼
+        // `| ConvertTo-Json`，而 `return` 会让 powershell.exe 以非零退出码结束（实测 EXIT=-1、无输出），
+        // 导致「组内无规则」这一正常空结果被误报成「PowerShell 进程退出码 1」。改为 catch 内赋值空数组，
+        // 让空结果照常进入管道（ConvertTo-Json 输出 []，退出码 0）。
         string command =
-            $"$rules = @(); try {{ $rules = @(Get-NetFirewallRule -DisplayGroup {PsArgs.PsQuote(FwGroupConst)} -ErrorAction Stop) }} catch {{ return @() }}" +
+            $"$rules = @(); try {{ $rules = @(Get-NetFirewallRule -DisplayGroup {PsArgs.PsQuote(FwGroupConst)} -ErrorAction Stop) }} catch {{ $rules = @() }}" +
             $"; $rules | ForEach-Object {{ $p = $_ | Get-NetFirewallPortFilter -ErrorAction SilentlyContinue; " +
             $"[PSCustomObject]@{{ DisplayName=$_.DisplayName; Enabled=($_.Enabled -eq 'True'); Ports=(($p.LocalPort) -join ',') }} }}";
         JsonElement raw = await _ps.RunJsonAsync(command, PsRunner.DefaultTimeoutMs, 0);

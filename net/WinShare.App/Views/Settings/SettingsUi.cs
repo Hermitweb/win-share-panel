@@ -2,6 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using WinShare.App.Settings;
 
 namespace WinShare.App.Views.Settings;
@@ -132,6 +134,49 @@ public static class SettingsUi
     }
 
     /// <summary>
+    /// 转圈加载指示（代码生成；用 BeginAnimation 而非 Storyboard.TargetName，避免多处同名作用域问题）。
+    /// 圆环底色/弧线走主题 token（活引用，热切换跟随）。
+    /// </summary>
+    public static Grid Spinner(double size = 18)
+    {
+        double stroke = Math.Max(2, size / 9);
+        double r = Math.Max(1, size / 2 - stroke / 2);
+        double c = size / 2;
+        var ring = new Ellipse { Width = size, Height = size, StrokeThickness = stroke };
+        ring.SetResourceReference(Shape.StrokeProperty, "BrushBorder");
+        var arc = new Path
+        {
+            StrokeThickness = stroke,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            Data = Geometry.Parse($"M {c:0.#},{stroke / 2:0.#} A {r:0.#},{r:0.#} 0 0 1 {c + r:0.#},{c:0.#}"),
+        };
+        arc.SetResourceReference(Shape.StrokeProperty, "BrushPrimary");
+        var rotate = new RotateTransform { CenterX = c, CenterY = c };
+        arc.RenderTransform = rotate;
+        rotate.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(0, 360, TimeSpan.FromMilliseconds(900))
+        {
+            RepeatBehavior = RepeatBehavior.Forever,
+        });
+        var box = new Grid { Width = size, Height = size, VerticalAlignment = VerticalAlignment.Center };
+        box.Children.Add(ring);
+        box.Children.Add(arc);
+        return box;
+    }
+
+    /// <summary>局部加载行：转圈 + 说明文字（用于「读取中/检测中」等占位；文字垂直居中）。</summary>
+    public static StackPanel LoadingRow(string text, double size = 16)
+    {
+        var p = new StackPanel { Orientation = Orientation.Horizontal };
+        p.Children.Add(Spinner(size));
+        var tb = FogText(text);
+        tb.VerticalAlignment = VerticalAlignment.Center;
+        tb.Margin = new Thickness(8, 0, 0, 0);
+        p.Children.Add(tb);
+        return p;
+    }
+
+    /// <summary>
     /// 高级参数折叠区（v2.2.0 第二轮：设置页协议 Tab 的专家字段收敛——新手默认收起、
     /// 专家默认展开；展开后照常查看/编辑/提交，合并-回写语义下收起不影响现值）。
     /// Header 走活引用（主题热切换实时跟随）。
@@ -156,8 +201,13 @@ public static class SettingsUi
             .Live(TextBlock.ForegroundProperty, "BrushSuccess");
         var error = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed }
             .Live(TextBlock.ForegroundProperty, "BrushDanger");
-        var busy = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed }
+        var busyText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap }
             .Live(TextBlock.ForegroundProperty, "BrushFog");
+        busyText.VerticalAlignment = VerticalAlignment.Center;
+        busyText.Margin = new Thickness(8, 0, 0, 0);
+        var busy = new StackPanel { Orientation = Orientation.Horizontal, Visibility = Visibility.Collapsed };
+        busy.Children.Add(Spinner(16));
+        busy.Children.Add(busyText);
         void Update()
         {
             var errText = vm.Error ?? (vm as UpdateCheckerViewModel)?.ErrorText
@@ -168,7 +218,7 @@ public static class SettingsUi
             error.Text = errText ?? "";
             error.Visibility = string.IsNullOrEmpty(errText) ? Visibility.Collapsed : Visibility.Visible;
             // v2.2.0：Busy 期间显示进度说明（此前 16-21s 拉取期间只有按钮禁用，静默得像卡死）
-            busy.Text = vm.BusyText ?? "正在执行…";
+            busyText.Text = vm.BusyText ?? "正在执行…";
             busy.Visibility = vm.BusyVisible ? Visibility.Visible : Visibility.Collapsed;
         }
         // VM 的 PropertyChanged 可能在后台线程（Persist / 刷新续体）触发，

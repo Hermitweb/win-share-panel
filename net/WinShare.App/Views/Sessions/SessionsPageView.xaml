@@ -43,9 +43,6 @@
                            Foreground="{DynamicResource BrushWarnFg}" VerticalAlignment="Center"
                            Margin="10,0,0,0" Visibility="Collapsed" />
             </StackPanel>
-            <!-- v2.3：取数进度条（Spinning 期间扫动） -->
-            <ProgressBar x:Name="SessionProbeBar" DockPanel.Dock="Bottom" Style="{DynamicResource ProbeBar}"
-                         Margin="0,10,0,0" Visibility="Collapsed" />
         </DockPanel>
 
         <!-- 协议 Tab（对齐 Electron antd Tabs：横向；SMB/NFS 有会话，FTP/WebDAV 走空态引导） -->
@@ -119,7 +116,7 @@
                             </DataGrid.Columns>
                         </DataGrid>
 <!-- v2.2.0 第五批：空态落在表格区顶部（首屏可见），不再居于超高卡片正中 -->
-                    <StackPanel x:Name="SessionsEmpty" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,24,0,0"
+                    <StackPanel x:Name="SessionsEmpty" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 IsHitTestVisible="False" Visibility="Collapsed">
                         <TextBlock Text="暂无活动会话" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource BrushFog}"
                                    HorizontalAlignment="Center" />
@@ -143,7 +140,7 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-<StackPanel x:Name="FilesEmpty" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,24,0,0"
+                    <StackPanel x:Name="FilesEmpty" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 IsHitTestVisible="False" Visibility="Collapsed">
                         <TextBlock Text="暂无打开的文件" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource BrushFog}"
                                    HorizontalAlignment="Center" />
@@ -184,6 +181,35 @@
                            MaxWidth="520" TextAlignment="Center"
                            Text="FTP/WebDAV 无原生会话 API。可通过 IIS 日志（%SystemDrive%\inetpub\logs\LogFiles）查看连接记录。" />
             </Border>
+
+            <!-- 加载态：列表区居中转圈（替代原页头横条；Spinning 期间显示） -->
+            <Grid x:Name="SessionsSpin" Visibility="Collapsed" IsHitTestVisible="False">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid Width="46" Height="46" HorizontalAlignment="Center" Margin="0,0,0,12">
+                        <Ellipse Width="46" Height="46" Stroke="{DynamicResource BrushBorder}" StrokeThickness="3" />
+                        <Path Stroke="{DynamicResource BrushPrimary}" StrokeThickness="3"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 23,4 A 19,19 0 0 1 42,23">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="SessionsSpinRotate" CenterX="23" CenterY="23" />
+                            </Path.RenderTransform>
+                        </Path>
+                        <Grid.Triggers>
+                            <EventTrigger RoutedEvent="Grid.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="SessionsSpinRotate"
+                                                         Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360" Duration="0:0:0.9" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Grid.Triggers>
+                    </Grid>
+                    <TextBlock Text="正在读取会话…" FontSize="{DynamicResource FontSizeBody}"
+                               Foreground="{DynamicResource BrushFog}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>

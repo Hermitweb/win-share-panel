@@ -51,21 +51,30 @@ public sealed class SettingsPageView : UserControl
         var header = BuildHeader();
         DockPanel.SetDock(header, Dock.Top);
         outer.Children.Add(header);
-        // 用 Grid（Auto/Auto/*）承载：StackPanel 给子元素的测量高度是无限的，
-        // TabControl 会被量到自然高度（1200px+）→ 内层 ScrollViewer「无需滚动」→
-        // 页面无法滚动（实测 UIA 全部可滚动元素仅横向）。Star 行把页签约束在剩余高度内。
+        // 纵向三段：版本适配（Auto，固定可见）→ 诊断区（Star，有界可滚动）→ 协议页签（Star，有界可滚动）。
+        // 两个 Star 行把剩余高度按比例分给诊断区与页签区，诊断项再长也只在诊断区内滚动，
+        // 不会把下方页签压没。原 Auto/Auto/* 布局的坑：Auto 行按需吃高，诊断结果一多就把
+        // Star 行挤成 0，而页面本身没有滚动容器 → 下方内容被挤下去且无法滚动（用户实测）。
+        // （StackPanel 给子元素测量高度无限，TabControl 会被量到自然高度 1200px+，
+        //   所以两段都必须落在有界行里，内层 ScrollViewer 才会真正滚动。）
         var content = new Grid();
         content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
-        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
-        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        // 页签区内容量远大于诊断区（表单 vs 数行结果），权重 0.8:1.2 让页签区更宽裕
+        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(0.8, GridUnitType.Star) });
+        content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1.2, GridUnitType.Star) });
         var osCard = BuildOsCompatCard();
         Grid.SetRow(osCard, 0);
-        var diagCard = BuildDiagnoseCard();
-        Grid.SetRow(diagCard, 1);
+        var diagScroll = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = BuildDiagnoseCard(),
+        };
+        Grid.SetRow(diagScroll, 1);
         var sections = BuildProtocolSections();
         Grid.SetRow(sections, 2);
         content.Children.Add(osCard);
-        content.Children.Add(diagCard);
+        content.Children.Add(diagScroll);
         content.Children.Add(sections);
         outer.Children.Add(content);
         // v2.3：内容列改为撑满页面区（原 MaxWidth=920 居中列两侧留白过大——用户实测反馈）
@@ -130,7 +139,7 @@ public sealed class SettingsPageView : UserControl
         var os = _vm.OsCompat.Os;
         if (os is null)
         {
-            target.Children.Add(SettingsUi.FogText("OS 信息读取中…"));
+            target.Children.Add(SettingsUi.LoadingRow("OS 信息读取中…"));
             return;
         }
         static string Bit(bool on, string name) => $"{name}：{(on ? "支持" : "不支持")}";

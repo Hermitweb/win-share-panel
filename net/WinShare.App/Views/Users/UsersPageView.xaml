@@ -158,10 +158,32 @@
                                    Foreground="{DynamicResource BrushFog}" HorizontalAlignment="Center"
                                    Margin="0,6,0,0" />
                     </StackPanel>
-                    <StackPanel x:Name="UsersLoading" VerticalAlignment="Top" Margin="0,10,0,0" Visibility="Collapsed">
-                        <ProgressBar x:Name="UsersProbeBar" Style="{DynamicResource ProbeBar}" Margin="0,0,0,12" />
+                    <StackPanel x:Name="UsersLoading" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="0,10,0,0" Visibility="Collapsed">
+                        <!-- 加载态：居中转圈（替代原顶部横条） -->
+                        <Grid Width="46" Height="46" HorizontalAlignment="Center" Margin="0,0,0,12">
+                            <Ellipse Width="46" Height="46" Stroke="{DynamicResource BrushBorder}" StrokeThickness="3" />
+                            <Path Stroke="{DynamicResource BrushPrimary}" StrokeThickness="3"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 23,4 A 19,19 0 0 1 42,23">
+                                <Path.RenderTransform>
+                                    <RotateTransform x:Name="UsersSpinRotate" CenterX="23" CenterY="23" />
+                                </Path.RenderTransform>
+                            </Path>
+                            <Grid.Triggers>
+                                <EventTrigger RoutedEvent="Grid.Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="UsersSpinRotate"
+                                                             Storyboard.TargetProperty="Angle"
+                                                             From="0" To="360" Duration="0:0:0.9" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Grid.Triggers>
+                        </Grid>
                         <TextBlock Text="正在读取本地用户…" FontSize="{DynamicResource FontSizeBody}"
-                                   Foreground="{DynamicResource BrushFog}" Margin="0,0,0,12" />
+                                   Foreground="{DynamicResource BrushFog}" Margin="0,0,0,12" HorizontalAlignment="Center" />
                         <StackPanel x:Name="UsersSkeletonRows" />
                     </StackPanel>
                 </DockPanel>
@@ -206,6 +228,7 @@
 
             <!-- ===== 权限矩阵面板 ===== -->
             <Border x:Name="MatrixPanel" Style="{DynamicResource CardStyle}" Visibility="Collapsed">
+                <Grid>
                 <DockPanel>
                     <!-- 横向：提示在左、操作按钮在右（对齐 Electron 工具行） -->
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="False">
@@ -232,6 +255,33 @@
                               HorizontalScrollBarVisibility="Auto"
                               Height="480" VerticalScrollBarVisibility="Auto" />
                 </DockPanel>
+                <!-- 矩阵加载态：列表区居中转圈（MatrixLoading 时显示） -->
+                <StackPanel x:Name="MatrixSpin" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+                    <Grid Width="46" Height="46" HorizontalAlignment="Center" Margin="0,0,0,12">
+                        <Ellipse Width="46" Height="46" Stroke="{DynamicResource BrushBorder}" StrokeThickness="3" />
+                        <Path Stroke="{DynamicResource BrushPrimary}" StrokeThickness="3"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 23,4 A 19,19 0 0 1 42,23">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="MatrixSpinRotate" CenterX="23" CenterY="23" />
+                            </Path.RenderTransform>
+                        </Path>
+                        <Grid.Triggers>
+                            <EventTrigger RoutedEvent="Grid.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="MatrixSpinRotate"
+                                                         Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360" Duration="0:0:0.9" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Grid.Triggers>
+                    </Grid>
+                    <TextBlock Text="正在加载权限矩阵…" FontSize="{DynamicResource FontSizeBody}"
+                               Foreground="{DynamicResource BrushFog}" HorizontalAlignment="Center" />
+                </StackPanel>
+                </Grid>
             </Border>
 
             <!-- ===== NTFS 权限面板 ===== -->

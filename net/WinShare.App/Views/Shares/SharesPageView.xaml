@@ -31,9 +31,6 @@
                     <Button Content="导入" Style="{DynamicResource DashButton}" Click="OnImport" Margin="8,0,0,0" />
                     <Button Content="新建共享" Style="{DynamicResource DashButton}" Click="OnCreate" Margin="8,0,0,0" />
                 </StackPanel>
-                <!-- v2.3：探测进度条（协议探测/首轮取数期间扫动；Loading 结束即隐） -->
-                <ProgressBar DockPanel.Dock="Bottom" Style="{DynamicResource ProbeBar}"
-                             Margin="0,10,0,0" Visibility="{Binding Loading, Converter={StaticResource BoolVis}}" />
             </DockPanel>
 
             <!-- 协议未安装引导（TS ProtocolCapabilityBanner；内容在代码后置构建） -->
@@ -240,10 +237,33 @@
 
                     <!-- 加载骨架（v2.2.0 第五批：探测常需 10s 以上，此前只有一张空白表 +
                          一枚孤立 chip，界面像坏了。改为骨架行 + 可读进度） -->
-                    <StackPanel x:Name="LoadingSkeleton" Grid.Row="0" Visibility="Collapsed" Margin="0,4,0,12">
+                    <StackPanel x:Name="LoadingSkeleton" Grid.Row="0" Visibility="Collapsed"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4,0,12">
+                        <!-- 转圈加载指示（替代原页头横条：位于列表区中间；Loading 结束随骨架一起隐） -->
+                        <Grid Width="46" Height="46" HorizontalAlignment="Center" Margin="0,0,0,12">
+                            <Ellipse Width="46" Height="46" Stroke="{DynamicResource BrushBorder}" StrokeThickness="3" />
+                            <Path Stroke="{DynamicResource BrushPrimary}" StrokeThickness="3"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 23,4 A 19,19 0 0 1 42,23">
+                                <Path.RenderTransform>
+                                    <RotateTransform x:Name="LoadingSpin" CenterX="23" CenterY="23" />
+                                </Path.RenderTransform>
+                            </Path>
+                            <Grid.Triggers>
+                                <EventTrigger RoutedEvent="Grid.Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="LoadingSpin"
+                                                             Storyboard.TargetProperty="Angle"
+                                                             From="0" To="360" Duration="0:0:0.9" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Grid.Triggers>
+                        </Grid>
                         <TextBlock x:Name="LoadingProgress" Text="正在探测 SMB / NFS / FTP / WebDAV…"
                                    FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource BrushFog}"
-                                   Margin="0,0,0,12" />
+                                   Margin="0,0,0,12" HorizontalAlignment="Center" />
                         <StackPanel x:Name="SkeletonRows" />
                     </StackPanel>
                 </Grid>

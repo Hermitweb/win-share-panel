@@ -108,9 +108,12 @@ public partial class UsersPageView : UserControl
         // 加载中/筛选无结果都表现为一张空白表，界面像坏了
         bool loading = _vm.Loading;
         bool noRows = _vm.UserRows.Count == 0;
-        UsersLoading.Visibility = loading && noRows ? Visibility.Visible : Visibility.Collapsed;
-        if (UsersProbeBar != null) UsersProbeBar.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
-        if (loading && noRows) EnsureUserSkeletonRows();
+        bool showLoading = loading && noRows;
+        // 加载态必须收起表格：UsersGrid 与加载层同处 DockPanel，表格会占满高度，
+        // 加载层（LastChildFill）只剩 0 高——节点存在但转圈渲染不出来（用户实测「没有加载动画」）。
+        UsersGrid.Visibility = showLoading ? Visibility.Collapsed : Visibility.Visible;
+        UsersLoading.Visibility = showLoading ? Visibility.Visible : Visibility.Collapsed;
+        if (showLoading) EnsureUserSkeletonRows();
         UsersEmpty.Visibility = !loading && noRows ? Visibility.Visible : Visibility.Collapsed;
         GroupsGrid.ItemsSource = _vm.GroupRows;
         NtfsGrid.ItemsSource = _vm.NtfsRows;
@@ -125,6 +128,7 @@ public partial class UsersPageView : UserControl
         MatrixHint.Text = _vm.MatrixNote;
         BuildMatrixGrid();
         BtnMatrixCancel.Visibility = _vm.MatrixLoading ? Visibility.Visible : Visibility.Collapsed;
+        if (MatrixSpin != null) MatrixSpin.Visibility = _vm.MatrixLoading ? Visibility.Visible : Visibility.Collapsed;
         BtnMatrixReload.IsEnabled = !_vm.MatrixLoading;
         bool canExport = !_vm.MatrixLoading && _vm.MatrixShares.Count > 0;
         BtnExportCsv.IsEnabled = canExport;

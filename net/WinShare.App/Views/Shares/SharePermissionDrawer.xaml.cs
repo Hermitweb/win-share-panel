@@ -33,6 +33,7 @@ public partial class SharePermissionDrawer : UserControl
         NtfsPathText.Text = $"路径：{share.path}";
         NtfsGrid.ItemsSource = null;
         NtfsEmpty.Visibility = Visibility.Visible;
+        if (NtfsSpin != null) NtfsSpin.Visibility = Visibility.Visible;
         _ = vm.LoadAsync();
         RefreshDynamicVm();
     }
@@ -133,6 +134,7 @@ public partial class SharePermissionDrawer : UserControl
         if (_vm is not { } vm) return;
         var msg = await vm.LoadNtfsAsync();
         NtfsGrid.ItemsSource = vm.Ntfs?.entries.ToList();
+        if (NtfsSpin != null) NtfsSpin.Visibility = Visibility.Collapsed;
         var has = vm.Ntfs?.entries is { Count: > 0 };
         NtfsEmpty.Visibility = has ? Visibility.Collapsed : Visibility.Visible;
         NtfsEmpty.Text = msg.Length > 0 ? msg : "暂无 ACL 条目";

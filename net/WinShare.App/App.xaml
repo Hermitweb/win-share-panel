@@ -21,38 +21,14 @@
         <sys:Double x:Key="FontSizeTitle">16</sys:Double>
         <!-- v2.3：布尔→可见性（页头探测进度条等绑定用） -->
         <BooleanToVisibilityConverter x:Key="BoolVis" />
-        <!-- v2.3：探测进度条（不确定进度扫动条） -->
-        <Style x:Key="ProbeBar" TargetType="ProgressBar">
-            <Setter Property="Height" Value="3" />
-            <Setter Property="Width" Value="160" />
-            <Setter Property="IsIndeterminate" Value="True" />
-            <Setter Property="Foreground" Value="{DynamicResource BrushPrimary}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ProgressBar">
-                        <Border CornerRadius="2" Background="{DynamicResource BrushBgMist}">
-                            <Border x:Name="PART_Indicator" CornerRadius="2" HorizontalAlignment="Left"
-                                    Width="24" Background="{TemplateBinding Foreground}">
-                                <Border.Triggers>
-                                    <EventTrigger RoutedEvent="Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard RepeatBehavior="Forever">
-                                                <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                                 From="16" To="144" Duration="0:0:1.1" AutoReverse="True" />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </Border.Triggers>
-                            </Border>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
         <!-- ===== 卡片（规范 5.1） ===== -->
         <!-- v2.3 四轮：Hero 插画画刷（球体+轨道+光点，相对坐标 0-1）——
              DrawingBrush 作为 Hero 卡 Background，绕过 Grid 嵌套子元素不渲染的问题 -->
-        <DrawingBrush x:Key="BrushHeroIllustration" Viewport="0,0,1,1" TileMode="None">
+        <!-- Viewport 必须 RelativeToBoundingBox（默认 Absolute 会把 0-1 坐标压进 1×1 像素再拉伸，
+             球体被拉成飞碟盘）；Stretch=Uniform 保持 1:1 等比，避免卡片宽高比导致椭圆化。 -->
+        <DrawingBrush x:Key="BrushHeroIllustration" Viewbox="0,0,1,1" Viewport="0,0,1,1"
+                       ViewportUnits="RelativeToBoundingBox" Stretch="Uniform"
+                       AlignmentX="Right" AlignmentY="Center" TileMode="None">
             <DrawingBrush.Drawing>
                 <DrawingGroup>
                     <GeometryDrawing Brush="{DynamicResource BrushHeroGradient}">
@@ -63,7 +39,7 @@
                     <!-- 轨道环 1（蓝） -->
                     <GeometryDrawing>
                         <GeometryDrawing.Pen>
-                            <Pen Brush="#59 6FA3F0" Thickness="0.008" />
+                            <Pen Brush="#596FA3F0" Thickness="0.008" />
                         </GeometryDrawing.Pen>
                         <GeometryDrawing.Geometry>
                             <EllipseGeometry Center="0.72,0.52" RadiusX="0.17" RadiusY="0.10" />
@@ -72,10 +48,14 @@
                     <!-- 轨道环 2（紫） -->
                     <GeometryDrawing>
                         <GeometryDrawing.Pen>
-                            <Pen Brush="#44 A78BFA" Thickness="0.008" />
+                            <Pen Brush="#44A78BFA" Thickness="0.008" />
                         </GeometryDrawing.Pen>
                         <GeometryDrawing.Geometry>
-                            <EllipseGeometry Center="0.72,0.52" RadiusX="0.15" RadiusY="0.09" Transform="Rotate(14,0.72,0.52)" />
+                            <EllipseGeometry Center="0.72,0.52" RadiusX="0.15" RadiusY="0.09">
+                                <EllipseGeometry.Transform>
+                                    <RotateTransform Angle="14" CenterX="0.72" CenterY="0.52" />
+                                </EllipseGeometry.Transform>
+                            </EllipseGeometry>
                         </GeometryDrawing.Geometry>
                     </GeometryDrawing>
                     <!-- 球体（多层圆模拟径向渐变，中心 0.72,0.5 半径 0.14） -->

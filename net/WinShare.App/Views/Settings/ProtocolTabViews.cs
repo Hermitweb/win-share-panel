@@ -179,7 +179,7 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
             }
             else if (installed is null)
             {
-                stack.Children.Add(SettingsUi.FogText("正在检测协议安装状态…"));
+                stack.Children.Add(SettingsUi.LoadingRow("正在检测协议安装状态…"));
             }
             border.Child = stack;
         }

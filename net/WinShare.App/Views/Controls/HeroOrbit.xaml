@@ -6,6 +6,16 @@
       底部光晕 + 两道交叉轨道环（整体缓慢公转）+ 卫星光点 + 中央渐变球体（含高光/描边/共享字形）。
       球体/光点用固定插画色（双主题同一视觉身份）；描边细节走主题 token。
     -->
+    <UserControl.Triggers>
+        <EventTrigger RoutedEvent="UserControl.Loaded">
+            <BeginStoryboard>
+                <Storyboard RepeatBehavior="Forever">
+                    <DoubleAnimation Storyboard.TargetName="OrbitRotate" Storyboard.TargetProperty="Angle"
+                                     From="0" To="360" Duration="0:0:46" />
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </UserControl.Triggers>
     <Viewbox Stretch="Uniform">
         <Grid Width="240" Height="180">
             <!-- 底部光晕 -->

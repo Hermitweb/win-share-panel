@@ -65,8 +65,7 @@
                 </ItemsControl.ItemsPanel>
 
                 <!-- 项 0：Hero 横幅（v2.3：对齐参考稿主视觉——标语 + 矢量轨道插画） -->
-                <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16"
-                        Background="{DynamicResource BrushHeroIllustration}">
+                    <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,16">
                     <Grid MinHeight="152">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -80,9 +79,9 @@
                                        HorizontalAlignment="Left" TextAlignment="Left"
                                        Margin="0,8,0,0" Foreground="{DynamicResource BrushPrimary}" />
                         </StackPanel>
-                        <Image Source="Assets/hero-orbit.png" Width="240" Height="180"
-                               HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,-6"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
+                        <!-- v2.3 矢量主视觉（透明底，随玻璃卡融合）；白底 PNG 在此会显突兀色块 -->
+                        <ctl:HeroOrbit Width="240" Height="180"
+                                      HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,-6" />
                     </Grid>
                 </Border>
 

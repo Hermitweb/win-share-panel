@@ -126,9 +126,32 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-                        <TextBlock x:Name="NtfsEmpty" Text="正在读取 NTFS ACL…" FontSize="{DynamicResource FontSizeBody}"
-                                   Foreground="{DynamicResource BrushFog}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <StackPanel x:Name="NtfsEmptyRow" HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal">
+                            <!-- NTFS ACL 读取加载：转圈 + 文本（替代纯文本占位） -->
+                            <Grid x:Name="NtfsSpin" Width="20" Height="20" Margin="0,0,8,0" Visibility="Collapsed">
+                                <Ellipse Width="20" Height="20" Stroke="{DynamicResource BrushBorder}" StrokeThickness="2.5" />
+                                <Path Stroke="{DynamicResource BrushPrimary}" StrokeThickness="2.5"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Data="M 10,1.5 A 8.5,8.5 0 0 1 18.5,10">
+                                    <Path.RenderTransform>
+                                        <RotateTransform x:Name="NtfsSpinRotate" CenterX="10" CenterY="10" />
+                                    </Path.RenderTransform>
+                                </Path>
+                                <Grid.Triggers>
+                                    <EventTrigger RoutedEvent="Grid.Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetName="NtfsSpinRotate"
+                                                                 Storyboard.TargetProperty="Angle"
+                                                                 From="0" To="360" Duration="0:0:0.9" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Grid.Triggers>
+                            </Grid>
+                            <TextBlock x:Name="NtfsEmpty" Text="正在读取 NTFS ACL…" FontSize="{DynamicResource FontSizeBody}"
+                                       Foreground="{DynamicResource BrushFog}" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Grid>
                 <!-- 编辑授权（v2.1 解锁：添加授权 + 继承控制，写入后自动重读 ACL） -->
                 <StackPanel Margin="0,8,0,0">

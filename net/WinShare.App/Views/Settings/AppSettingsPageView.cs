@@ -621,12 +621,17 @@ public sealed class AppSettingsPageView : UserControl
         var sw = new CheckBox { Content = "开机自启", Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center,
                                 Style = (Style?)TryFindResource("CheckBoxSoft"),
                                 ToolTip = "Windows 用户登录时自动启动本面板" }; // v2.2.0：补样式
-        sw.Checked += async (_, _) => { await vm.WriteAsync(true); };
-        sw.Unchecked += async (_, _) => { await vm.WriteAsync(false); };
+        // 先按 VM 回填勾选态，再挂事件：WPF 设置 IsChecked 会触发 Checked/Unchecked，
+        // 若先挂事件，进入页面回填「已开启」就会自动触发一次 WriteAsync（表现为一直「写入中…」）。
         sw.IsEnabled = vm.Pending is null;
         sw.IsChecked = vm.Pending is not null ? vm.Pending : vm.Actual;
+        sw.Checked += async (_, _) => { await vm.WriteAsync(true); };
+        sw.Unchecked += async (_, _) => { await vm.WriteAsync(false); };
         swRow.Children.Add(sw);
-        swRow.Children.Add(SettingsUi.FogText(vm.Pending is not null ? "写入中…" : vm.StateText));
+        // 状态文字与复选框内容垂直居中对齐（FogText 默认 Top，会让「已开启」比复选框文字偏上，视觉错位）
+        var state = SettingsUi.FogText(vm.Pending is not null ? "写入中…" : vm.StateText);
+        state.VerticalAlignment = VerticalAlignment.Center;
+        swRow.Children.Add(state);
         row.Children.Add(swRow);
     }
 
@@ -867,7 +872,7 @@ public sealed class AppSettingsPageView : UserControl
         var vm = _vm.Security;
         if (vm.Running)
         {
-            panel.Children.Add(SettingsUi.FogText("正在枚举本地账号…"));
+            panel.Children.Add(SettingsUi.LoadingRow("正在枚举本地账号…"));
             return;
         }
         if (vm.ReportError is { } err)
@@ -933,23 +938,30 @@ public sealed class AppSettingsPageView : UserControl
     /// </summary>
     Border BuildJournalCard()
     {
-        var p = new StackPanel();
-        p.Children.Add(SettingsUi.HeaderRow("操作回收站 · 最近 200 条",
-            SettingsUi.Button("刷新", (_, _) => RebuildJournal()),
-            SettingsUi.Button("清空", (_, _) =>
-            {
-                IJournalService? svc = SettingsServiceSlots.JournalService;
-                if (svc is null) return;
-                MessageBoxResult ok = MessageBox.Show("清空后无法恢复撤销能力，继续？", "清空操作日志", MessageBoxButton.YesNo);
-                if (ok != MessageBoxResult.Yes) return;
-                int n = svc.ClearJournal();
-                RebuildJournal();
-                MessageBox.Show($"已清空 {n} 条操作记录", "操作回收站");
-            })));
         _journalPanel = new StackPanel();
-        p.Children.Add(_journalPanel);
         RebuildJournal();
-        return SettingsUi.Card(p);
+        var body = new StackPanel();
+        body.Children.Add(_journalPanel);
+        // 整卡折叠：标题行做 Expander 头（含操作按钮），内容为铺开的记录列表。
+        // 默认折叠——50/200 条记录不再撑爆页签，点标题即可展开/折叠整卡。
+        var exp = new Expander
+        {
+            Header = SettingsUi.HeaderRow("操作回收站 · 最近 200 条",
+                SettingsUi.Button("刷新", (_, _) => RebuildJournal()),
+                SettingsUi.Button("清空", (_, _) =>
+                {
+                    IJournalService? svc = SettingsServiceSlots.JournalService;
+                    if (svc is null) return;
+                    MessageBoxResult ok = MessageBox.Show("清空后无法恢复撤销能力，继续？", "清空操作日志", MessageBoxButton.YesNo);
+                    if (ok != MessageBoxResult.Yes) return;
+                    int n = svc.ClearJournal();
+                    RebuildJournal();
+                    MessageBox.Show($"已清空 {n} 条操作记录", "操作回收站");
+                })),
+            Content = body,
+            IsExpanded = false,
+        };
+        return SettingsUi.Card(exp);
     }
 
     void RebuildJournal()
@@ -981,7 +993,7 @@ public sealed class AppSettingsPageView : UserControl
 
         foreach (JournalEntry entry in entries.Take(50))
         {
-            // 纵向单列：操作摘要 / 明细 / 撤销按钮各占一行（撤销语义与禁用态不变）
+            // 记录铺开：卡片级折叠已承担「内容太多」的收敛，内部不再逐条折叠。
             var row = new StackPanel { Margin = new Thickness(0, 2, 0, 4) };
             row.Children.Add(new TextBlock
             {
@@ -989,7 +1001,6 @@ public sealed class AppSettingsPageView : UserControl
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
             }.Live(TextBlock.ForegroundProperty, "BrushText"));
-
             row.Children.Add(new TextBlock
             {
                 Text = entry.detail ?? "",
@@ -1026,39 +1037,45 @@ public sealed class AppSettingsPageView : UserControl
 
     Border BuildAuditCard()
     {
-        var p = new StackPanel();
-        p.Children.Add(SettingsUi.HeaderRow("审计日志 · 最近 200 条",
-            SettingsUi.Button("刷新", (_, _) => { _vm.Audit.Reload(); RebuildAudit(); }),
-            SettingsUi.Button("复制", (_, _) =>
-            {
-                var vm = _vm.Audit;
-                var text = string.Join(Environment.NewLine, vm.Rows.Select(r =>
-                    $"{(r.Time ?? "")} {r.Action} {r.Target} {r.Result} {(r.Detail ?? "")}"));
-                try { Clipboard.SetText(text); } catch { }
-            }),
-            SettingsUi.Button("导出", async (_, _) => await ExportAuditAsync()),
-            SettingsUi.Button("清空", (_, _) =>
-            {
-                if (MessageBox.Show("清空当前审计日志文件（audit.log）？已轮转的历史归档保留。继续？",
-                        "清空审计日志", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-                var sys = SettingsServiceSlots.SystemService;
-                if (sys is null) { MessageBox.Show("系统服务未注册，清空不可用", "清空失败"); return; }
-                try
-                {
-                    bool ok = sys.ClearAuditLogAsync().GetAwaiter().GetResult();
-                    MessageBox.Show(ok ? "审计日志已清空" : "清空失败（文件可能被占用）", "清空审计日志");
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message, "清空失败");
-                }
-                _vm.Audit.Reload();
-                RebuildAudit();
-            })));
         _auditPanel = new StackPanel();
-        p.Children.Add(_auditPanel);
         RebuildAudit();
-        return SettingsUi.Card(p);
+        var auditBody = new StackPanel();
+        auditBody.Children.Add(_auditPanel);
+        // 整卡折叠：标题行做 Expander 头（含操作按钮），内容为铺开的记录列表；默认折叠。
+        var auditExp = new Expander
+        {
+            Header = SettingsUi.HeaderRow("审计日志 · 最近 200 条",
+                SettingsUi.Button("刷新", (_, _) => { _vm.Audit.Reload(); RebuildAudit(); }),
+                SettingsUi.Button("复制", (_, _) =>
+                {
+                    var vm = _vm.Audit;
+                    var text = string.Join(Environment.NewLine, vm.Rows.Select(r =>
+                        $"{(r.Time ?? "")} {r.Action} {r.Target} {r.Result} {(r.Detail ?? "")}"));
+                    try { Clipboard.SetText(text); } catch { }
+                }),
+                SettingsUi.Button("导出", async (_, _) => await ExportAuditAsync()),
+                SettingsUi.Button("清空", (_, _) =>
+                {
+                    if (MessageBox.Show("清空当前审计日志文件（audit.log）？已轮转的历史归档保留。继续？",
+                            "清空审计日志", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                    var sys = SettingsServiceSlots.SystemService;
+                    if (sys is null) { MessageBox.Show("系统服务未注册，清空不可用", "清空失败"); return; }
+                    try
+                    {
+                        bool ok = sys.ClearAuditLogAsync().GetAwaiter().GetResult();
+                        MessageBox.Show(ok ? "审计日志已清空" : "清空失败（文件可能被占用）", "清空审计日志");
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "清空失败");
+                    }
+                    _vm.Audit.Reload();
+                    RebuildAudit();
+                })),
+            Content = auditBody,
+            IsExpanded = false,
+        };
+        return SettingsUi.Card(auditExp);
     }
 
     /// <summary>v2.1 面板解锁：审计日志导出（全量 audit.log 文本另存为 .log 文件）。</summary>
@@ -1090,76 +1107,71 @@ public sealed class AppSettingsPageView : UserControl
             panel.Children.Add(SettingsUi.FogText("暂无审计记录"));
             return;
         }
-        var list = new StackPanel();
         foreach (var r in rows)
         {
-                // 纵向单列：时间 / 操作 / 对象 / 结果 / 说明 各占一行（过滤行为不变）
-                var row = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
-                row.Children.Add(new TextBlock
-                {
-                    Text = r.Time ?? "",
-                }.Live(TextBlock.ForegroundProperty, "BrushFog"));
-
-                row.Children.Add(new TextBlock { Text = r.Action ?? "-", FontSize = 12 });
-                row.Children.Add(new TextBlock
-                {
-                    Text = r.Target ?? "-",
-                    FontSize = 12,
-                    TextWrapping = TextWrapping.Wrap,
-                });
-                row.Children.Add(new TextBlock
-                {
-                    Text = r.Result,
-                    Foreground = SettingsUi.TagColor(r.Result == "可撤销" ? "blue" : "green"),
-                    FontSize = 12,
-                });
-                row.Children.Add(new TextBlock
-                {
-                    Text = r.Detail ?? "",
-                    Foreground = SettingsUi.TagColor("red"),
-                    FontSize = 12,
-                    TextWrapping = TextWrapping.Wrap,
-                });
-                list.Children.Add(row);
-            }
-            panel.Children.Add(list);
+            // 记录铺开（卡片级折叠已承担「内容太多」的收敛，内部不再逐条折叠）。
+            var row = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
+            row.Children.Add(new TextBlock { Text = r.Time ?? "" }.Live(TextBlock.ForegroundProperty, "BrushFog"));
+            row.Children.Add(new TextBlock { Text = r.Action ?? "-", FontSize = 12 });
+            row.Children.Add(new TextBlock { Text = r.Target ?? "-", FontSize = 12, TextWrapping = TextWrapping.Wrap });
+            row.Children.Add(new TextBlock
+            {
+                Text = r.Result,
+                Foreground = SettingsUi.TagColor(r.Result == "可撤销" ? "blue" : "green"),
+                FontSize = 12,
+            });
+            row.Children.Add(new TextBlock
+            {
+                Text = r.Detail ?? "",
+                Foreground = SettingsUi.TagColor("red"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+            });
+            panel.Children.Add(row);
+        }
     }
 
     // ===== 应用日志（app.log 最近 300 行；等宽滚动 + 级别过滤） =====
 
     Border BuildAppLogCard()
     {
-        var p = new StackPanel();
-        p.Children.Add(SettingsUi.HeaderRow("应用日志 · 最近 300 行",
-            SettingsUi.Button("打开日志文件夹", (_, _) => WinShare.App.Shell.AppShell.OpenLogDirectory()),
-            SettingsUi.Button("刷新", (_, _) => { _vm.AppLog.Load(); RefreshAppLog(); }),
-            SettingsUi.Button("复制", (_, _) =>
-            {
-                try { Clipboard.SetText(_vm.AppLog.RawText); } catch { }
-            }),
-            SettingsUi.Button("导出", async (_, _) => await ExportAppLogAsync()),
-            SettingsUi.Button("清空", (_, _) =>
-            {
-                if (MessageBox.Show("清空当前应用日志文件（app.log）？已轮转的历史归档保留。继续？",
-                        "清空应用日志", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-                var sys = SettingsServiceSlots.SystemService;
-                if (sys is null) { MessageBox.Show("系统服务未注册，清空不可用", "清空失败"); return; }
-                try
-                {
-                    bool ok = sys.ClearAppLogAsync().GetAwaiter().GetResult();
-                    MessageBox.Show(ok ? "应用日志已清空" : "清空失败（文件可能被占用）", "清空应用日志");
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message, "清空失败");
-                }
-                _vm.AppLog.Load();
-                RefreshAppLog();
-            })));
         _appLogBox = SettingsUi.MonospaceView(_vm.AppLog.Lines);
-        p.Children.Add(_appLogBox);
+        var body = new StackPanel();
+        body.Children.Add(_appLogBox);
         RefreshAppLog();
-        return SettingsUi.Card(p);
+        // 卡片级折叠：标题行做 Expander 头（含操作按钮），内容为等宽日志框；默认折叠。
+        var exp = new Expander
+        {
+            Header = SettingsUi.HeaderRow("应用日志 · 最近 300 行",
+                SettingsUi.Button("打开日志文件夹", (_, _) => WinShare.App.Shell.AppShell.OpenLogDirectory()),
+                SettingsUi.Button("刷新", (_, _) => { _vm.AppLog.Load(); RefreshAppLog(); }),
+                SettingsUi.Button("复制", (_, _) =>
+                {
+                    try { Clipboard.SetText(_vm.AppLog.RawText); } catch { }
+                }),
+                SettingsUi.Button("导出", async (_, _) => await ExportAppLogAsync()),
+                SettingsUi.Button("清空", (_, _) =>
+                {
+                    if (MessageBox.Show("清空当前应用日志文件（app.log）？已轮转的历史归档保留。继续？",
+                            "清空应用日志", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                    var sys = SettingsServiceSlots.SystemService;
+                    if (sys is null) { MessageBox.Show("系统服务未注册，清空不可用", "清空失败"); return; }
+                    try
+                    {
+                        bool ok = sys.ClearAppLogAsync().GetAwaiter().GetResult();
+                        MessageBox.Show(ok ? "应用日志已清空" : "清空失败（文件可能被占用）", "清空应用日志");
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "清空失败");
+                    }
+                    _vm.AppLog.Load();
+                    RefreshAppLog();
+                })),
+            Content = body,
+            IsExpanded = false,
+        };
+        return SettingsUi.Card(exp);
     }
 
     void RefreshAppLog()
