@@ -1,4 +1,4 @@
-// 移植自 electron/services/system.ts（系统信息、提权、仪表板统计、OS 版本适配探测）。
+﻿// 移植自 electron/services/system.ts（系统信息、提权、仪表板统计、OS 版本适配探测）。
 // PS 命令串从 TS 原文件逐字复制（仅模板字符串 → C# 插值 / PsArgs 引用）。
 // 依赖注入点对齐 TS 的模块级 import：
 //   TS `import { getServiceStatus } from './smb'`            → <see cref="ISmbService"/>
@@ -440,6 +440,7 @@ public sealed class SystemService : ISystemService
     {
         public SmbServerConfig DefaultConfig() => new();
         public Task<SmbServerConfig> GetConfigAsync() => Task.FromException<SmbServerConfig>(Errors.CommandFailed("SMB 服务未注入"));
+        public Task<IReadOnlySet<string>?> GetSettableFieldsAsync() => Task.FromResult<IReadOnlySet<string>?>(null);
         public Task SetConfigAsync(SmbServerConfig config) => Task.FromException(Errors.CommandFailed("SMB 服务未注入"));
         public Task<SmbServerConfig> RestoreDefaultAsync() => Task.FromException<SmbServerConfig>(Errors.CommandFailed("SMB 服务未注入"));
         public Task<IReadOnlyList<SmbSnapshotMeta>> ListSnapshotsAsync() => Task.FromException<IReadOnlyList<SmbSnapshotMeta>>(Errors.CommandFailed("SMB 服务未注入"));

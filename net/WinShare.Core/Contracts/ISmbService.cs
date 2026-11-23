@@ -15,6 +15,12 @@ public interface ISmbService
 
     Task SetConfigAsync(SmbServerConfig config);
 
+    /// <summary>
+    /// v2.3：本机 Set-SmbServerConfiguration 实际支持的参数名集（null=探测失败，按全部支持处理）。
+    /// UI 据此禁用不支持的字段（Win11 26200 已无 EnableSMB3Protocol 写参数）。
+    /// </summary>
+    Task<IReadOnlySet<string>?> GetSettableFieldsAsync();
+
     Task<SmbServerConfig> RestoreDefaultAsync();
 
     Task<IReadOnlyList<SmbSnapshotMeta>> ListSnapshotsAsync();

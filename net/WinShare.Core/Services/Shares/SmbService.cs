@@ -128,6 +128,38 @@ public sealed class SmbService : ISmbService
     // TS: setConfigChain —— setConfig 串行化锁（防止并发 setConfig 互相覆盖 skipNextSnapshot 标志）
     private Task _setConfigChain = Task.CompletedTask;
 
+    // v2.3：Set-SmbServerConfiguration 写参数集缓存（UI 禁用不支持字段 + 保存过滤共用；
+    // 不同 Windows 版本参数有增删——Win11 26200 已无 EnableSMB3Protocol 写参数）
+    IReadOnlySet<string>? _settableCache;
+    bool _settableProbed;
+
+    /// <summary>
+    /// v2.3：本机 Set-SmbServerConfiguration 实际支持的参数名集；null=探测失败（调用方按全部支持处理）。
+    /// </summary>
+    public async Task<IReadOnlySet<string>?> GetSettableFieldsAsync()
+    {
+        if (_settableProbed) return _settableCache;
+        _settableProbed = true;
+        _settableCache = await ProbeSettableAsync();
+        return _settableCache;
+    }
+
+    async Task<IReadOnlySet<string>?> ProbeSettableAsync()
+    {
+        try
+        {
+            JsonElement raw = await _ps.RunJsonAsync(
+                "(Get-Command Set-SmbServerConfiguration -ErrorAction Stop).Parameters.Keys", 15000, 2);
+            if (raw.ValueKind != JsonValueKind.Array) return null;
+            return new HashSet<string>(
+                raw.EnumerateArray().Select(p => p.GetString() ?? "").Where(s => s.Length > 0));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public SmbService(IPsInvoker? ps = null) => _ps = ps ?? PsRunner.Default;
 
     /// <summary>TS: defaultConfig()——基于 Windows Server 2022 安全推荐默认值。</summary>
@@ -238,22 +270,13 @@ public sealed class SmbService : ISmbService
         _skipNextSnapshot = false;
 
         // 版本适配：探测 Set-SmbServerConfiguration 实际支持的**参数名**（不是 Get 的属性集——
-        // Win11 26200 上 Get 仍返回 EnableSMB3Protocol 属性，但 Set 已无该写参数，
+        // Win11 26200 上 Get 仍返回 EnableSMB3Protocol 属性、Set 已无该写参数，
         // 按属性过滤会漏 → 保存报"找不到与参数名称匹配的参数"）。
         // 探测失败则 supported=null 回退全量下发（错误照实上抛）。
         HashSet<string>? supported = null;
-        try
-        {
-            JsonElement raw = await _ps.RunJsonAsync(
-                "(Get-Command Set-SmbServerConfiguration -ErrorAction Stop).Parameters.Keys", 15000, 2);
-            supported = new HashSet<string>(raw.ValueKind == JsonValueKind.Array
-                ? raw.EnumerateArray().Select(p => p.GetString() ?? "").Where(s => s.Length > 0)
-                : Enumerable.Empty<string>());
-        }
-        catch
-        {
-            supported = null;
-        }
+        IReadOnlySet<string>? probed = await GetSettableFieldsAsync();
+        if (probed is not null)
+            supported = new HashSet<string>(probed);
         string cmd = BuildSetCmd(config, supported);
         if (cmd.Split(' ').Length <= 2)
         {

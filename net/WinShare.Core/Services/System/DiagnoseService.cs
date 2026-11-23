@@ -1,4 +1,4 @@
-// 移植自 electron/services/diagnose.ts（一键诊断："别人连不上我的共享" 自助排查 + 自动修复）。
+﻿// 移植自 electron/services/diagnose.ts（一键诊断："别人连不上我的共享" 自助排查 + 自动修复）。
 // 链路与用户旅程一致：服务在跑 → 端口在听 → 共享存在 → 路径有效 → NTFS 可读
 // → 共享权限 → 防火墙放行 → 安全策略（SMB1/访客）。
 // 每项 check 独立容错：探测失败记 warn 而不是整体崩；fix 键驱动可自动修复项。
@@ -331,6 +331,7 @@ public sealed class DiagnoseService : IDiagnoseService
     {
         public SmbServerConfig DefaultConfig() => new();
         public Task<SmbServerConfig> GetConfigAsync() => Fail<SmbServerConfig>();
+        public Task<IReadOnlySet<string>?> GetSettableFieldsAsync() => Task.FromResult<IReadOnlySet<string>?>(null);
         public Task SetConfigAsync(SmbServerConfig config) => FailVoid();
         public Task<SmbServerConfig> RestoreDefaultAsync() => Fail<SmbServerConfig>();
         public Task<IReadOnlyList<SmbSnapshotMeta>> ListSnapshotsAsync() => Fail<IReadOnlyList<SmbSnapshotMeta>>();

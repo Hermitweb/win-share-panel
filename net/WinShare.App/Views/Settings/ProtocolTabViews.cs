@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using WinShare.App.Settings;
@@ -218,12 +218,55 @@ public abstract class ProtocolSectionView<TConfig> : UserControl
 /// <summary>SMB 板块（纵向单列；表单逐字段对齐 Settings.tsx 服务器配置面板；新手模式收起高级参数）。</summary>
 public sealed class SmbTabView : ProtocolSectionView<SmbServerConfig>
 {
+    /// <summary>
+    /// VM 属性名 → Set-SmbServerConfiguration 参数名（v2.3：UI 禁用不支持字段；
+    /// 保存侧过滤见 SmbService.GetSettableFieldsAsync——两处同源于该映射）。
+    /// </summary>
+    internal static readonly Dictionary<string, string> VmToPs = new()
+    {
+        ["EnableSmb1"] = "EnableSMB1Protocol",
+        ["EnableSmb2"] = "EnableSMB2Protocol",
+        ["EnableSmb3"] = "EnableSMB3Protocol",
+        ["AuditSmb1"] = "AuditSmb1Access",
+        ["GuestAccess"] = "EnableGuestUserAccess",
+        ["InsecureGuestLogons"] = "EnableInsecureGuestLogons",
+        ["RequireSignature"] = "RequireSecuritySignature",
+        ["StrictNameChecking"] = "EnableStrictNameChecking",
+        ["SilentAu"] = "SilentAU",
+        ["MultiChannel"] = "EnableMultiChannel",
+        ["Leasing"] = "EnableLeasing",
+        ["Oplocks"] = "EnableOplocks",
+        ["OplockDirectoryCache"] = "EnableOplockDirectoryCache",
+        ["DirectoryCache"] = "EnableSMBDirectoryCache",
+        ["ChannelChange"] = "EnableChannelChange",
+        ["SmbQuic"] = "EnableSMBQUIC",
+        ["AnnounceServer"] = "AnnounceServer",
+        ["MultipleSessions"] = "MultipleSessionsPerConnection",
+        ["UnauthenticatedTimeLimit"] = "UnauthenticatedUsersTimeLimit",
+        ["SessionTimeout"] = "SessionTimeoutSeconds",
+        ["MaxSessionPerConn"] = "MaxSessionPerConnection",
+        ["MaxMpxCount"] = "MaxMpxCount",
+        ["MaxWorkItems"] = "MaxWorkItems",
+        ["MaxThreadsPerQueue"] = "MaxThreadsPerQueue",
+        ["RequestCompression"] = "RequestCompression",
+    };
+
     public SmbTabView(SmbConfigCardViewModel card, ProtocolDetectionViewModel detection) : base(card, detection) { }
 
     protected override string FooterText =>
-        "SMB1 默认关闭，建议保持「要求签名」开启。";
+        "SMB1 默认关闭，建议保持「请求签名」开启。";
 
     protected override ConfigPreset[] Presets => [.. ProtocolPresets.Smb];
+
+    /// <summary>给字段控件打 Tag（VM 属性名），供异步能力探测后禁用。
+    /// NumberField/ComboField 返回 FieldRow（Children[1]=控件）→ Tag 落在控件上；Toggle 直接是 CheckBox。</summary>
+    static T Tag<T>(T element, string vmPath) where T : FrameworkElement
+    {
+        if (element is StackPanel { Children.Count: > 1 } row && row.Children[1] is FrameworkElement fe)
+            fe.Tag = vmPath;
+        else element.Tag = vmPath;
+        return element;
+    }
 
     protected override StackPanel BuildForm()
     {
@@ -232,45 +275,84 @@ public sealed class SmbTabView : ProtocolSectionView<SmbServerConfig>
 
         p.Children.Add(SettingsUi.FogText("基础协议", 0, 4));
         p.Children.Add(SettingsUi.ToggleGroup(
-            SettingsUi.Toggle("SMB1", nameof(SmbConfigCardViewModel.EnableSmb1), c),
-            SettingsUi.Toggle("SMB2", nameof(SmbConfigCardViewModel.EnableSmb2), c),
-            SettingsUi.Toggle("SMB3", nameof(SmbConfigCardViewModel.EnableSmb3), c),
-            SettingsUi.Toggle("审计 SMB1", nameof(SmbConfigCardViewModel.AuditSmb1), c)));
+            Tag(SettingsUi.Toggle("SMB1", nameof(SmbConfigCardViewModel.EnableSmb1), c), nameof(SmbConfigCardViewModel.EnableSmb1)),
+            Tag(SettingsUi.Toggle("SMB2", nameof(SmbConfigCardViewModel.EnableSmb2), c), nameof(SmbConfigCardViewModel.EnableSmb2)),
+            Tag(SettingsUi.Toggle("SMB3", nameof(SmbConfigCardViewModel.EnableSmb3), c), nameof(SmbConfigCardViewModel.EnableSmb3)),
+            Tag(SettingsUi.Toggle("审计 SMB1", nameof(SmbConfigCardViewModel.AuditSmb1), c), nameof(SmbConfigCardViewModel.AuditSmb1))));
 
         p.Children.Add(SettingsUi.FogText("安全", 0, 4));
         p.Children.Add(SettingsUi.ToggleGroup(
-            SettingsUi.Toggle("访客访问", nameof(SmbConfigCardViewModel.GuestAccess), c),
-            SettingsUi.Toggle("不安全访客登录", nameof(SmbConfigCardViewModel.InsecureGuestLogons), c),
-            SettingsUi.Toggle("要求签名", nameof(SmbConfigCardViewModel.RequireSignature), c),
-            SettingsUi.Toggle("严格名称检查", nameof(SmbConfigCardViewModel.StrictNameChecking), c),
-            SettingsUi.Toggle("静默 AU", nameof(SmbConfigCardViewModel.SilentAu), c)));
+            Tag(SettingsUi.Toggle("访客访问", nameof(SmbConfigCardViewModel.GuestAccess), c), nameof(SmbConfigCardViewModel.GuestAccess)),
+            Tag(SettingsUi.Toggle("不安全访客登录", nameof(SmbConfigCardViewModel.InsecureGuestLogons), c), nameof(SmbConfigCardViewModel.InsecureGuestLogons)),
+            Tag(SettingsUi.Toggle("要求签名", nameof(SmbConfigCardViewModel.RequireSignature), c), nameof(SmbConfigCardViewModel.RequireSignature)),
+            Tag(SettingsUi.Toggle("严格名称检查", nameof(SmbConfigCardViewModel.StrictNameChecking), c), nameof(SmbConfigCardViewModel.StrictNameChecking)),
+            Tag(SettingsUi.Toggle("静默 AU", nameof(SmbConfigCardViewModel.SilentAu), c), nameof(SmbConfigCardViewModel.SilentAu))));
 
         p.Children.Add(SettingsUi.FogText("性能与功能", 0, 4));
         p.Children.Add(SettingsUi.ToggleGroup(
-            SettingsUi.Toggle("多通道", nameof(SmbConfigCardViewModel.MultiChannel), c),
-            SettingsUi.Toggle("租约", nameof(SmbConfigCardViewModel.Leasing), c),
-            SettingsUi.Toggle("机会锁", nameof(SmbConfigCardViewModel.Oplocks), c),
-            SettingsUi.Toggle("目录缓存机会锁", nameof(SmbConfigCardViewModel.OplockDirectoryCache), c)));
+            Tag(SettingsUi.Toggle("多通道", nameof(SmbConfigCardViewModel.MultiChannel), c), nameof(SmbConfigCardViewModel.MultiChannel)),
+            Tag(SettingsUi.Toggle("租约", nameof(SmbConfigCardViewModel.Leasing), c), nameof(SmbConfigCardViewModel.Leasing)),
+            Tag(SettingsUi.Toggle("机会锁", nameof(SmbConfigCardViewModel.Oplocks), c), nameof(SmbConfigCardViewModel.Oplocks)),
+            Tag(SettingsUi.Toggle("目录缓存机会锁", nameof(SmbConfigCardViewModel.OplockDirectoryCache), c), nameof(SmbConfigCardViewModel.OplockDirectoryCache))));
         p.Children.Add(SettingsUi.ToggleGroup(
-            SettingsUi.Toggle("目录缓存", nameof(SmbConfigCardViewModel.DirectoryCache), c),
-            SettingsUi.Toggle("通道切换", nameof(SmbConfigCardViewModel.ChannelChange), c),
-            SettingsUi.Toggle("SMB QUIC", nameof(SmbConfigCardViewModel.SmbQuic), c),
-            SettingsUi.Toggle("声明服务器", nameof(SmbConfigCardViewModel.AnnounceServer), c),
-            SettingsUi.Toggle("每连接多会话", nameof(SmbConfigCardViewModel.MultipleSessions), c)));
+            Tag(SettingsUi.Toggle("目录缓存", nameof(SmbConfigCardViewModel.DirectoryCache), c), nameof(SmbConfigCardViewModel.DirectoryCache)),
+            Tag(SettingsUi.Toggle("通道切换", nameof(SmbConfigCardViewModel.ChannelChange), c), nameof(SmbConfigCardViewModel.ChannelChange)),
+            Tag(SettingsUi.Toggle("SMB QUIC", nameof(SmbConfigCardViewModel.SmbQuic), c), nameof(SmbConfigCardViewModel.SmbQuic)),
+            Tag(SettingsUi.Toggle("声明服务器", nameof(SmbConfigCardViewModel.AnnounceServer), c), nameof(SmbConfigCardViewModel.AnnounceServer)),
+            Tag(SettingsUi.Toggle("每连接多会话", nameof(SmbConfigCardViewModel.MultipleSessions), c), nameof(SmbConfigCardViewModel.MultipleSessions))));
 
         // v2.2.0 第二轮：SMB 高级参数与其他三协议统一为折叠语义（新手收起、专家展开，
         // 展开后可编辑并提交——所见即所存；此前新手整体隐藏 + 补丁门控，展开编辑保存会被静默丢弃）
         var smbAdv = new StackPanel();
-        smbAdv.Children.Add(SettingsUi.NumberField("未认证超时(秒)", nameof(SmbConfigCardViewModel.UnauthenticatedTimeLimit), c));
-        smbAdv.Children.Add(SettingsUi.NumberField("会话超时(秒)", nameof(SmbConfigCardViewModel.SessionTimeout), c));
-        smbAdv.Children.Add(SettingsUi.NumberField("每连接最大会话", nameof(SmbConfigCardViewModel.MaxSessionPerConn), c));
-        smbAdv.Children.Add(SettingsUi.NumberField("最大 Mpx 数", nameof(SmbConfigCardViewModel.MaxMpxCount), c));
-        smbAdv.Children.Add(SettingsUi.NumberField("最大工作项", nameof(SmbConfigCardViewModel.MaxWorkItems), c));
-        smbAdv.Children.Add(SettingsUi.NumberField("每队列最大线程", nameof(SmbConfigCardViewModel.MaxThreadsPerQueue), c));
-        smbAdv.Children.Add(SettingsUi.ComboField("请求压缩", nameof(SmbConfigCardViewModel.RequestCompression), c,
-            ["关闭", "允许", "要求"], width: 120));
+        smbAdv.Children.Add(Tag(SettingsUi.NumberField("未认证超时(秒)", nameof(SmbConfigCardViewModel.UnauthenticatedTimeLimit), c), nameof(SmbConfigCardViewModel.UnauthenticatedTimeLimit)));
+        smbAdv.Children.Add(Tag(SettingsUi.NumberField("会话超时(秒)", nameof(SmbConfigCardViewModel.SessionTimeout), c), nameof(SmbConfigCardViewModel.SessionTimeout)));
+        smbAdv.Children.Add(Tag(SettingsUi.NumberField("每连接最大会话", nameof(SmbConfigCardViewModel.MaxSessionPerConn), c), nameof(SmbConfigCardViewModel.MaxSessionPerConn)));
+        smbAdv.Children.Add(Tag(SettingsUi.NumberField("最大 Mpx 数", nameof(SmbConfigCardViewModel.MaxMpxCount), c), nameof(SmbConfigCardViewModel.MaxMpxCount)));
+        smbAdv.Children.Add(Tag(SettingsUi.NumberField("最大工作项", nameof(SmbConfigCardViewModel.MaxWorkItems), c), nameof(SmbConfigCardViewModel.MaxWorkItems)));
+        smbAdv.Children.Add(Tag(SettingsUi.NumberField("每队列最大线程", nameof(SmbConfigCardViewModel.MaxThreadsPerQueue), c), nameof(SmbConfigCardViewModel.MaxThreadsPerQueue)));
+        smbAdv.Children.Add(Tag(SettingsUi.ComboField("请求压缩", nameof(SmbConfigCardViewModel.RequestCompression), c,
+            ["关闭", "允许", "要求"], width: 120), nameof(SmbConfigCardViewModel.RequestCompression)));
         p.Children.Add(SettingsUi.ExpanderField("高级参数（吞吐 / 超时 / 压缩）", smbAdv, c.AdvancedMode));
+
+        // v2.3：异步探测本机 Set 参数集 → 禁用不支持字段 + 顶部说明（保存侧同步跳过，双保险）
+        Loaded += async (_, _) => await ApplySettableAsync(p);
         return p;
+    }
+
+    async System.Threading.Tasks.Task ApplySettableAsync(StackPanel form)
+    {
+        try
+        {
+            var svc = SettingsServiceSlots.SmbService;
+            if (svc is null) return;
+            var supported = await svc.GetSettableFieldsAsync();
+            if (supported is null || supported.Count == 0) return;   // 探测失败/空 → 不禁用（保存侧兜底）
+            var disabled = new List<string>();
+            foreach (Control ctl in Descendants(form))
+            {
+                if (ctl.Tag is not string vmPath || !VmToPs.TryGetValue(vmPath, out var ps)) continue;
+                if (supported.Contains(ps)) continue;
+                ctl.IsEnabled = false;
+                ctl.ToolTip = $"本机 Set-SmbServerConfiguration 不支持参数 {ps}（保存时将自动跳过）";
+                if (disabled.Count < 4) disabled.Add(ps);
+            }
+            if (disabled.Count == 0) return;
+            form.Children.Insert(0, SettingsUi.FogText(
+                $"以下字段本机不支持，已禁用（保存时自动跳过）：{string.Join("、", disabled)}{(disabled.Count == 4 ? " 等" : "")}", 0, 0));
+        }
+        catch { /* 能力探测失败不影响表单 */ }
+    }
+
+    /// <summary>可视树后代控件（Tag 定位字段控件；Form 树很浅，递归成本可忽略）。</summary>
+    static IEnumerable<Control> Descendants(System.Windows.DependencyObject root)
+    {
+        int n = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is Control c) yield return c;
+            foreach (var d in Descendants(child)) yield return d;
+        }
     }
 }
 

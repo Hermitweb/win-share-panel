@@ -1,4 +1,4 @@
-// System 服务域测试共用的假执行层与假依赖。
+﻿// System 服务域测试共用的假执行层与假依赖。
 // 对应 TS 测试的 vi.mock 手法：
 //   vi.mock('../lib/powershell')        → <see cref="FakePs"/>（命令记录 + 结果队列）
 //   vi.mock('fs') 的 existsSync         → <see cref="FakeFs"/>（路径存在性注入）
@@ -85,7 +85,8 @@ internal sealed class FakeSmb : ISmbService
     public Task RestartServiceAsync() => Task.CompletedTask;
     public Task SetServiceStartTypeAsync(string startType) => Task.CompletedTask;
     public SmbServerConfig DefaultConfig() => new();
-    public Task SetConfigAsync(SmbServerConfig config) => Task.CompletedTask;
+    public Task<IReadOnlySet<string>?> GetSettableFieldsAsync() => Task.FromResult<IReadOnlySet<string>?>(null);
+        public Task SetConfigAsync(SmbServerConfig config) => Task.CompletedTask;
     public Task<SmbServerConfig> RestoreDefaultAsync() => Task.FromResult(new SmbServerConfig());
     public Task<IReadOnlyList<SmbSnapshotMeta>> ListSnapshotsAsync() => Task.FromResult<IReadOnlyList<SmbSnapshotMeta>>(Array.Empty<SmbSnapshotMeta>());
     public Task RollbackSnapshotAsync(string id) => Task.CompletedTask;
