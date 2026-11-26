@@ -25,6 +25,25 @@
 
 用户实测反馈的四个问题一次性收齐：安装报错、样式原始、内不显示、应用内报错。
 
+### 修复：「读不到」被说成「没有」（空白表格 + 假绿）
+
+用户权限页一张**空白表格**、账号安全体检一句**「已检查 0 个启用账号 / 未发现空口令 /
+密码永不过期」**——这两处都在把「**没读到**」说成「**没有**」。
+
+根因：PowerShell 侧「无输出」被归一为**空数组** `[]`（TS 同语义），服务层把它当**成功**返回，
+于是「读不到」一路畅通无阻地变成空列表 / 零计数。
+
+而 Windows 至少有 `Administrator` / `SYSTEM` 与若干内置本地组——**0 条本身就是读取失败的信号**。
+
+- `UserService.ListUsersAsync` / `ListGroupsAsync`：读到 0 条 → 抛业务错误
+  （经 `UsersDataFeed.UsersError` 落到界面**红色通知条**，并给出「PowerShell 本地用户管理不可用，
+  或当前进程无权限——请以管理员身份重启后重试」）。
+- `SecurityService.GetSecurityReportAsync`：读到 0 个本地用户 → 抛业务错误，
+  **不再报假绿**。
+  （注意：用户存在但**全部禁用**时 arr 非空、`checkedCount=0`，那是真实状态，不在此拦。）
+
+配套新增 3 例（`EmptyReadIsFailureTests`）固化「读到 0 条 = 读取失败 = 显式报错」这条契约。
+
 ### 修复：安装器在 per-user 模式下必然报「拒绝访问」（code 5）
 
 `net/WinShare.App/installer/wpf.iss` 的 `[Registry]` 段**无条件写 HKLM**
