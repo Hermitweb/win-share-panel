@@ -4,6 +4,89 @@
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-26
+
+### 🔧 修复 / Fixed：`probePsVersion` 执行器类型不匹配（TS 门禁自 2026-11-20 起为红）
+
+`pnpm typecheck` 与 `pnpm lint` **自 2026-11-20 的安全加固提交（`40603fd`）起一直是红的**，
+本轮一并修掉：
+
+- `probePsVersion` 的执行器形参写成了过度泛化的 `<T>(cmd: string) => Promise<T>`，
+  而实现固定返回 `{major, full}`——**非泛型实现无法匹配泛型形参**（TS2345），
+  且该泛型参数在实现里根本没用上（lint 另报 `'T' is defined but never used`）。
+  形参改为实际形状 `(cmd: string) => Promise<{major, full}>`，调用点去掉多余的类型实参与断言。
+- 影响面：仅 `electron/lib/psRuntimeProbe.ts` 的类型层面，**运行时行为零变化**
+  （执行器本来就固定返回解析后的 `{major, full}`）。
+
+> 与「改了代码没跑门禁」是同一类问题：11-20 那次提交把一个此前无害的未使用泛型
+> 变成了类型错误，此后 typecheck/lint 一直红着没人发现。本轮补上。
+
+## [WPF 2.3.1] - 2026-11-26
+
+用户实测反馈的四个问题一次性收齐：安装报错、样式原始、内不显示、应用内报错。
+
+### 修复：安装器在 per-user 模式下必然报「拒绝访问」（code 5）
+
+`net/WinShare.App/installer/wpf.iss` 的 `[Registry]` 段**无条件写 HKLM**
+（`SOFTWARE\Microsoft\Windows\CurrentVersion\Run`），而本脚本允许普通用户环境跳过 UAC
+走 per-user 安装（`PrivilegesRequiredOverridesAllowed=dialog commandline`）——
+此时写 HKLM 必然 `RegSetValueEx failed; code 5`，安装向导直接弹错误框。
+
+脚本自己的 `[Code]` 段对 PATH 已经做了「管理员→HKLM / 普通用户→HKCU」的区分，
+开机自启却漏在同一套逻辑之外。现改为**同一套按安装模式选键域**的写法
+（管理员→HKLM 全部用户，per-user→HKCU 当前用户），卸载时两个域都清一遍。
+
+### 修复：应用内报 .NET 类型错误（expects 'Object' but has type 'Array'）
+
+「读取协议设置失败」「一键诊断」的 SMB 探针全部报
+`The requested operation requires an element of type 'Object', but the target element has type 'Array'`。
+
+根因不在业务逻辑，在 **TS→C# 移植的一处语义偏离**：
+
+- PowerShell 侧「无输出」被 `PsRunner.ParseJson` 归一为**空数组** `[]`（TS 同语义），「多对象」也是数组；
+- .NET 的 `JsonElement.TryGetProperty` 在非对象根上**抛** `InvalidOperationException`；
+- 而 TS 是 JS：`raw.X` 在数组上只会给 `undefined` → 落默认值，**从不抛错**。
+
+于是一个「本机没返回配置」的环境差异，在 C# 侧变成了整条命令炸掉。
+修法（`JsonCompat.TryProp`）：对象属性读取一律经该入口，根形状异常时按「属性缺失」处理。
+波及面比报错大得多——`SmbService`（协议设置 + 服务状态）、`ShareService`、`SessionService`、
+`DiskService` 全部一起修好。
+
+配套：`SmbService.GetConfigAsync` 在根不是对象时**不再静默回落默认值**——
+那会让界面显示「SMB1 关闭」等，而实际是"没读到"。现在如实报
+「本机未返回 SMB 服务器配置（可能未启用 SMB 服务，或当前进程无管理员权限）」。
+
+### 修复：PowerShell 的良性告警被误判成命令失败
+
+`ProcessPowerShell` 此前把「**stderr 非空**」也当失败。TS 的 `execFile` 只看退出码——
+而 `ConvertTo-Json -Depth 5` 对深层对象会写「生成的 JSON 已截断」告警（**走 stderr**），
+本机对 `Get-SmbServerConfiguration` / `Get-CimInstance Win32_OperatingSystem` /
+`Get-LocalUser | Select-Object ...` 实测**必现**。结果是**成功的命令被误报成失败**。
+现改为只按退出码判定（真实错误在 `$ErrorActionPreference='Stop'` 下是终止性错误 → 退出码非 0 → 仍判失败），
+stderr 仅作为错误上下文附上。
+
+### 修复：未装协议横幅的「安装」按钮是裸控件 + 提示文字被裁
+
+共享管理页的未装协议横幅此前用裸 `new Button`（系统灰底，与全应用按钮语言不一致），
+提示文字还写死了 `Brushes.DimGray` 且未开 `TextWrapping`——长提示被裁成一行。
+现统一走 `SettingsUi.Button`（设计系统样式）与 `SettingsUi.FogText`（主题 token + 自动折行）。
+
+### 修复：build 与 test 落到不同产物目录 → 新增用例被静默跳过
+
+装了 VS 的机器普遍带 `Platform=x64` 环境变量，于是
+`dotnet build net/WinShare.slnx` 与 `dotnet test <某个 csproj>` 会落到
+`bin\Debug` / `bin\x64\Debug` / `bin\Any CPU\Debug` **不同目录**，
+测试步骤的 `--no-build` 于是命中上一次的旧 dll——**新增用例根本没跑，全绿却是假象**（本轮实测踩到）。
+修法：build 与 test 始终走**同一条命令**（都用 slnx），并把这条约束写进 `net/WinShare.slnx` 的注释
+与 CI job。
+
+### 其它
+
+- `SmbService` 此前**没有任何单测**（出 bug 的正是这个零覆盖的服务）：
+  新增 `net/WinShare.Core.Tests/Services/Shares/SmbServiceTests.cs`（4 例）：
+  正常路径字段读取不因容错改造失真 / 空数组根报业务错误而非 .NET 类型错误 /
+  服务状态查询降级为 Unknown 不抛 / `JsonCompat.TryProp` 在非对象根上返回 false 不抛。
+
 ## [WPF 2.2.0] - 2026-11-18
 
 「傻瓜式操作流程优化」：让全部目标功能以简单直观的方式完成——精简步骤、减少手动输入、
