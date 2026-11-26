@@ -115,10 +115,15 @@ public static class ProcessPowerShell
         {
             throw new PsInvocationException("PowerShell 输出超过 10MB 上限");
         }
-        if (proc.ExitCode != 0 || stderr.Trim().Length > 0)
+        if (proc.ExitCode != 0)
         {
-            // TS: execFile 在非 0 退出码时抛错，错误信息取 stderr（formatPsError 再做归一化）
-            string detail = stderr.Trim().Length > 0 ? stderr : $"PowerShell 进程退出码 {proc.ExitCode}";
+            // TS: execFile 仅在**非 0 退出码**时抛错，stderr 只是随错误对象带出的上下文。
+            // 此前把「stderr 非空」也算失败——但良性告警同样走 stderr：
+            //   `ConvertTo-Json -Depth 5` 对深层对象会写「生成的 JSON 已截断」告警
+            //   （本机对 Get-SmbServerConfiguration / Get-CimInstance Win32_OperatingSystem 实测必现），
+            // 于是**成功的命令被误报成失败**。退出码判定保持不变（真实错误在
+            // $ErrorActionPreference='Stop' 下是终止性错误 → 退出码非 0 → 仍判失败）。
+            string detail = stderr.Trim().Length > 0 ? stderr.Trim() : $"PowerShell 进程退出码 {proc.ExitCode}";
             throw new PsInvocationException(detail);
         }
         return stdout;
