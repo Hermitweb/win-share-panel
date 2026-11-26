@@ -40,7 +40,9 @@ const VERSION_CACHE_MS = 5 * 60 * 1000
  */
 export async function probePsVersion(
   deps: Record<string, unknown> = {},
-  run?: <T>(cmd: string) => Promise<T>,
+  // 执行器固定返回 {major, full}（由它自己 JSON.parse）——形参不必泛化：
+  // 泛化签名 <T>(cmd) => Promise<T> 无法与非泛型实现匹配（TS2345）。
+  run?: (cmd: string) => Promise<{ major: number; full: string }>,
 ): Promise<PsVersionInfo> {
   const exe = nativePowerShellExe(deps as never)
   const hit = versionCache.get(exe)
@@ -50,9 +52,9 @@ export async function probePsVersion(
     return { major: 0, full: 'unknown', exe, probedAt: Date.now() }
   }
   try {
-    const raw = (await run<{ major: number; full: string }>(
+    const raw = await run(
       '$v = $PSVersionTable.PSVersion; [PSCustomObject]@{ major = $v.Major; full = $v.ToString() } | ConvertTo-Json -Compress',
-    )) as { major: number; full: string }
+    )
     const info: PsVersionInfo = {
       major: Number(raw?.major ?? 0),
       full: String(raw?.full ?? 'unknown'),
@@ -89,7 +91,8 @@ export async function probePsVersionAndLog(): Promise<void> {
   // 参数数组不经 shell、探测命令为编译期常量 EncodedCommand——静态可证明无注入面）。
   const probeCmd =
     '$v = $PSVersionTable.PSVersion; [PSCustomObject]@{ major = $v.Major; full = $v.ToString() } | ConvertTo-Json -Compress'
-  const info = await probePsVersion({}, async <T>(cmd: string) => {
+  // 执行器固定返回 {major, full}，形参已是非泛型签名（见 probePsVersion 的参数类型）
+  const info = await probePsVersion({}, async (cmd: string) => {
     void cmd // 探测命令固定为上方 probeCmd（不接运行时入参）
     const { execFile } = await import('node:child_process')
     return await new Promise<{ major: number; full: string }>((resolve, reject) => {
