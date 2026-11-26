@@ -99,12 +99,12 @@ Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
-[Registry]
-; v2.2.0：开机自动启动（服务注册语义之一；卸载自动删除该值）
-; HKLM（全部用户）：管理员安装场景下写 HKCU 会落到管理员账户的注册表单元——机器级才正确
-Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; \
-    ValueName: "WinSharePanel"; ValueData: """{app}\{#AppExe}"" --silent"; Tasks: autostart; \
-    Flags: uninsdeletevalue
+; v2.3.1：开机自启的 Run 值**不再**用静态 [Registry] 段。
+; 静态段无条件写 HKLM —— 而本脚本允许普通用户环境跳过 UAC 走 per-user 安装
+; （PrivilegesRequiredOverridesAllowed=dialog commandline），此时写 HKLM 必然
+; RegSetValueEx failed; code 5（拒绝访问），安装向导直接弹错误框。
+; 改为与 PATH 同一套「按安装模式选键域」的逻辑：管理员→HKLM（全部用户），
+; per-user→HKCU（当前用户）；卸载时两个域都清一遍。
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
@@ -183,12 +183,30 @@ begin
   RegWriteStringValue(RootKey, Key, 'Path', OldPath);
 end;
 
+procedure WriteAutostart();
+var
+  RootKey: Integer;
+  Cmd: String;
+begin
+  if not WizardIsTaskSelected('autostart') then
+    Exit;
+  // 键域跟随安装模式：管理员装 → HKLM（全部用户登录时启动）；per-user 装 → HKCU（当前用户）。
+  // 写 HKLM 在 per-user 模式下必然 code 5（拒绝访问）——那正是 v2.3.0 安装报错的根因。
+  if IsAdminInstallMode() then
+    RootKey := HKEY_LOCAL_MACHINE
+  else
+    RootKey := HKEY_CURRENT_USER;
+  Cmd := '"' + ExpandConstant('{app}') + '\' + '{#AppExe}' + '" --silent';
+  RegWriteStringValue(RootKey, RunKeyMachine, 'WinSharePanel', Cmd);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
     if WizardIsTaskSelected('addpath') then
       AddToPath();
+    WriteAutostart();
   end;
 end;
 
@@ -197,7 +215,9 @@ begin
   if CurUninstallStep = usUninstall then
   begin
     RemoveFromPath();
-    // 开机自启兜底清理（HKLM；HKCU 由应用内开关自行管理，用户数据保留）
+    // 开机自启兜底清理（两个域都清：管理员装写 HKLM、per-user 装写 HKCU；
+    // HKCU 那一路也由应用内开关自行管理，用户数据保留）
     RegDeleteValue(HKEY_LOCAL_MACHINE, RunKeyMachine, 'WinSharePanel');
+    RegDeleteValue(HKEY_CURRENT_USER, RunKeyMachine, 'WinSharePanel');
   end;
 end;
