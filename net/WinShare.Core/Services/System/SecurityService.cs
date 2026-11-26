@@ -54,6 +54,16 @@ public sealed class SecurityService : ISecurityService
         var arr = SystemJsCompat.ToArray(raw).FindAll(u => u.ValueKind == JsonValueKind.Object
             && SystemJsCompat.NonEmptyStringProp(u, "Name") is not null);
 
+        // v2.3.1：**0 个**本地用户 = 读取失败（Windows 至少有一个本地账号），不是「体检通过」。
+        // 继续往下走会报「已检查 0 个启用账号 / 未发现空口令…」——那是**假绿**：
+        // 检查根本没跑，却给出「未发现问题」的结论。改为失败并说明成因。
+        // 注意：用户存在但全部禁用时 arr 非空、checkedCount=0，那是真实状态，不在此拦。
+        if (arr.Count == 0)
+        {
+            throw Errors.CommandFailed(
+                "本机未返回本地用户，账号安全体检无法进行（PowerShell 本地用户管理不可用，或当前进程无权限）");
+        }
+
         var issues = new List<SecurityIssue>();
         long now = SystemJsCompat.NowMs();
         int checkedCount = 0;

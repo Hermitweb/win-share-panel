@@ -101,6 +101,15 @@ public sealed class UserService : IUserService
     {
         JsonElement raw = await _ps.RunJsonAsync(ListUsersCommand, 15000, 2);
         List<JsonElement> arr = ToArray(raw);
+        // v2.3.1：读到 **0 个**本地用户 = **读取失败**，不是「本机没有用户」
+        // （Windows 至少有 Administrator / SYSTEM）。空数组若当成功返回，界面会给一张
+        // 空白表格 + 「未读取到本地组」——把「读不到」说成了「没有」。
+        // 改为抛业务错误：由 UsersDataFeed.UsersError 带到界面红色通知条。
+        if (arr.Count == 0)
+        {
+            throw Errors.CommandFailed(
+                "本机未返回本地用户（PowerShell 本地用户管理不可用，或当前进程无权限）——请以管理员身份重启后重试");
+        }
         Dictionary<string, List<string>> groupMap = await BuildUserGroupMapAsync();
         var result = new List<LocalUser>(arr.Count);
         foreach (JsonElement u in arr)
@@ -180,8 +189,16 @@ public sealed class UserService : IUserService
     public async Task<IReadOnlyList<LocalGroup>> ListGroupsAsync()
     {
         JsonElement raw = await _ps.RunJsonAsync("Get-LocalGroup | Select-Object Name, Description", 15000, 2);
+        var arr = ToArray(raw);
+        // v2.3.1：同 ListUsersAsync——0 个本地组 = 读取失败（Windows 必有内置组），
+        // 不能当成功返回空列表（那会让「本地组」页给出与「读不到」同形的空白表）。
+        if (arr.Count == 0)
+        {
+            throw Errors.CommandFailed(
+                "本机未返回本地组（PowerShell 本地用户管理不可用，或当前进程无权限）——请以管理员身份重启后重试");
+        }
         var groups = new List<LocalGroup>();
-        foreach (JsonElement g in ToArray(raw))
+        foreach (JsonElement g in arr)
         {
             var members = new List<GroupMember>();
             try
