@@ -8,6 +8,14 @@
   <Configurations>
     <BuildType Name="Debug" />
     <BuildType Name="Release" />
+    <!-- 平台登记两个：
+         "Any CPU" —— MSBuild 内置名（schema 只认带空格的这个写法）。
+         "x64"     —— 装了 Visual Studio 的 Windows 机器普遍带 Platform=x64 环境变量，
+                      不登记它时 dotnet build net/WinShare.slnx 直接 MSB4126 失败
+                      （"指定的解决方案配置 Debug|x64 无效"）。
+         注意：build 与 test 必须走**同一条命令**（都用 slnx），否则会落到不同产物目录
+         （bin\Debug vs bin\x64\Debug vs bin\Any CPU\Debug），测试步骤的 no-build 选项
+         会命中上一次的旧 dll，新增用例被静默跳过（实测踩过）。 -->
     <Platform Name="Any CPU" />
     <Platform Name="x64" />
   </Configurations>

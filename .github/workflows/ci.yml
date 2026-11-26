@@ -63,6 +63,9 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build
+        # build 与 test 必须走**同一条命令**（都用 slnx）：两者落到不同产物目录时
+        # （bin\Debug vs bin\x64\Debug vs bin\Any CPU\Debug），测试步骤的 no-build 选项
+        # 会命中上一次的旧 dll，新增用例被静默跳过（实测踩过）。
         run: dotnet build net/WinShare.slnx --nologo
 
       - name: Test
