@@ -80,8 +80,9 @@ public sealed class SessionService : ISessionService
     }
 
     // === JSON 取值助手（TS 的 s.X || 0 语义） ===
+    // 根形状异常（PowerShell 无输出 → []）时按「属性缺失」处理，不抛 .NET 类型错误（JsonCompat.TryProp）
     private static string? Str(JsonElement e, string prop) =>
-        e.TryGetProperty(prop, out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        JsonCompat.TryProp(e, prop, out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     private static int Int(JsonElement e, string prop)
     {

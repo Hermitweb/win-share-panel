@@ -184,6 +184,13 @@ public sealed class SmbService : ISmbService
     public async Task<SmbServerConfig> GetConfigAsync()
     {
         JsonElement raw = await _ps.RunJsonAsync("Get-SmbServerConfiguration", 15000, 2);
+        // 根不是对象 = 本机没吐出配置（PowerShell 无输出 → []）。此时**不能**静默回落默认值——
+        // 那会让界面显示「SMB1 关闭」等，而实际是"没读到"。如实报失败（含成因提示）。
+        if (raw.ValueKind != JsonValueKind.Object)
+        {
+            throw Errors.CommandFailed(
+                "本机未返回 SMB 服务器配置（可能未启用 SMB 服务，或当前进程无管理员权限）");
+        }
         return new SmbServerConfig
         {
             enableSMB1Protocol = B(raw, "EnableSMB1Protocol"),
@@ -499,13 +506,15 @@ public sealed class SmbService : ISmbService
     }
 
     // === JSON 取值助手（TS 的 raw.X || 默认 语义） ===
+    // 根形状异常（PowerShell 无输出 → [] / 多对象 → 数组）时按「属性缺失」处理，不抛 .NET 类型错误
+    // ——见 JsonCompat.TryProp 的说明（TS 侧 raw.X 只会给 undefined）。
 
     private static string? Str(JsonElement e, string prop) =>
-        e.TryGetProperty(prop, out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        JsonCompat.TryProp(e, prop, out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     private static int Int(JsonElement e, string prop)
     {
-        if (e.TryGetProperty(prop, out JsonElement v))
+        if (JsonCompat.TryProp(e, prop, out JsonElement v))
         {
             if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out int n)) return n;
             if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out int sn)) return sn;
@@ -515,7 +524,7 @@ public sealed class SmbService : ISmbService
 
     /// <summary>TS: raw.X !== undefined ? !!raw.X : 默认值。</summary>
     private static bool B(JsonElement e, string prop, bool fallback = false) =>
-        e.TryGetProperty(prop, out JsonElement v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False
+        JsonCompat.TryProp(e, prop, out JsonElement v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False
             ? v.GetBoolean()
             : fallback;
 

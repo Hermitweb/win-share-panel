@@ -88,7 +88,7 @@ public sealed class DiskService : IDiskService
     /// <summary>TS: toFiniteGB(v) = Number.isFinite(n) && n &gt; 0 ? n : 0。</summary>
     private static double ToFiniteGB(JsonElement obj, string prop)
     {
-        if (!obj.TryGetProperty(prop, out JsonElement v)) return 0;
+        if (!JsonCompat.TryProp(obj, prop, out JsonElement v)) return 0;
         double n = SystemJsCompat.NumberOf(v);
         return SystemJsCompat.IsFiniteNumber(n) && n > 0 ? n : 0;
     }

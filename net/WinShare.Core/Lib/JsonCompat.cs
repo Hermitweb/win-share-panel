@@ -42,4 +42,23 @@ public static class JsonCompat
     public static string Stringify(object? value) => JsonSerializer.Serialize(value, Compact);
 
     public static string StringifyIndented(object? value) => JsonSerializer.Serialize(value, Indented);
+
+    /// <summary>
+    /// TS: <c>obj.X</c> —— 根**不是对象**时返回 undefined，**不抛错**。
+    ///
+    /// 为什么必须有这层：PowerShell 侧「无输出」被 <c>PsRunner.ParseJson</c> 归一为
+    /// 空数组 <c>[]</c>（TS 同语义），「多对象」也是数组。而 .NET 的
+    /// <c>JsonElement.TryGetProperty</c> 在非对象根上**抛** InvalidOperationException
+    /// （"The requested operation requires an element of type 'Object', but the target element
+    /// has type 'Array'"）——JS 只会给出 undefined 并落到默认值，C# 侧却整条命令炸掉。
+    /// 该差异曾让「读取协议设置」「一键诊断」的 SMB 探针全线报 .NET 类型错误而非业务文案。
+    ///
+    /// 对象属性读取一律经本入口，根形状异常时按「属性缺失」处理（取默认值）。
+    /// </summary>
+    public static bool TryProp(JsonElement obj, string name, out JsonElement value)
+    {
+        value = default;
+        if (obj.ValueKind != JsonValueKind.Object) return false;
+        return obj.TryGetProperty(name, out value);
+    }
 }
