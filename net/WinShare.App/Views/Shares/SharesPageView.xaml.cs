@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Input; // T3d 最小修复（原缺失，MouseButtonEventArgs 未解析）
 using WinShare.App.Shares;
+using WinShare.App.Views.Settings; // SettingsUi：按钮/雾字构件（v2.3.1 未装协议横幅复用）
 
 namespace WinShare.App.Views.Shares;
 
@@ -193,27 +194,21 @@ public partial class SharesPageView : UserControl
                 Text = item.Protocol.ToString().ToUpperInvariant(),
                 FontWeight = FontWeights.SemiBold,
             });
-            row.Children.Add(new TextBlock
-            {
-                Text = string.IsNullOrEmpty(item.Hint) ? "未安装" : item.Hint,
-                FontSize = 12,
-                Foreground = Brushes.DimGray,
-            });
+            row.Children.Add(SettingsUi.FogText(
+                string.IsNullOrEmpty(item.Hint) ? "未安装" : item.Hint));
             var bp = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
             SharesViewsConverters.BuildBadges(bp, item.Badges);
             row.Children.Add(bp);
             if (item.HasInstallCommand)
             {
                 var proto = item.Protocol;
-                var btn = new Button
-                {
-                    Content = "安装",
-                    FontSize = 12,
-                    Padding = new Thickness(10, 2, 10, 2),
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Margin = new Thickness(0, 6, 0, 0),
-                };
-                btn.Click += async (_, _) => { if (_vm is not null) await _vm.InstallProtocolAsync(proto); };
+                // v2.3.1：套设计系统按钮（此前是裸 Button → 系统灰底，与全应用按钮不一致；
+                // 提示文字改走 FogText：主题 token + 自动折行，长提示不再被裁成一行）
+                var btn = SettingsUi.Button("安装",
+                    async (_, _) => { if (_vm is not null) await _vm.InstallProtocolAsync(proto); },
+                    primary: true);
+                btn.HorizontalAlignment = HorizontalAlignment.Left;
+                btn.Margin = new Thickness(0, 6, 0, 0);
                 row.Children.Add(btn);
             }
             BannerPanel.Children.Add(row);
